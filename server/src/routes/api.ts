@@ -9,11 +9,13 @@ import { encryptToken } from "../services/crypto.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
 import { defaultMessageFlow, normalizeMessageFlow } from "../bot/messageFlow.js";
+import { defaultRemarketing, normalizeRemarketing } from "../bot/remarketing.js";
 
 type BotBody = {
   name?: string;
   token?: string;
   messageFlow?: unknown;
+  remarketing?: unknown;
   checkoutAmount?: number;
 };
 
@@ -66,6 +68,16 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
     }
   } else if (requireToken) {
     data.messageFlow = defaultMessageFlow() as Prisma.InputJsonValue;
+  }
+  if (body.remarketing !== undefined) {
+    try {
+      data.remarketing = normalizeRemarketing(body.remarketing) as Prisma.InputJsonValue;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "remarketing is invalid";
+      throw new HttpError(400, message);
+    }
+  } else if (requireToken) {
+    data.remarketing = defaultRemarketing() as Prisma.InputJsonValue;
   }
   if (body.checkoutAmount !== undefined) data.checkoutAmount = body.checkoutAmount;
   const token = cleanString(body.token);

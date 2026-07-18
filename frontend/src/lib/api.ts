@@ -25,16 +25,26 @@ export type Bot = {
   id: string;
   name: string;
   messageFlow: MessageStep[];
+  remarketing: RemarketingConfig;
   checkoutAmount: number;
   status: BotStatus;
   createdAt: string;
   updatedAt: string;
 };
 
+export type RemarketingConfig = {
+  enabled: boolean;
+  intervalMs: number;
+  initialDelayMs: number;
+  maxSends: number;
+  messages: MessageStep[];
+};
+
 export type BotPayload = {
   name: string;
   token?: string;
   messageFlow: MessageStep[];
+  remarketing: RemarketingConfig;
   checkoutAmount: number;
 };
 

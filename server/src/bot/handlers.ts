@@ -9,6 +9,7 @@ import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { normalizeMessageFlow } from "./messageFlow.js";
 import type { MessageButton, MessageStep } from "./messageFlow.js";
+import { normalizeRemarketing } from "./remarketing.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 
@@ -133,6 +134,7 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
 
 export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, services: HandlerServices): void {
   const messageFlow = normalizeMessageFlow(botConfig.messageFlow);
+  const remarketing = normalizeRemarketing(botConfig.remarketing);
   const activeStarts = new Set<number>();
 
   telegraf.start(async (ctx) => {
@@ -151,6 +153,23 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       for (const [index, step] of messageFlow.entries()) {
         await sendStep(ctx, botConfig, user, step, services.env);
         if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
+      }
+      if (user && remarketing.enabled && remarketing.messages.length > 0) {
+        await prisma.remarketingState.upsert({
+          where: { userId_botId: { userId: user.id, botId: botConfig.id } },
+          create: {
+            botId: botConfig.id,
+            userId: user.id,
+            nextIndex: 0,
+            totalSent: 0,
+            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
+          },
+          update: {
+            nextIndex: 0,
+            totalSent: 0,
+            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
+          }
+        });
       }
     } finally {
       activeStarts.delete(chatId);

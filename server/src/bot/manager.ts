@@ -50,6 +50,10 @@ export class BotManager {
     }
   }
 
+  get telegram() {
+    return this.telegraf.telegram;
+  }
+
   webhookMiddleware() {
     return this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
   }

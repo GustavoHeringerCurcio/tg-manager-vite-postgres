@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Bot, BotPayload, ButtonAction, ButtonColor, MessageButton, MessageStep, MessageType } from "../lib/api";
+import type { Bot, BotPayload, ButtonAction, ButtonColor, MessageButton, MessageStep, MessageType, RemarketingConfig } from "../lib/api";
+import RemarketingEditor from "./RemarketingEditor";
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -14,7 +15,13 @@ function newStep(index = 0): MessageStep {
 }
 
 function blank(): BotPayload {
-  return { name: "", token: "", checkoutAmount: 29.9, messageFlow: [newStep(0)] };
+  return {
+    name: "",
+    token: "",
+    checkoutAmount: 29.9,
+    messageFlow: [newStep(0)],
+    remarketing: { enabled: false, intervalMs: 3600000, initialDelayMs: 0, maxSends: 0, messages: [] }
+  };
 }
 
 const colorClasses: Record<ButtonColor, string> = {
@@ -70,7 +77,8 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
             ...step,
             mediaUrls: step.mediaUrls ?? ((step as Record<string, unknown>).mediaUrl && typeof (step as Record<string, unknown>).mediaUrl === "string" ? [(step as Record<string, unknown>).mediaUrl as string] : [])
           }))
-        : [newStep(0)]
+        : [newStep(0)],
+      remarketing: editing.remarketing ?? { enabled: false, intervalMs: 3600000, initialDelayMs: 0, maxSends: 0, messages: [] }
     });
     setCollapsed(new Set(editing.messageFlow.length > 1 ? Array.from({ length: editing.messageFlow.length }, (_, i) => i).slice(1) : []));
   }, [editing]);
@@ -84,7 +92,7 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
     });
   }
 
-  function patch(field: keyof BotPayload, value: string | number | MessageStep[]) {
+  function patch(field: keyof BotPayload, value: string | number | MessageStep[] | RemarketingConfig) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -334,6 +342,11 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
           ))}
         </div>
       </section>
+
+      <RemarketingEditor
+        config={form.remarketing}
+        onChange={(remarketing) => patch("remarketing", remarketing)}
+      />
 
       {error && <p className="rounded-xl bg-red-500/20 p-3 text-sm text-red-100">{error}</p>}
       <button className="w-full rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-60" disabled={loading}>{loading ? "Saving..." : editing ? "Save changes" : "Create and activate"}</button>

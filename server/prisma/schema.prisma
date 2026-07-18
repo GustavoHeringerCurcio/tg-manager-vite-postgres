@@ -23,14 +23,16 @@ model Bot {
   name           String
   token          String
   messageFlow    Json      @default("[]")
+  remarketing    Json      @default("{}")
   checkoutAmount Float     @default(29.9)
   status         BotStatus @default(ACTIVE)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  users        User[]
-  transactions Transaction[]
-  interactions Interaction[]
+  users              User[]
+  transactions       Transaction[]
+  interactions       Interaction[]
+  remarketingStates  RemarketingState[]
 
   @@index([status])
   @@map("bots")
@@ -51,6 +53,7 @@ model User {
   bot          Bot           @relation(fields: [botId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   interactions Interaction[]
+  remarketingStates RemarketingState[]
 
   @@unique([botId, telegramId])
   @@index([botId])
@@ -96,4 +99,22 @@ model Interaction {
   @@index([userId, createdAt])
   @@index([createdAt])
   @@map("interactions")
+}
+
+model RemarketingState {
+  id         String    @id @default(cuid())
+  botId      String
+  userId     String
+  nextIndex  Int       @default(0)
+  totalSent  Int       @default(0)
+  nextSendAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  bot  Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, botId])
+  @@index([botId, nextSendAt])
+  @@map("remarketing_states")
 }
