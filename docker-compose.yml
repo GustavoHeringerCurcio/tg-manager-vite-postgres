@@ -3,8 +3,8 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -44,10 +44,10 @@ services:
       db-migrate:
         condition: service_completed_successfully
     expose:
-      - "3000"
+      - "${APP_PORT:-3000}"
     environment:
       NODE_ENV: production
-      APP_PORT: 3000
+      APP_PORT: ${APP_PORT:-3000}
       DOMAIN: ${DOMAIN:-botflix.example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-12345678901234567890123456789012}
@@ -58,7 +58,7 @@ services:
       LOG_PAYLOADS: ${LOG_PAYLOADS:-false}
       DATABASE_URL: ${DATABASE_URL:-postgresql://botflix:change-me@db:5432/botflix?schema=public}
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.APP_PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 12
