@@ -56,18 +56,18 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
   if (body.checkoutAmount !== undefined && (!Number.isFinite(body.checkoutAmount) || body.checkoutAmount <= 0)) {
     throw new HttpError(400, "checkoutAmount must be positive");
   }
-  let messageFlow;
-  try {
-    messageFlow = body.messageFlow === undefined ? defaultMessageFlow() : normalizeMessageFlow(body.messageFlow);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "messageFlow is invalid";
-    throw new HttpError(400, message);
+  const data: Prisma.BotCreateInput | Prisma.BotUpdateInput = { name };
+  if (body.messageFlow !== undefined) {
+    try {
+      data.messageFlow = normalizeMessageFlow(body.messageFlow) as Prisma.InputJsonValue;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "messageFlow is invalid";
+      throw new HttpError(400, message);
+    }
+  } else if (requireToken) {
+    data.messageFlow = defaultMessageFlow() as Prisma.InputJsonValue;
   }
-  const data: Prisma.BotCreateInput | Prisma.BotUpdateInput = {
-    name,
-    messageFlow: messageFlow as Prisma.InputJsonValue,
-    checkoutAmount: body.checkoutAmount ?? 29.9
-  };
+  if (body.checkoutAmount !== undefined) data.checkoutAmount = body.checkoutAmount;
   const token = cleanString(body.token);
   if (token) data.token = encryptToken(token, env.encryptionKey);
   return data;

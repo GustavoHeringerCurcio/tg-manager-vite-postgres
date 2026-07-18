@@ -124,19 +124,27 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
 
 export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, services: HandlerServices): void {
   const messageFlow = normalizeMessageFlow(botConfig.messageFlow);
+  const activeStarts = new Set<number>();
 
   telegraf.start(async (ctx) => {
-    const user = await upsertTelegramUser(botConfig.id, ctx);
-    const message = ctx.message ? textFromMessage(ctx.message) : "/start";
-    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "incoming", content: message, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-    if (messageFlow.length === 0) {
-      await ctx.reply("Nenhuma mensagem configurada para este bot.");
-      logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: "empty message flow", logPayloads: services.env.logPayloads });
-      return;
-    }
-    for (const [index, step] of messageFlow.entries()) {
-      await sendStep(ctx, botConfig, user, step, services.env);
-      if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
+    const chatId = ctx.chat?.id;
+    if (!chatId || activeStarts.has(chatId)) return;
+    activeStarts.add(chatId);
+    try {
+      const user = await upsertTelegramUser(botConfig.id, ctx);
+      const message = ctx.message ? textFromMessage(ctx.message) : "/start";
+      logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "incoming", content: message, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
+      if (messageFlow.length === 0) {
+        await ctx.reply("Nenhuma mensagem configurada para este bot.");
+        logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: "empty message flow", logPayloads: services.env.logPayloads });
+        return;
+      }
+      for (const [index, step] of messageFlow.entries()) {
+        await sendStep(ctx, botConfig, user, step, services.env);
+        if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
+      }
+    } finally {
+      activeStarts.delete(chatId);
     }
   });
 
