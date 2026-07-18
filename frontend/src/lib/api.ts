@@ -16,7 +16,7 @@ export type MessageStep = {
   title: string;
   type: MessageType;
   text?: string;
-  mediaUrl?: string;
+  mediaUrls: string[];
   delayMs: number;
   buttons: MessageButton[];
 };

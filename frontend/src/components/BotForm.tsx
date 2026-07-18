@@ -10,7 +10,7 @@ function newButton(action: ButtonAction = "OPEN_URL"): MessageButton {
 }
 
 function newStep(index = 0): MessageStep {
-  return { id: newId(), title: index === 0 ? "Welcome message" : `Message ${index + 1}`, type: "TEXT", text: index === 0 ? "Olá! Bem-vindo." : "", mediaUrl: "", delayMs: 0, buttons: index === 0 ? [newButton("LIVEPIX_PAYMENT")] : [] };
+  return { id: newId(), title: index === 0 ? "Welcome message" : `Message ${index + 1}`, type: "TEXT", text: index === 0 ? "Olá! Bem-vindo." : "", mediaUrls: [], delayMs: 0, buttons: index === 0 ? [newButton("LIVEPIX_PAYMENT")] : [] };
 }
 
 function blank(): BotPayload {
@@ -65,7 +65,12 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
       name: editing.name,
       token: "",
       checkoutAmount: editing.checkoutAmount,
-      messageFlow: editing.messageFlow.length > 0 ? editing.messageFlow : [newStep(0)]
+      messageFlow: editing.messageFlow.length > 0
+        ? editing.messageFlow.map((step) => ({
+            ...step,
+            mediaUrls: step.mediaUrls ?? ((step as Record<string, unknown>).mediaUrl && typeof (step as Record<string, unknown>).mediaUrl === "string" ? [(step as Record<string, unknown>).mediaUrl as string] : [])
+          }))
+        : [newStep(0)]
     });
     setCollapsed(new Set(editing.messageFlow.length > 1 ? Array.from({ length: editing.messageFlow.length }, (_, i) => i).slice(1) : []));
   }, [editing]);
@@ -121,6 +126,24 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
     patch("messageFlow", next);
   }
 
+  function addMediaUrl(stepIndex: number) {
+    patchStep(stepIndex, { mediaUrls: [...form.messageFlow[stepIndex].mediaUrls, ""] });
+  }
+
+  function removeMediaUrl(stepIndex: number, urlIndex: number) {
+    const step = form.messageFlow[stepIndex];
+    if (!step || step.mediaUrls.length <= 1) return;
+    patchStep(stepIndex, { mediaUrls: step.mediaUrls.filter((_, i) => i !== urlIndex) });
+  }
+
+  function patchMediaUrl(stepIndex: number, urlIndex: number, value: string) {
+    const step = form.messageFlow[stepIndex];
+    if (!step) return;
+    const next = [...step.mediaUrls];
+    next[urlIndex] = value;
+    patchStep(stepIndex, { mediaUrls: next });
+  }
+
   function addButton(stepIndex: number) {
     const step = form.messageFlow[stepIndex];
     if (!step || step.buttons.length >= 3) return;
@@ -140,7 +163,7 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
     if (!Number.isFinite(form.checkoutAmount) || form.checkoutAmount <= 0) return "Default LivePix amount must be positive";
     for (const [stepIndex, step] of form.messageFlow.entries()) {
       if (step.type === "TEXT" && !step.text?.trim()) return `Message ${stepIndex + 1} needs text`;
-      if ((step.type === "AUDIO" || step.type === "VIDEO") && !step.mediaUrl?.trim()) return `Message ${stepIndex + 1} needs a media URL or Telegram file_id`;
+      if ((step.type === "AUDIO" || step.type === "VIDEO") && step.mediaUrls.every((url) => !url.trim())) return `Message ${stepIndex + 1} needs at least one media URL or Telegram file_id`;
       if (step.buttons.length > 3) return `Message ${stepIndex + 1} can have at most 3 buttons`;
       for (const [buttonIndex, button] of step.buttons.entries()) {
         if (!button.label.trim()) return `Message ${stepIndex + 1}, button ${buttonIndex + 1} needs a label`;
@@ -232,9 +255,28 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
                       </select>
                     </Field>
                     {(step.type === "AUDIO" || step.type === "VIDEO") && (
-                      <Field label={`${step.type === "AUDIO" ? "Audio" : "Video"} URL or Telegram file_id`} helper="Use an https URL or a Telegram file_id already known by the bot.">
-                        <input className={inputClass()} value={step.mediaUrl ?? ""} onChange={(e) => patchStep(stepIndex, { mediaUrl: e.target.value })} />
-                      </Field>
+                      <div className="md:col-span-2">
+                        <Field label={`${step.type === "AUDIO" ? "Audio" : "Video"} URLs or Telegram file_ids`} helper="Use https URLs or Telegram file_ids already known by the bot. The first one is used for Audio; all are bundled as a media group for Video.">
+                          <div className="space-y-2">
+                            {step.mediaUrls.length === 0 && (
+                              <div className="flex items-center gap-2">
+                                <input className={inputClass()} placeholder="Add a file_id or URL..." value="" onChange={(e) => { if (e.target.value.trim()) patchStep(stepIndex, { mediaUrls: [e.target.value.trim()] }); }} />
+                              </div>
+                            )}
+                            {step.mediaUrls.map((url, urlIndex) => (
+                              <div key={urlIndex} className="flex items-center gap-2">
+                                <input className={inputClass()} value={url} onChange={(e) => patchMediaUrl(stepIndex, urlIndex, e.target.value)} placeholder="Telegram file_id or HTTPS URL" />
+                                {step.type === "VIDEO" && (step.mediaUrls.length > 1) && (
+                                  <button type="button" onClick={() => removeMediaUrl(stepIndex, urlIndex)} className="shrink-0 rounded-lg bg-red-500/20 px-2 py-2 text-sm text-red-200" title="Remove this file_id">✕</button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </Field>
+                        {step.type === "VIDEO" && (
+                          <button type="button" onClick={() => addMediaUrl(stepIndex)} className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm text-cyan-200">+ Add file_id</button>
+                        )}
+                      </div>
                     )}
                     <Field label="Delay before next message" helper="Seconds. Leave 0 to send the next message immediately.">
                       <input className={inputClass()} value={(step.delayMs ?? 0) / 1000} onChange={(e) => patchStep(stepIndex, { delayMs: Math.max(0, Math.round(Number(e.target.value) * 1000)) })} type="number" min="0" step="0.5" />

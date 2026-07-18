@@ -21,7 +21,7 @@ export type MessageStep = {
   title: string;
   type: MessageType;
   text?: string;
-  mediaUrl?: string;
+  mediaUrls: string[];
   delayMs: number;
   buttons: MessageButton[];
 };
@@ -79,9 +79,14 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
     const type = cleanString(item.type) ?? "TEXT";
     if (!MESSAGE_TYPES.includes(type as MessageType)) throw new Error(`message ${index + 1} type must be TEXT, AUDIO, or VIDEO`);
     const text = cleanString(item.text);
-    const mediaUrl = cleanString(item.mediaUrl);
+    let mediaUrls: string[] = [];
+    if (Array.isArray(item.mediaUrls)) {
+      mediaUrls = item.mediaUrls.map((entry: unknown) => cleanString(entry)).filter((entry): entry is string => !!entry);
+    } else if (typeof item.mediaUrl === "string" && item.mediaUrl.trim()) {
+      mediaUrls = [item.mediaUrl.trim()];
+    }
     if (type === "TEXT" && !text) throw new Error(`message ${index + 1} text is required`);
-    if ((type === "AUDIO" || type === "VIDEO") && !mediaUrl) throw new Error(`message ${index + 1} media URL/file_id is required`);
+    if ((type === "AUDIO" || type === "VIDEO") && mediaUrls.length === 0) throw new Error(`message ${index + 1} needs at least one media URL/file_id`);
     const delayMs = Number(item.delayMs ?? 0);
     if (!Number.isFinite(delayMs) || delayMs < 0) throw new Error(`message ${index + 1} delay must be zero or greater`);
     const rawButtons = item.buttons ?? [];
@@ -92,7 +97,7 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       title: cleanString(item.title) ?? `Message ${index + 1}`,
       type: type as MessageType,
       text,
-      mediaUrl,
+      mediaUrls,
       delayMs: Math.round(delayMs),
       buttons: rawButtons.map((button, buttonIndex) => normalizeButton(button, index, buttonIndex))
     };
@@ -105,6 +110,7 @@ export function defaultMessageFlow(): MessageStep[] {
     title: "Welcome message",
     type: "TEXT",
     text: "Olá! Bem-vindo.",
+    mediaUrls: [],
     delayMs: 0,
     buttons: [{ id: randomUUID(), label: "Pagar agora", color: "GREEN", action: "LIVEPIX_PAYMENT" }]
   }];

@@ -1,7 +1,7 @@
 import type { Bot, User } from "@prisma/client";
 import { PaymentMethod } from "@prisma/client";
 import type { Context, Telegraf } from "telegraf";
-import type { InlineKeyboardMarkup, Message } from "telegraf/types";
+import type { InlineKeyboardMarkup, InputMediaVideo, Message } from "telegraf/types";
 import { delay } from "../utils/async.js";
 import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
@@ -70,13 +70,22 @@ function findPaymentButton(steps: MessageStep[], id: string): MessageButton | un
 async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv): Promise<void> {
   const replyMarkup = keyboard(step);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
-  if (step.type === "VIDEO" && step.mediaUrl) {
-    await ctx.replyWithVideo(step.mediaUrl, { caption: step.text, ...(options ?? {}) });
+  if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
+    if (step.mediaUrls.length === 1) {
+      await ctx.replyWithVideo(step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+    } else {
+      const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
+        type: "video",
+        media: url,
+        ...(i === 0 && step.text ? { caption: step.text } : {})
+      }));
+      await ctx.replyWithMediaGroup(mediaGroup);
+    }
     logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `video:${step.title}`, logPayloads: env.logPayloads });
     return;
   }
-  if (step.type === "AUDIO" && step.mediaUrl) {
-    await ctx.replyWithAudio(step.mediaUrl, { caption: step.text, ...(options ?? {}) });
+  if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
+    await ctx.replyWithAudio(step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
     logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `audio:${step.title}`, logPayloads: env.logPayloads });
     return;
   }
