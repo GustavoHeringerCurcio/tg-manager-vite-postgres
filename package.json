@@ -1,0 +1,14 @@
+{
+  "name": "telegram-botflix-v2",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "corepack pnpm --filter @botflix/server build && corepack pnpm --filter @botflix/frontend build",
+    "typecheck": "corepack pnpm --filter @botflix/server typecheck && corepack pnpm --filter @botflix/frontend typecheck",
+    "test": "corepack pnpm --filter @botflix/server test",
+    "dev:server": "corepack pnpm --filter @botflix/server dev",
+    "dev:frontend": "corepack pnpm --filter @botflix/frontend dev",
+    "prisma:generate": "corepack pnpm --filter @botflix/server prisma:generate",
+    "prisma:migrate": "corepack pnpm --filter @botflix/server prisma:migrate"
+  }
+}

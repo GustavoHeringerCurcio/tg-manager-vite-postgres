@@ -1,0 +1,11 @@
+.git
+.dump
+.env
+.env.*
+node_modules
+dist
+coverage
+*.log
+.vite
+.pnpm-store
+server/public

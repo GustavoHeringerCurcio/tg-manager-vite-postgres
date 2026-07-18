@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #070814;
+  color: #e5e7eb;
+}
+
+input, textarea, select {
+  color: #111827;
+}

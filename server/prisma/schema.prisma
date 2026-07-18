@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BotStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+}
+
+model Bot {
+  id                  String    @id @default(cuid())
+  name                String
+  token               String
+  welcomeVideoUrl     String?
+  welcomeText         String?
+  checkoutButtonText  String    @default("Pagar agora")
+  checkoutButtonStyle String    @default("primary")
+  supportButtonText   String    @default("Suporte")
+  supportButtonStyle  String    @default("primary")
+  supportUrl          String?
+  checkoutAmount      Float     @default(29.9)
+  status              BotStatus @default(ACTIVE)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  users        User[]
+  transactions Transaction[]
+  interactions Interaction[]
+
+  @@index([status])
+  @@map("bots")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  botId           String
+  telegramId      BigInt
+  username        String?
+  firstName       String?
+  lastName        String?
+  pixGenerations  Int       @default(0)
+  lastInteraction DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  bot          Bot           @relation(fields: [botId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  interactions Interaction[]
+
+  @@unique([botId, telegramId])
+  @@index([botId])
+  @@map("users")
+}
+
+model Transaction {
+  id               String        @id @default(cuid())
+  botId            String
+  userId           String
+  amount           Float
+  paymentMethod    PaymentMethod
+  status           String        @default("PENDING")
+  pixCode          String?
+  checkoutUrl      String?
+  livepixReference String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  bot  Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([botId, status])
+  @@index([botId, createdAt])
+  @@index([userId])
+  @@map("transactions")
+}
+
+model Interaction {
+  id        String   @id @default(cuid())
+  botId     String
+  userId    String?
+  type      String
+  direction String
+  content   String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  bot  Bot   @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([botId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("interactions")
+}
