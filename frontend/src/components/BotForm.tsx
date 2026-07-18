@@ -14,6 +14,17 @@ function newStep(index = 0): MessageStep {
   return { id: newId(), title: index === 0 ? "Welcome message" : `Message ${index + 1}`, type: "TEXT", text: index === 0 ? "Olá! Bem-vindo." : "", mediaUrls: [], delayMs: 0, buttons: index === 0 ? [newButton("LIVEPIX_PAYMENT")] : [] };
 }
 
+function normalizeSteps(steps: MessageStep[]): MessageStep[] {
+  return steps.map((step) => ({
+    ...step,
+    mediaUrls: step.mediaUrls ?? (
+      (step as Record<string, unknown>).mediaUrl && typeof (step as Record<string, unknown>).mediaUrl === "string"
+        ? [(step as Record<string, unknown>).mediaUrl as string]
+        : []
+    )
+  }));
+}
+
 function blank(): BotPayload {
   return {
     name: "",
@@ -73,12 +84,11 @@ export default function BotForm({ editing, loading, onSubmit, onCancel }: Props)
       token: "",
       checkoutAmount: editing.checkoutAmount,
       messageFlow: editing.messageFlow.length > 0
-        ? editing.messageFlow.map((step) => ({
-            ...step,
-            mediaUrls: step.mediaUrls ?? ((step as Record<string, unknown>).mediaUrl && typeof (step as Record<string, unknown>).mediaUrl === "string" ? [(step as Record<string, unknown>).mediaUrl as string] : [])
-          }))
+        ? normalizeSteps(editing.messageFlow)
         : [newStep(0)],
-      remarketing: editing.remarketing ?? { enabled: false, intervalMs: 3600000, initialDelayMs: 0, maxSends: 0, messages: [] }
+      remarketing: editing.remarketing
+        ? { ...editing.remarketing, messages: normalizeSteps(editing.remarketing.messages ?? []) }
+        : { enabled: false, intervalMs: 3600000, initialDelayMs: 0, maxSends: 0, messages: [] }
     });
     setCollapsed(new Set(editing.messageFlow.length > 1 ? Array.from({ length: editing.messageFlow.length }, (_, i) => i).slice(1) : []));
   }, [editing]);
