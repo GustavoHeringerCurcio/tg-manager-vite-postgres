@@ -29,7 +29,23 @@ APP_PORT=${APP_PORT:-3000}
 
 echo ""
 
-# ── 3. Generate secrets ────────────────────────────────────────────
+# ── 3. Livepix credentials ─────────────────────────────────────────
+
+read -r -p "  Livepix Client ID: " LIVEPIX_CLIENT_ID
+if [ -z "$LIVEPIX_CLIENT_ID" ]; then
+  echo "  ✗ Livepix Client ID is required."
+  exit 1
+fi
+
+read -r -p "  Livepix Client Secret: " LIVEPIX_CLIENT_SECRET
+if [ -z "$LIVEPIX_CLIENT_SECRET" ]; then
+  echo "  ✗ Livepix Client Secret is required."
+  exit 1
+fi
+
+echo ""
+
+# ── 4. Generate secrets ────────────────────────────────────────────
 
 echo "  ✓ Generating secure passwords..."
 
@@ -37,7 +53,7 @@ ADMIN_PASSWORD=$(openssl rand -hex 16)
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 ENCRYPTION_KEY=$(openssl rand -hex 32)
 
-# ── 4. Check Docker ────────────────────────────────────────────────
+# ── 5. Check Docker ────────────────────────────────────────────────
 
 if ! command -v docker &>/dev/null; then
   echo "  ✓ Installing Docker..."
@@ -46,7 +62,7 @@ if ! command -v docker &>/dev/null; then
   sudo systemctl enable --now docker
 fi
 
-# ── 5. Create .env ─────────────────────────────────────────────────
+# ── 6. Create .env ─────────────────────────────────────────────────
 
 echo "  ✓ Creating .env..."
 
@@ -63,20 +79,20 @@ DATABASE_URL=postgresql://botflix:${POSTGRES_PASSWORD}@db:5432/botflix?schema=pu
 
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
-LIVEPIX_CLIENT_ID=change-me
-LIVEPIX_CLIENT_SECRET=change-me
+LIVEPIX_CLIENT_ID=${LIVEPIX_CLIENT_ID}
+LIVEPIX_CLIENT_SECRET=${LIVEPIX_CLIENT_SECRET}
 
 MAX_PIX_GENERATIONS=5
 INTERACTION_RETENTION_DAYS=90
 LOG_PAYLOADS=false
 EOF
 
-# ── 6. Start containers ────────────────────────────────────────────
+# ── 7. Start containers ────────────────────────────────────────────
 
 echo "  ✓ Building and starting containers..."
 sudo docker compose up -d --build
 
-# ── 7. Done ────────────────────────────────────────────────────────
+# ── 8. Done ────────────────────────────────────────────────────────
 
 echo ""
 echo "  ╔════════════════════════════════════╗"
