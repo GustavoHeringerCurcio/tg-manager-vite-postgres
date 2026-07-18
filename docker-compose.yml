@@ -1,15 +1,4 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "${CADDY_HTTP_PORT:-80}:80"
-      - "${CADDY_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -45,6 +34,9 @@ services:
         condition: service_completed_successfully
     expose:
       - "${APP_PORT:-3000}"
+    networks:
+      - default
+      - easypanel
     environment:
       NODE_ENV: production
       APP_PORT: ${APP_PORT:-3000}
@@ -57,6 +49,12 @@ services:
       INTERACTION_RETENTION_DAYS: ${INTERACTION_RETENTION_DAYS:-90}
       LOG_PAYLOADS: ${LOG_PAYLOADS:-false}
       DATABASE_URL: ${DATABASE_URL:-postgresql://botflix:change-me@db:5432/botflix?schema=public}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.botflix.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.botflix.tls=true"
+      - "traefik.http.routers.botflix.tls.certresolver=letsencrypt"
+      - "traefik.http.services.botflix.loadbalancer.server.port=${APP_PORT:-3000}"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.APP_PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -65,5 +63,7 @@ services:
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
+
+networks:
+  easypanel:
+    external: true

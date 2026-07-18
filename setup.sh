@@ -22,31 +22,12 @@ fi
 
 echo ""
 
-# ── 2. Ports ────────────────────────────────────────────────────────
-
-read -r -p "  Porta HTTP Caddy   (padrão 80):  " CADDY_HTTP_PORT
-CADDY_HTTP_PORT=${CADDY_HTTP_PORT:-80}
-
-read -r -p "  Porta HTTPS Caddy  (padrão 443): " CADDY_HTTPS_PORT
-CADDY_HTTPS_PORT=${CADDY_HTTPS_PORT:-443}
+# ── 2. App port ────────────────────────────────────────────────────
 
 read -r -p "  Porta interna app  (padrão 3000): " APP_PORT
 APP_PORT=${APP_PORT:-3000}
 
 echo ""
-
-if [ "$CADDY_HTTPS_PORT" != "443" ]; then
-  echo "  ⚠  Atenção: porta HTTPS não é 443."
-  echo "     Telegram NÃO conseguirá enviar webhooks nesta porta."
-  echo "     Escolha 443 se quiser que os bots funcionem."
-  echo ""
-  read -r -p "  Continuar mesmo assim? (s/N): " CONFIRM
-  if [ "${CONFIRM,,}" != "s" ]; then
-    echo "  ✗ Cancelado."
-    exit 1
-  fi
-  echo ""
-fi
 
 # ── 3. Generate secrets ────────────────────────────────────────────
 
@@ -75,9 +56,6 @@ APP_PORT=${APP_PORT}
 DOMAIN=${DOMAIN}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 
-CADDY_HTTP_PORT=${CADDY_HTTP_PORT}
-CADDY_HTTPS_PORT=${CADDY_HTTPS_PORT}
-
 POSTGRES_USER=botflix
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 POSTGRES_DB=botflix
@@ -93,32 +71,19 @@ INTERACTION_RETENTION_DAYS=90
 LOG_PAYLOADS=false
 EOF
 
-# ── 6. Update Caddyfile with domain and port ───────────────────────
-
-if [ -f Caddyfile ]; then
-  sed -i "s/acaideangra\.com/${DOMAIN}/g" Caddyfile
-  sed -i "s/app:3000/app:${APP_PORT}/g" Caddyfile
-  echo "  ✓ Caddyfile updated: ${DOMAIN} -> app:${APP_PORT}"
-fi
-
-# ── 7. Start containers ────────────────────────────────────────────
+# ── 6. Start containers ────────────────────────────────────────────
 
 echo "  ✓ Building and starting containers..."
 sudo docker compose up -d --build
 
-# ── 8. Done ────────────────────────────────────────────────────────
-
-DASHBOARD_URL="https://${DOMAIN}"
-if [ "$CADDY_HTTPS_PORT" != "443" ]; then
-  DASHBOARD_URL="https://${DOMAIN}:${CADDY_HTTPS_PORT}"
-fi
+# ── 7. Done ────────────────────────────────────────────────────────
 
 echo ""
 echo "  ╔════════════════════════════════════╗"
 echo "  ║          Deploy concluído          ║"
 echo "  ╠════════════════════════════════════╣"
 echo "  ║                                    ║"
-printf "  ║  Dashboard:  %-21s║\n" "${DASHBOARD_URL}"
+printf "  ║  Dashboard:  https://%-15s║\n" "${DOMAIN}"
 printf "  ║  Senha:      %-21s║\n" "${ADMIN_PASSWORD}"
 echo "  ║                                    ║"
 echo "  ║  Guarde a senha. Ela não será     ║"
