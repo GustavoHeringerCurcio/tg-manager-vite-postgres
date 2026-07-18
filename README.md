@@ -1,4 +1,4 @@
-# Botflix v2
+# tg-manager-vite-postgres
 
 Single-admin platform for managing multiple Telegram bots that create LivePix PIX payments.
 
