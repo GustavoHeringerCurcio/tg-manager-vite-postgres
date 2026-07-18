@@ -1,6 +1,6 @@
 import { BotStatus, Prisma } from "@prisma/client";
 import { Router } from "express";
-import type { Request } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { Telegraf } from "telegraf";
 import type { AppEnv } from "../utils/env.js";
 import { HttpError } from "../utils/errors.js";
@@ -23,6 +23,13 @@ type BotBody = {
 };
 
 type StatusBody = { status?: string };
+type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<void>;
+
+function route(handler: AsyncRoute): RequestHandler {
+  return (req, res, next) => {
+    void handler(req, res, next).catch(next);
+  };
+}
 
 function readBody<T>(req: Request): T {
   return req.body as T;
@@ -31,6 +38,12 @@ function readBody<T>(req: Request): T {
 function cleanString(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function routeParam(req: Request, name: string): string {
+  const value = req.params[name];
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
 }
 
 function validateStyle(value: string | undefined, field: string): string | undefined {
@@ -85,18 +98,18 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
 export function apiRouter(env: AppEnv): Router {
   const router = Router();
 
-  router.get("/bots", async (_req, res) => {
+  router.get("/bots", route(async (_req, res) => {
     const bots = await prisma.bot.findMany({ orderBy: { createdAt: "desc" } });
     res.json(serializeJson(sanitizeBots(bots)));
-  });
+  }));
 
-  router.get("/bots/:id", async (req, res) => {
-    const bot = await prisma.bot.findUnique({ where: { id: req.params.id } });
+  router.get("/bots/:id", route(async (req, res) => {
+    const bot = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!bot) throw new HttpError(404, "Bot not found");
     res.json(serializeJson(sanitizeBot(bot)));
-  });
+  }));
 
-  router.post("/bots", async (req, res) => {
+  router.post("/bots", route(async (req, res) => {
     let created: Awaited<ReturnType<typeof prisma.bot.create>> | undefined;
     try {
       const body = readBody<BotBody>(req);
@@ -120,10 +133,10 @@ export function apiRouter(env: AppEnv): Router {
       throw new HttpError(status, message);
     }
     res.status(201).json(serializeJson(sanitizeBot(created)));
-  });
+  }));
 
-  router.put("/bots/:id", async (req, res) => {
-    const existing = await prisma.bot.findUnique({ where: { id: req.params.id } });
+  router.put("/bots/:id", route(async (req, res) => {
+    const existing = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!existing) throw new HttpError(404, "Bot not found");
     const body = readBody<BotBody>(req);
     const token = cleanString(body.token);
@@ -134,45 +147,47 @@ export function apiRouter(env: AppEnv): Router {
       await startBot(updated, env);
     }
     res.json(serializeJson(sanitizeBot(updated)));
-  });
+  }));
 
-  router.patch("/bots/:id/status", async (req, res) => {
+  router.patch("/bots/:id/status", route(async (req, res) => {
     const body = readBody<StatusBody>(req);
     if (body.status !== BotStatus.ACTIVE && body.status !== BotStatus.INACTIVE && body.status !== BotStatus.SUSPENDED) {
       throw new HttpError(400, "status must be ACTIVE, INACTIVE, or SUSPENDED");
     }
-    const existing = await prisma.bot.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!existing) throw new HttpError(404, "Bot not found");
     const updated = await prisma.bot.update({ where: { id: existing.id }, data: { status: body.status } });
     if (updated.status === BotStatus.ACTIVE) await startBot(updated, env);
     if (updated.status !== BotStatus.ACTIVE) await stopBot(updated.id);
     res.json(serializeJson(sanitizeBot(updated)));
-  });
+  }));
 
-  router.delete("/bots/:id", async (req, res) => {
-    const existing = await prisma.bot.findUnique({ where: { id: req.params.id } });
+  router.delete("/bots/:id", route(async (req, res) => {
+    const existing = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!existing) throw new HttpError(404, "Bot not found");
     await stopBot(existing.id);
     await prisma.bot.delete({ where: { id: existing.id } });
     res.status(204).send();
-  });
+  }));
 
-  router.get("/bots/:id/transactions", async (req, res) => {
+  router.get("/bots/:id/transactions", route(async (req, res) => {
+    const botId = routeParam(req, "id");
     const pagination = parsePagination(req.query as Record<string, string | undefined>);
     const status = cleanString(req.query.status as string | undefined);
-    const where: Prisma.TransactionWhereInput = { botId: req.params.id, ...(status ? { status } : {}) };
+    const where: Prisma.TransactionWhereInput = { botId, ...(status ? { status } : {}) };
     const [items, total] = await Promise.all([
       prisma.transaction.findMany({ where, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.take, include: { user: true } }),
       prisma.transaction.count({ where })
     ]);
     res.json(serializeJson({ items, total, page: pagination.page, pageSize: pagination.pageSize }));
-  });
+  }));
 
-  router.get("/bots/:id/interactions", async (req, res) => {
+  router.get("/bots/:id/interactions", route(async (req, res) => {
+    const botId = routeParam(req, "id");
     const pagination = parsePagination(req.query as Record<string, string | undefined>);
     const query = req.query as Record<string, string | undefined>;
     const where: Prisma.InteractionWhereInput = {
-      botId: req.params.id,
+      botId,
       ...(cleanString(query.userId) ? { userId: cleanString(query.userId) } : {}),
       ...(cleanString(query.type) ? { type: cleanString(query.type) } : {}),
       ...((cleanString(query.from) || cleanString(query.to)) ? { createdAt: { gte: cleanString(query.from) ? new Date(String(query.from)) : undefined, lte: cleanString(query.to) ? new Date(String(query.to)) : undefined } } : {})
@@ -182,19 +197,20 @@ export function apiRouter(env: AppEnv): Router {
       prisma.interaction.count({ where })
     ]);
     res.json(serializeJson({ items, total, page: pagination.page, pageSize: pagination.pageSize }));
-  });
+  }));
 
-  router.get("/bots/:id/interactions/stats", async (req, res) => {
+  router.get("/bots/:id/interactions/stats", route(async (req, res) => {
+    const botId = routeParam(req, "id");
     const [totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers] = await Promise.all([
-      prisma.interaction.count({ where: { botId: req.params.id } }),
-      prisma.user.count({ where: { botId: req.params.id } }),
-      prisma.interaction.count({ where: { botId: req.params.id, type: "callback_query", content: "checkout" } }),
-      prisma.interaction.count({ where: { botId: req.params.id, type: "message" } }),
-      prisma.interaction.count({ where: { botId: req.params.id, type: "callback_query" } }),
-      prisma.user.count({ where: { botId: req.params.id, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
+      prisma.interaction.count({ where: { botId } }),
+      prisma.user.count({ where: { botId } }),
+      prisma.interaction.count({ where: { botId, type: "callback_query", content: "checkout" } }),
+      prisma.interaction.count({ where: { botId, type: "message" } }),
+      prisma.interaction.count({ where: { botId, type: "callback_query" } }),
+      prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
     ]);
     res.json({ totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers });
-  });
+  }));
 
   return router;
 }

@@ -48,7 +48,6 @@ export class BotManager {
       const message = error instanceof Error ? error.message : "delete webhook failed";
       console.error(`[bot:${this.botId}] ${message}`);
     }
-    this.telegraf.stop();
   }
 
   webhookMiddleware() {
