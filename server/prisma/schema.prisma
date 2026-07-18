@@ -19,20 +19,14 @@ enum PaymentMethod {
 }
 
 model Bot {
-  id                  String    @id @default(cuid())
-  name                String
-  token               String
-  welcomeVideoUrl     String?
-  welcomeText         String?
-  checkoutButtonText  String    @default("Pagar agora")
-  checkoutButtonStyle String    @default("primary")
-  supportButtonText   String    @default("Suporte")
-  supportButtonStyle  String    @default("primary")
-  supportUrl          String?
-  checkoutAmount      Float     @default(29.9)
-  status              BotStatus @default(ACTIVE)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  name           String
+  token          String
+  messageFlow    Json      @default("[]")
+  checkoutAmount Float     @default(29.9)
+  status         BotStatus @default(ACTIVE)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   users        User[]
   transactions Transaction[]

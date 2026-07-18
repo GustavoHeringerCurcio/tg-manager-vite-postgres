@@ -25,7 +25,3 @@ export function parsePagination(query: Record<string, string | undefined>): Pagi
   }
   return { page, pageSize, skip: (page - 1) * pageSize, take: pageSize };
 }
-
-export function isButtonStyle(value: string): boolean {
-  return value === "primary" || value === "success" || value === "danger";
-}

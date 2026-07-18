@@ -7,8 +7,10 @@ import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
+import { normalizeMessageFlow } from "./messageFlow.js";
+import type { MessageButton, MessageStep } from "./messageFlow.js";
 
-const CHECKOUT_CALLBACK = "checkout";
+const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 
 type HandlerServices = {
   env: AppEnv;
@@ -40,46 +42,113 @@ async function upsertTelegramUser(botId: string, ctx: Context): Promise<User | n
   });
 }
 
-type StyledKeyboardButton = { text: string; callback_data?: string; url?: string; style?: string };
-type StyledKeyboard = { inline_keyboard: StyledKeyboardButton[][] };
+type KeyboardButton = { text: string; callback_data?: string; url?: string };
+type Keyboard = { inline_keyboard: KeyboardButton[][] };
 
 function jsonPayload(value: object): object {
   return JSON.parse(JSON.stringify(value)) as object;
 }
 
-function keyboard(bot: Bot): StyledKeyboard {
-  const buttons: StyledKeyboardButton[][] = [[{
-    text: bot.checkoutButtonText,
-    callback_data: CHECKOUT_CALLBACK,
-    style: bot.checkoutButtonStyle
-  }]];
-  if (bot.supportUrl) {
-    buttons.push([{ text: bot.supportButtonText, url: bot.supportUrl, style: bot.supportButtonStyle }]);
+function keyboard(step: MessageStep): Keyboard | undefined {
+  if (step.buttons.length === 0) return undefined;
+  return {
+    inline_keyboard: step.buttons.map((button) => [{
+      text: button.label,
+      ...(button.action === "OPEN_URL" ? { url: button.url } : { callback_data: `${LIVEPIX_CALLBACK_PREFIX}${button.id}` })
+    }])
+  };
+}
+
+function findPaymentButton(steps: MessageStep[], id: string): MessageButton | undefined {
+  for (const step of steps) {
+    const button = step.buttons.find((item) => item.id === id && item.action === "LIVEPIX_PAYMENT");
+    if (button) return button;
   }
-  return { inline_keyboard: buttons };
+  return undefined;
+}
+
+async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv): Promise<void> {
+  const replyMarkup = keyboard(step);
+  const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
+  if (step.type === "VIDEO" && step.mediaUrl) {
+    await ctx.replyWithVideo(step.mediaUrl, { caption: step.text, ...(options ?? {}) });
+    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `video:${step.title}`, logPayloads: env.logPayloads });
+    return;
+  }
+  if (step.type === "AUDIO" && step.mediaUrl) {
+    await ctx.replyWithAudio(step.mediaUrl, { caption: step.text, ...(options ?? {}) });
+    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `audio:${step.title}`, logPayloads: env.logPayloads });
+    return;
+  }
+  await ctx.reply(step.text ?? " ", options);
+  logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: step.text ?? step.title, logPayloads: env.logPayloads });
+}
+
+async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices): Promise<void> {
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { pixGenerations: { increment: 1 }, lastInteraction: new Date() }
+    });
+    const payment = await services.livePix.createPayment(botConfig.checkoutAmount);
+    const pixAllowed = updatedUser.pixGenerations <= services.env.maxPixGenerations;
+    const pixCode = pixAllowed ? await services.livePix.extractPixCode(payment.checkoutUrl) : undefined;
+    await prisma.transaction.create({
+      data: {
+        botId: botConfig.id,
+        userId: user.id,
+        amount: botConfig.checkoutAmount,
+        paymentMethod: PaymentMethod.PIX,
+        status: "PENDING",
+        pixCode,
+        checkoutUrl: payment.checkoutUrl,
+        livepixReference: payment.reference
+      }
+    });
+    if (pixCode) {
+      const text = `Pagamento PIX\n\nValor: R$ ${botConfig.checkoutAmount.toFixed(2)}\n\nCódigo PIX copia e cola:\n${pixCode}`;
+      await ctx.reply(text);
+      logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "PIX code sent", logPayloads: services.env.logPayloads });
+      return;
+    }
+    const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
+    await ctx.reply(`Pagamento PIX\n\nValor: R$ ${botConfig.checkoutAmount.toFixed(2)}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup });
+    logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix checkout URL sent", logPayloads: services.env.logPayloads });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "payment flow failed";
+    console.error(`[bot:${botConfig.id}] ${message}`);
+    await ctx.reply("Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
+    logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "payment error shown", logPayloads: services.env.logPayloads });
+  }
 }
 
 export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, services: HandlerServices): void {
+  const messageFlow = normalizeMessageFlow(botConfig.messageFlow);
+
   telegraf.start(async (ctx) => {
     const user = await upsertTelegramUser(botConfig.id, ctx);
     const message = ctx.message ? textFromMessage(ctx.message) : "/start";
     logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "incoming", content: message, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-    await ctx.reply("Olá! Bem-vindo.");
-    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: "Olá! Bem-vindo.", logPayloads: services.env.logPayloads });
-    await delay(1500);
-    const replyMarkup = keyboard(botConfig);
-    if (botConfig.welcomeVideoUrl) {
-      await ctx.replyWithVideo(botConfig.welcomeVideoUrl, { caption: botConfig.welcomeText ?? undefined, reply_markup: replyMarkup as InlineKeyboardMarkup });
-      logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: "welcome video", logPayloads: services.env.logPayloads });
+    if (messageFlow.length === 0) {
+      await ctx.reply("Nenhuma mensagem configurada para este bot.");
+      logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: "empty message flow", logPayloads: services.env.logPayloads });
       return;
     }
-    await ctx.reply(botConfig.welcomeText ?? "Escolha uma opção abaixo.", { reply_markup: replyMarkup as InlineKeyboardMarkup });
-    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: botConfig.welcomeText ?? "Escolha uma opção abaixo.", logPayloads: services.env.logPayloads });
+    for (const [index, step] of messageFlow.entries()) {
+      await sendStep(ctx, botConfig, user, step, services.env);
+      if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
+    }
   });
 
   telegraf.on("callback_query", async (ctx) => {
     const data = "data" in ctx.callbackQuery ? ctx.callbackQuery.data : "";
-    if (data !== CHECKOUT_CALLBACK) return;
+    if (!data.startsWith(LIVEPIX_CALLBACK_PREFIX)) return;
+    const buttonId = data.slice(LIVEPIX_CALLBACK_PREFIX.length);
+    const button = findPaymentButton(messageFlow, buttonId);
+    if (!button) {
+      await ctx.answerCbQuery("Este botão não está mais disponível.");
+      return;
+    }
     await ctx.answerCbQuery("Gerando pagamento...");
     const user = await upsertTelegramUser(botConfig.id, ctx);
     if (!user) {
@@ -87,40 +156,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       return;
     }
     logInteraction({ botId: botConfig.id, userId: user.id, type: "callback_query", direction: "incoming", content: data, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-    try {
-      const updatedUser = await prisma.user.update({
-        where: { id: user.id },
-        data: { pixGenerations: { increment: 1 }, lastInteraction: new Date() }
-      });
-      const payment = await services.livePix.createPayment(botConfig.checkoutAmount);
-      const pixAllowed = updatedUser.pixGenerations <= services.env.maxPixGenerations;
-      const pixCode = pixAllowed ? await services.livePix.extractPixCode(payment.checkoutUrl) : undefined;
-      await prisma.transaction.create({
-        data: {
-          botId: botConfig.id,
-          userId: user.id,
-          amount: botConfig.checkoutAmount,
-          paymentMethod: PaymentMethod.PIX,
-          status: "PENDING",
-          pixCode,
-          checkoutUrl: payment.checkoutUrl,
-          livepixReference: payment.reference
-        }
-      });
-      if (pixCode) {
-        const text = `Pagamento PIX\n\nValor: R$ ${botConfig.checkoutAmount.toFixed(2)}\n\nCódigo PIX copia e cola:\n${pixCode}`;
-        await ctx.reply(text);
-        logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "PIX code sent", logPayloads: services.env.logPayloads });
-        return;
-      }
-      const paymentReplyMarkup: StyledKeyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl, style: "success" }]] };
-      await ctx.reply(`Pagamento PIX\n\nValor: R$ ${botConfig.checkoutAmount.toFixed(2)}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as object as InlineKeyboardMarkup });
-      logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix checkout URL sent", logPayloads: services.env.logPayloads });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "payment flow failed";
-      console.error(`[bot:${botConfig.id}] ${message}`);
-      await ctx.reply("Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
-      logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "payment error shown", logPayloads: services.env.logPayloads });
-    }
+    await sendLivePixPayment(ctx, botConfig, user, services);
   });
 }

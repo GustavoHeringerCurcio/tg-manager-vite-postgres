@@ -4,21 +4,16 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { Telegraf } from "telegraf";
 import type { AppEnv } from "../utils/env.js";
 import { HttpError } from "../utils/errors.js";
-import { isButtonStyle, parsePagination, sanitizeBot, sanitizeBots, serializeJson } from "../utils/serialize.js";
+import { parsePagination, sanitizeBot, sanitizeBots, serializeJson } from "../utils/serialize.js";
 import { encryptToken } from "../services/crypto.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
+import { defaultMessageFlow, normalizeMessageFlow } from "../bot/messageFlow.js";
 
 type BotBody = {
   name?: string;
   token?: string;
-  welcomeVideoUrl?: string;
-  welcomeText?: string;
-  checkoutButtonText?: string;
-  checkoutButtonStyle?: string;
-  supportButtonText?: string;
-  supportButtonStyle?: string;
-  supportUrl?: string;
+  messageFlow?: unknown;
   checkoutAmount?: number;
 };
 
@@ -46,24 +41,6 @@ function routeParam(req: Request, name: string): string {
   return value ?? "";
 }
 
-function validateStyle(value: string | undefined, field: string): string | undefined {
-  if (!value) return undefined;
-  if (!isButtonStyle(value)) throw new HttpError(400, `${field} must be primary, success, or danger`);
-  return value;
-}
-
-function validateUrl(value: string | undefined): string | undefined {
-  const clean = cleanString(value);
-  if (!clean) return undefined;
-  try {
-    const url = new URL(clean);
-    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Invalid URL protocol");
-    return clean;
-  } catch {
-    throw new HttpError(400, "supportUrl must be a valid URL");
-  }
-}
-
 async function validateTelegramToken(token: string): Promise<void> {
   try {
     await new Telegraf(token).telegram.getMe();
@@ -79,15 +56,16 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
   if (body.checkoutAmount !== undefined && (!Number.isFinite(body.checkoutAmount) || body.checkoutAmount <= 0)) {
     throw new HttpError(400, "checkoutAmount must be positive");
   }
+  let messageFlow;
+  try {
+    messageFlow = body.messageFlow === undefined ? defaultMessageFlow() : normalizeMessageFlow(body.messageFlow);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "messageFlow is invalid";
+    throw new HttpError(400, message);
+  }
   const data: Prisma.BotCreateInput | Prisma.BotUpdateInput = {
     name,
-    welcomeVideoUrl: cleanString(body.welcomeVideoUrl) ?? null,
-    welcomeText: cleanString(body.welcomeText) ?? null,
-    checkoutButtonText: cleanString(body.checkoutButtonText) ?? "Pagar agora",
-    checkoutButtonStyle: validateStyle(body.checkoutButtonStyle, "checkoutButtonStyle") ?? "primary",
-    supportButtonText: cleanString(body.supportButtonText) ?? "Suporte",
-    supportButtonStyle: validateStyle(body.supportButtonStyle, "supportButtonStyle") ?? "primary",
-    supportUrl: validateUrl(body.supportUrl) ?? null,
+    messageFlow: messageFlow as Prisma.InputJsonValue,
     checkoutAmount: body.checkoutAmount ?? 29.9
   };
   const token = cleanString(body.token);
@@ -204,7 +182,7 @@ export function apiRouter(env: AppEnv): Router {
     const [totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers] = await Promise.all([
       prisma.interaction.count({ where: { botId } }),
       prisma.user.count({ where: { botId } }),
-      prisma.interaction.count({ where: { botId, type: "callback_query", content: "checkout" } }),
+      prisma.interaction.count({ where: { botId, type: "callback_query", content: { startsWith: "livepix_payment:" } } }),
       prisma.interaction.count({ where: { botId, type: "message" } }),
       prisma.interaction.count({ where: { botId, type: "callback_query" } }),
       prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })

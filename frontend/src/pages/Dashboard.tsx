@@ -80,12 +80,12 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         <div><p className="text-sm uppercase tracking-[0.35em] text-cyan-300">Botflix v2</p><h1 className="mt-2 text-3xl font-semibold text-white">Bot operations dashboard</h1></div>
         <div className="flex gap-3"><button className="rounded-xl bg-white/10 px-4 py-2" onClick={() => void refresh()}>Refresh</button><button className="rounded-xl bg-red-500/20 px-4 py-2 text-red-100" onClick={onLogout}>Logout</button></div>
       </header>
-      <div className="mx-auto mt-6 grid max-w-7xl gap-6 lg:grid-cols-[420px_1fr]">
+      <div className="mx-auto mt-6 grid max-w-7xl gap-6 lg:grid-cols-[minmax(460px,560px)_1fr]">
         <aside className="space-y-6"><BotForm editing={editing} loading={loading} onSubmit={save} onCancel={() => setEditing(null)} />{error && <p className="rounded-xl bg-red-500/20 p-3 text-red-100">{error}</p>}</aside>
         <section className="space-y-6 overflow-hidden">
           <BotTable bots={bots} selectedId={selected?.id ?? null} onSelect={setSelected} onEdit={setEditing} onStatus={changeStatus} onDelete={(bot) => void deleteBot(bot)} />
           <div className="grid gap-3 md:grid-cols-5">{[
-            ["Users", stats?.totalUsers ?? 0], ["Interactions", stats?.totalInteractions ?? 0], ["Messages", stats?.messageCount ?? 0], ["Callbacks", stats?.callbackCount ?? 0], ["Checkout", stats?.checkoutClicks ?? 0]
+            ["Users", stats?.totalUsers ?? 0], ["Interactions", stats?.totalInteractions ?? 0], ["Messages", stats?.messageCount ?? 0], ["Callbacks", stats?.callbackCount ?? 0], ["Payments", stats?.checkoutClicks ?? 0]
           ].map(([label, value]) => <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><p className="text-sm text-slate-400">{label}</p><p className="mt-1 text-2xl font-semibold text-white">{value}</p></div>)}</div>
           <TransactionsView bot={selected} />
           <InteractionsView bot={selected} />

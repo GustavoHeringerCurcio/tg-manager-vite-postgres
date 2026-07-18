@@ -1,16 +1,30 @@
 export type BotStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
-export type ButtonStyle = "primary" | "success" | "danger";
+export type MessageType = "TEXT" | "AUDIO" | "VIDEO";
+export type ButtonColor = "BLUE" | "GREEN" | "RED";
+export type ButtonAction = "OPEN_URL" | "LIVEPIX_PAYMENT";
+
+export type MessageButton = {
+  id: string;
+  label: string;
+  color: ButtonColor;
+  action: ButtonAction;
+  url?: string;
+};
+
+export type MessageStep = {
+  id: string;
+  title: string;
+  type: MessageType;
+  text?: string;
+  mediaUrl?: string;
+  delayMs: number;
+  buttons: MessageButton[];
+};
 
 export type Bot = {
   id: string;
   name: string;
-  welcomeVideoUrl: string | null;
-  welcomeText: string | null;
-  checkoutButtonText: string;
-  checkoutButtonStyle: ButtonStyle;
-  supportButtonText: string;
-  supportButtonStyle: ButtonStyle;
-  supportUrl: string | null;
+  messageFlow: MessageStep[];
   checkoutAmount: number;
   status: BotStatus;
   createdAt: string;
@@ -20,13 +34,7 @@ export type Bot = {
 export type BotPayload = {
   name: string;
   token?: string;
-  welcomeVideoUrl?: string;
-  welcomeText?: string;
-  checkoutButtonText: string;
-  checkoutButtonStyle: ButtonStyle;
-  supportButtonText: string;
-  supportButtonStyle: ButtonStyle;
-  supportUrl?: string;
+  messageFlow: MessageStep[];
   checkoutAmount: number;
 };
 
