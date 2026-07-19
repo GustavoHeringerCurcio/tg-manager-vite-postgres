@@ -40,7 +40,6 @@ export class BotManager {
       drop_pending_updates: true,
       allowed_updates: ["message", "callback_query"]
     });
-    this.livePix.startPaymentPolling(this.telegraf.telegram);
   }
 
   async stop(): Promise<void> {
@@ -50,7 +49,6 @@ export class BotManager {
       const message = error instanceof Error ? error.message : "delete webhook failed";
       console.error(`[bot:${this.botId}] ${message}`);
     }
-    this.livePix.stopPaymentPolling();
   }
 
   get telegram() {

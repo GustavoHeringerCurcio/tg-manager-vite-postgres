@@ -12,6 +12,7 @@ import type { LivePixResponse, MessageButton, MessageStep } from "./messageFlow.
 import { normalizeRemarketing } from "./remarketing.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
+const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
 
 type HandlerServices = {
   env: AppEnv;
@@ -190,7 +191,10 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
       }
     }
 
-    services.livePix.registerPendingPayment(payment.reference, ctx.chat?.id, amount);
+    const verifyMarkup: Keyboard = {
+      inline_keyboard: [[{ text: "✅ Verificar pagamento", callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }]]
+    };
+    await ctx.reply("Após realizar o pagamento, clique no botão abaixo para verificar.", { reply_markup: verifyMarkup as InlineKeyboardMarkup });
 
     logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix payment response sent", logPayloads: services.env.logPayloads });
   } catch (error) {
@@ -247,6 +251,29 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
   telegraf.on("callback_query", async (ctx) => {
     const data = "data" in ctx.callbackQuery ? ctx.callbackQuery.data : "";
+
+    if (data.startsWith(LIVEPIX_VERIFY_PREFIX)) {
+      const reference = data.slice(LIVEPIX_VERIFY_PREFIX.length);
+      await ctx.answerCbQuery("Verificando pagamento...");
+      try {
+        const payment = await services.livePix.checkPayment(reference);
+        if (payment && payment.amount > 0) {
+          await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`);
+          await prisma.transaction.updateMany({
+            where: { livepixReference: reference },
+            data: { status: "COMPLETED" }
+          });
+        } else {
+          await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "payment verification failed";
+        console.error(`[bot:${botConfig.id}] ${message}`);
+        await ctx.answerCbQuery("Falha ao verificar pagamento. Tente novamente.", { show_alert: true });
+      }
+      return;
+    }
+
     if (!data.startsWith(LIVEPIX_CALLBACK_PREFIX)) return;
     const buttonId = data.slice(LIVEPIX_CALLBACK_PREFIX.length);
     const button = findPaymentButtonAcross([messageFlow, remarketing.messages], buttonId);
