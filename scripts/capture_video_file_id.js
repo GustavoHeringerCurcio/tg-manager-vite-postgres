@@ -1,11 +1,18 @@
 /*
-  Lightweight script to poll Telegram getUpdates, log any received video file_id,
+  Lightweight script to poll Telegram getUpdates, log any received video or audio file_id,
   and reply back to the sender with the discovered info.
+
+  Supported media types:
+    - video          (msg.video)
+    - video_note     (msg.video_note / round videos)
+    - audio          (msg.audio)
+    - voice          (msg.voice / voice notes)
+    - document       (msg.document with video/* or audio/* mime type)
 
   Usage:
     - Ensure BOT_TOKEN is set in your environment (e.g. export BOT_TOKEN=123:ABC)
     - Run: node scripts/capture_video_file_id.js
-    - Send a video to your bot (from your Telegram client). The script will print the file_id,
+    - Send a video or audio to your bot (from your Telegram client). The script will print the file_id,
       chat id, and will also reply in the chat with that information.
 
   Notes:
@@ -79,7 +86,7 @@ function apiPost(path, body) {
 }
 
 let lastOffset = 0;
-console.log('Starting video file_id capture. Send a video to your bot now.');
+console.log('Starting media file_id capture. Send a video or audio to your bot now.');
 
 async function sendInfoToChat(chatId, text) {
   if (!chatId) return;
@@ -115,7 +122,6 @@ async function pollOnce() {
         const fileSize = v.file_size;
         const duration = v.duration;
         console.log('Found video message: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
-        console.log('You can put this value in .env as WELCOME_VIDEO_FILE_ID');
 
         const textLines = [
           '🎬 Found video message',
@@ -130,21 +136,96 @@ async function pollOnce() {
         await sendInfoToChat(chatId, textLines.join('\n'));
       }
 
-      // also check for document subtype (some clients send mp4 as document)
-      if (msg.document && msg.document.mime_type && msg.document.mime_type.includes('video')) {
-        const d = msg.document;
-        const fileId = d.file_id;
-        const fileName = d.file_name || '<unknown>';
-        const mime = d.mime_type;
-        const fileSize = d.file_size;
-        console.log('Found video document: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
-        console.log('You can put this value in .env as WELCOME_VIDEO_FILE_ID');
+      if (msg.video_note) {
+        const vn = msg.video_note;
+        const fileId = vn.file_id;
+        const fileUniqueId = vn.file_unique_id;
+        const fileSize = vn.file_size;
+        const duration = vn.duration;
+        console.log('Found video note: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
 
         const textLines = [
-          '📄 Found video document',
+          '🔵 Found video note (round video)',
           `update_id: ${upd.update_id}`,
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
+          `file_unique_id: ${fileUniqueId}`,
+          fileSize ? `file_size: ${fileSize}` : null,
+          duration ? `duration: ${duration}s` : null,
+        ].filter(Boolean);
+
+        await sendInfoToChat(chatId, textLines.join('\n'));
+      }
+
+      if (msg.audio) {
+        const a = msg.audio;
+        const fileId = a.file_id;
+        const fileUniqueId = a.file_unique_id;
+        const fileSize = a.file_size;
+        const duration = a.duration;
+        const performer = a.performer;
+        const title = a.title;
+        console.log('Found audio message: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
+
+        const textLines = [
+          '🎵 Found audio message',
+          `update_id: ${upd.update_id}`,
+          `chat_id: ${String(chatId)}`,
+          `file_id: ${fileId}`,
+          `file_unique_id: ${fileUniqueId}`,
+          performer ? `performer: ${performer}` : null,
+          title ? `title: ${title}` : null,
+          fileSize ? `file_size: ${fileSize}` : null,
+          duration ? `duration: ${duration}s` : null,
+        ].filter(Boolean);
+
+        await sendInfoToChat(chatId, textLines.join('\n'));
+      }
+
+      if (msg.voice) {
+        const vc = msg.voice;
+        const fileId = vc.file_id;
+        const fileUniqueId = vc.file_unique_id;
+        const fileSize = vc.file_size;
+        const duration = vc.duration;
+        const mimeType = vc.mime_type;
+        console.log('Found voice message: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
+
+        const textLines = [
+          '🎤 Found voice message',
+          `update_id: ${upd.update_id}`,
+          `chat_id: ${String(chatId)}`,
+          `file_id: ${fileId}`,
+          `file_unique_id: ${fileUniqueId}`,
+          mimeType ? `mime_type: ${mimeType}` : null,
+          fileSize ? `file_size: ${fileSize}` : null,
+          duration ? `duration: ${duration}s` : null,
+        ].filter(Boolean);
+
+        await sendInfoToChat(chatId, textLines.join('\n'));
+      }
+
+      if (msg.document && msg.document.mime_type) {
+        const d = msg.document;
+        const mime = d.mime_type;
+        const isVideoDoc = mime.includes('video');
+        const isAudioDoc = mime.includes('audio');
+        if (!isVideoDoc && !isAudioDoc) continue;
+
+        const fileId = d.file_id;
+        const fileUniqueId = d.file_unique_id;
+        const fileName = d.file_name || '<unknown>';
+        const fileSize = d.file_size;
+        const kind = isVideoDoc ? 'video' : 'audio';
+        const emoji = isVideoDoc ? '📄' : '📁';
+        console.log('Found %s document: update_id=%d chat_id=%s file_id=%s', kind, upd.update_id, String(chatId), fileId);
+
+        const textLines = [
+          `${emoji} Found ${kind} document`,
+          `update_id: ${upd.update_id}`,
+          `chat_id: ${String(chatId)}`,
+          `file_id: ${fileId}`,
+          `file_unique_id: ${fileUniqueId}`,
           `file_name: ${fileName}`,
           `mime_type: ${mime}`,
           fileSize ? `file_size: ${fileSize}` : null,
