@@ -1,10 +1,8 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { mockRequest } from "./mockDevServer";
 
-const useMocks = process.env.VITE_DEV_MODE === "true";
-
-function devMockPlugin(): Plugin {
+function devMockPlugin(useMocks: boolean): Plugin {
   return {
     name: "dev-mock-api",
     configureServer(server) {
@@ -25,10 +23,15 @@ function devMockPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), devMockPlugin()],
-  build: { outDir: "../server/public", emptyOutDir: true },
-  ...(useMocks
-    ? {}
-    : { server: { proxy: { "/api": "http://localhost:3000" } } }),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const useMocks = env.VITE_DEV_MODE === "true";
+
+  return {
+    plugins: [react(), devMockPlugin(useMocks)],
+    build: { outDir: "../server/public", emptyOutDir: true },
+    ...(useMocks
+      ? {}
+      : { server: { proxy: { "/api": "http://localhost:3000" } } }),
+  };
 });
