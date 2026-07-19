@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
 import MessageFlowEditor from "./MessageFlowEditor";
 import RemarketingEditor from "./RemarketingEditor";
 import type { Bot, BotPayload, RemarketingConfig, MessageStep } from "@/types";
@@ -46,59 +46,65 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <div className="space-y-4">
-        <div>
-          <Label className="text-sm uppercase tracking-wider text-muted-foreground">
-            Bot Settings
-          </Label>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="bot-name">Bot Name</Label>
-            <Input
-              id="bot-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Card className="shadow-card">
+        <CardContent className="space-y-4 pt-6">
+          <div>
+            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Bot Settings
+            </Label>
           </div>
-          {(requireToken || isEditing) && (
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="bot-token">
-                Telegram Token {!requireToken && "(leave blank to keep current)"}
-              </Label>
+              <Label htmlFor="bot-name">Bot Name</Label>
               <Input
-                id="bot-token"
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-                required={requireToken}
+                id="bot-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
               />
             </div>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="checkout-amount">Checkout Amount (R$)</Label>
-          <Input
-            id="checkout-amount"
-            type="number"
-            min={0}
-            step={0.01}
-            value={checkoutAmount}
-            onChange={(e) => setCheckoutAmount(Number(e.target.value))}
-          />
-        </div>
-      </div>
+            {(requireToken || isEditing) && (
+              <div className="space-y-2">
+                <Label htmlFor="bot-token">
+                  Telegram Token {!requireToken && "(leave blank to keep current)"}
+                </Label>
+                <Input
+                  id="bot-token"
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                  required={requireToken}
+                />
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="checkout-amount">Checkout Amount (R$)</Label>
+            <Input
+              id="checkout-amount"
+              type="number"
+              min={0}
+              step={0.01}
+              value={checkoutAmount}
+              onChange={(e) => setCheckoutAmount(Number(e.target.value))}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-      <Separator />
+      <Card className="shadow-card">
+        <CardContent className="pt-6">
+          <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
+        </CardContent>
+      </Card>
 
-      <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
-
-      <Separator />
-
-      <RemarketingEditor config={remarketing} onChange={setRemarketing} />
+      <Card className="shadow-card">
+        <CardContent className="pt-6">
+          <RemarketingEditor config={remarketing} onChange={setRemarketing} />
+        </CardContent>
+      </Card>
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={saving} className="min-w-32">

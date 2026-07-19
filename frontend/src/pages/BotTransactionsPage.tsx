@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Paginated, Transaction } from "@/types";
@@ -15,6 +15,18 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ExternalLink } from "lucide-react";
+import { useEffect, useCallback } from "react";
+
+function txnStatusBadge(status: string) {
+  const s = status.toLowerCase();
+  if (s === "completed" || s === "approved" || s === "paid")
+    return <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/15 text-emerald-400 text-xs">{status}</Badge>;
+  if (s === "pending" || s === "processing")
+    return <Badge variant="outline" className="border-amber-500/30 bg-amber-500/15 text-amber-400 text-xs">{status}</Badge>;
+  if (s === "failed" || s === "refunded" || s === "cancelled")
+    return <Badge variant="outline" className="border-red-500/30 bg-red-500/15 text-red-400 text-xs">{status}</Badge>;
+  return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+}
 
 export default function BotTransactionsPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -57,17 +69,18 @@ export default function BotTransactionsPage() {
           ))}
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 py-12">
+        <div className="flex flex-col items-center gap-4 py-16">
           <p className="text-destructive">{error}</p>
           <Button variant="outline" onClick={fetchData}>Retry</Button>
         </div>
       ) : !data || data.items.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 py-12">
+        <div className="flex flex-col items-center gap-4 py-16">
+          <ExternalLink className="size-12 text-muted-foreground/20" />
           <p className="text-muted-foreground">No transactions found for this bot.</p>
         </div>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="rounded-xl border shadow-card overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -75,9 +88,9 @@ export default function BotTransactionsPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Payment Method</TableHead>
+                  <TableHead>Payment</TableHead>
                   <TableHead>PIX Code</TableHead>
-                  <TableHead>Checkout URL</TableHead>
+                  <TableHead>Checkout</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -85,15 +98,13 @@ export default function BotTransactionsPage() {
                   <TableRow key={item.id}>
                     <TableCell className="text-xs">{new Date(item.createdAt).toLocaleString()}</TableCell>
                     <TableCell>{item.user.username ?? item.user.telegramId}</TableCell>
-                    <TableCell>R$ {item.amount.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">{item.status}</Badge>
-                    </TableCell>
-                    <TableCell>{item.paymentMethod || "—"}</TableCell>
+                    <TableCell className="font-mono text-sm">R$ {item.amount.toFixed(2)}</TableCell>
+                    <TableCell>{txnStatusBadge(item.status)}</TableCell>
+                    <TableCell className="text-xs">{item.paymentMethod || "—"}</TableCell>
                     <TableCell>
                       {item.pixCode ? (
                         <Tooltip>
-                          <TooltipTrigger render={<span className="cursor-help text-xs">{item.pixCode.slice(0, 12)}...</span>} />
+                          <TooltipTrigger render={<span className="cursor-help font-mono text-xs">{item.pixCode.slice(0, 12)}…</span>} />
                           <TooltipContent className="max-w-xs break-all font-mono text-xs">{item.pixCode}</TooltipContent>
                         </Tooltip>
                       ) : (

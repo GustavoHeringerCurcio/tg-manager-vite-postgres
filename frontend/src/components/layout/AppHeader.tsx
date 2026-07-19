@@ -113,7 +113,7 @@ export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
           />
           <TooltipContent>Toggle theme</TooltipContent>
         </Tooltip>
-        <Button variant="outline" size="sm" render={<Link to="/manager/new" />}>
+        <Button variant="default" size="sm" render={<Link to="/manager/new" />}>
           <Plus className="mr-1 size-4" />
           New Bot
         </Button>

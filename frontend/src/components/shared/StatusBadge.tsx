@@ -2,8 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import type { BotStatus } from "@/types";
 
 const statusClasses: Record<BotStatus, string> = {
-  ACTIVE: "border-emerald-500/30 bg-emerald-500/15 text-emerald-400",
-  INACTIVE: "border-muted-foreground/30 bg-muted text-muted-foreground",
+  ACTIVE: "border-emerald-500/30 bg-emerald-500/20 text-emerald-400",
+  INACTIVE: "",
   SUSPENDED: "",
 };
 
@@ -14,7 +14,7 @@ const statusVariant: Record<BotStatus, "destructive" | "secondary" | null> = {
 };
 
 const statusLabel: Record<BotStatus, string> = {
-  ACTIVE: "Active",
+  ACTIVE: "● Active",
   INACTIVE: "Inactive",
   SUSPENDED: "Suspended",
 };

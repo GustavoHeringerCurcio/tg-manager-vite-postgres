@@ -39,30 +39,45 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
-    <Card className="group relative transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card className="group relative shadow-card transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10">
       <Link to={`/manager/${bot.id}/dashboard`} className="block">
         <CardHeader className="text-center">
-          <Avatar className="mx-auto size-16">
-            <AvatarFallback className="text-lg font-semibold bg-primary/15 text-primary">
+          <Avatar className="mx-auto size-14" size="lg">
+            <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">
               {bot.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <CardTitle className="mt-2 text-lg">{bot.name}</CardTitle>
+          <CardTitle className="mt-3 text-lg">{bot.name}</CardTitle>
           <StatusBadge status={bot.status} />
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-primary/60" />
-              <span className="text-muted-foreground">{stats?.totalUsers?.toLocaleString() ?? "—"} Users</span>
+          <div className="space-y-2.5 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <Users className="size-4 text-primary/60" />
+                <span className="text-muted-foreground">Users</span>
+              </div>
+              <span className="font-medium tabular-nums text-foreground/80">
+                {stats?.totalUsers?.toLocaleString() ?? "—"}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <MessageSquare className="size-4 text-primary/60" />
-              <span className="text-muted-foreground">{stats?.messageCount?.toLocaleString() ?? "—"} Messages</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <MessageSquare className="size-4 text-sky-400/60" />
+                <span className="text-muted-foreground">Messages</span>
+              </div>
+              <span className="font-medium tabular-nums text-foreground/80">
+                {stats?.messageCount?.toLocaleString() ?? "—"}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <CreditCard className="size-4 text-primary/60" />
-              <span className="text-muted-foreground">R$ {(bot.checkoutAmount || 0).toFixed(2)}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="size-4 text-amber-400/60" />
+                <span className="text-muted-foreground">Checkout</span>
+              </div>
+              <span className="font-medium tabular-nums text-foreground/80">
+                R$ {(bot.checkoutAmount || 0).toFixed(2)}
+              </span>
             </div>
           </div>
         </CardContent>
@@ -71,7 +86,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100">
+              <Button variant="ghost" size="icon-sm" className="opacity-0 transition-opacity group-hover:opacity-100">
                 <MoreHorizontal className="size-4" />
               </Button>
             }

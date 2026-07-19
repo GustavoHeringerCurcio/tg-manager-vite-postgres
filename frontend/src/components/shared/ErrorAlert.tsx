@@ -9,10 +9,10 @@ interface ErrorAlertProps {
 
 export function ErrorAlert({ message, onRetry }: ErrorAlertProps) {
   return (
-    <Card className="border-destructive/50">
+    <Card className="border-destructive/30 bg-destructive/5 shadow-card">
       <CardContent className="flex items-center gap-4 py-4">
-        <AlertCircle className="size-5 text-destructive shrink-0" />
-        <p className="text-sm text-destructive flex-1">{message}</p>
+        <AlertCircle className="size-6 text-destructive shrink-0" />
+        <p className="text-sm flex-1">{message}</p>
         {onRetry && (
           <Button variant="outline" size="sm" onClick={onRetry}>
             <RefreshCw className="mr-2 size-4" />

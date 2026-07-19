@@ -37,18 +37,20 @@ export default function AppSidebar() {
     api.bots().then(setBots).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
+  const isActive = (path: string) => location.pathname.startsWith(path);
+
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader>
+      <SidebarHeader className="border-b border-sidebar-border bg-sidebar-accent/50 px-0 py-0">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/manager" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Bot className="size-4" />
+            <SidebarMenuButton size="lg" render={<Link to="/manager" />} className="px-3 py-5">
+              <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/30">
+                <Bot className="size-5" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold">Botflix</span>
-                <span className="text-xs text-muted-foreground">Admin</span>
+                <span className="font-semibold tracking-tight">Botflix</span>
+                <span className="text-xs text-sidebar-foreground/40">Admin</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -81,47 +83,47 @@ export default function AppSidebar() {
                   isActive={location.pathname === `/manager/${botId}/dashboard`}
                   render={<Link to={`/manager/${botId}/dashboard`} />}
                 >
-                  <LayoutDashboard className="size-4" />
+                  <LayoutDashboard className="size-4 text-sky-400/70" />
                   <span>Dashboard</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Message Flow"
-                  isActive={location.pathname.startsWith(`/manager/${botId}/messages`)}
+                  isActive={isActive(`/manager/${botId}/messages`)}
                   render={<Link to={`/manager/${botId}/messages`} />}
                 >
-                  <Workflow className="size-4" />
+                  <Workflow className="size-4 text-emerald-400/70" />
                   <span>Message Flow</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Remarketing"
-                  isActive={location.pathname.startsWith(`/manager/${botId}/remarketing`)}
+                  isActive={isActive(`/manager/${botId}/remarketing`)}
                   render={<Link to={`/manager/${botId}/remarketing`} />}
                 >
-                  <Timer className="size-4" />
+                  <Timer className="size-4 text-amber-400/70" />
                   <span>Remarketing</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Transactions"
-                  isActive={location.pathname.startsWith(`/manager/${botId}/transactions`)}
+                  isActive={isActive(`/manager/${botId}/transactions`)}
                   render={<Link to={`/manager/${botId}/transactions`} />}
                 >
-                  <ArrowLeftRight className="size-4" />
+                  <ArrowLeftRight className="size-4 text-violet-400/70" />
                   <span>Transactions</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Interactions"
-                  isActive={location.pathname.startsWith(`/manager/${botId}/interactions`)}
+                  isActive={isActive(`/manager/${botId}/interactions`)}
                   render={<Link to={`/manager/${botId}/interactions`} />}
                 >
-                  <MessageCircle className="size-4" />
+                  <MessageCircle className="size-4 text-rose-400/70" />
                   <span>Interactions</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -173,7 +175,7 @@ export default function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Create New Bot" render={<Link to="/manager/new" />}>
-              <Plus className="size-4" />
+              <Plus className="size-4 text-primary" />
               <span>Create New Bot</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

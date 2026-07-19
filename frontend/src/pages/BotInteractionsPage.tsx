@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 import {
   Sheet,
   SheetContent,
@@ -22,6 +23,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+function directionBadge(dir: string) {
+  if (dir === "IN") return <Badge variant="outline" className="border-sky-500/30 bg-sky-500/15 text-sky-400 text-xs">IN</Badge>;
+  if (dir === "OUT") return <Badge variant="outline" className="border-violet-500/30 bg-violet-500/15 text-violet-400 text-xs">OUT</Badge>;
+  return <Badge variant="secondary" className="text-xs">{dir}</Badge>;
+}
 
 export default function BotInteractionsPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -71,39 +78,51 @@ export default function BotInteractionsPage() {
         <p className="text-muted-foreground">User interaction logs for this bot</p>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="message">Message</SelectItem>
-            <SelectItem value="callback_query">Callback</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          placeholder="User ID"
-          value={userIdFilter}
-          onChange={(e) => setUserIdFilter(e.target.value)}
-          className="w-40"
-        />
-        <Input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-          className="w-40"
-        />
-        <Input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-          className="w-40"
-        />
-        <Button variant="outline" size="sm" onClick={handleApplyFilters}>
+      <Card className="flex flex-wrap items-end gap-3 p-4 shadow-card">
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">Type</p>
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? "all")}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="message">Message</SelectItem>
+              <SelectItem value="callback_query">Callback</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">User ID</p>
+          <Input
+            placeholder="User ID"
+            value={userIdFilter}
+            onChange={(e) => setUserIdFilter(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">From</p>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">To</p>
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <Button variant="default" size="sm" onClick={handleApplyFilters}>
           Apply Filters
         </Button>
-      </div>
+      </Card>
 
       {loading ? (
         <div className="space-y-2">
@@ -112,17 +131,17 @@ export default function BotInteractionsPage() {
           ))}
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center gap-4 py-12">
+        <div className="flex flex-col items-center gap-4 py-16">
           <p className="text-destructive">{error}</p>
           <Button variant="outline" onClick={fetchData}>Retry</Button>
         </div>
       ) : !data || data.items.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 py-12">
+        <div className="flex flex-col items-center gap-4 py-16">
           <p className="text-muted-foreground">No interactions found.</p>
         </div>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="rounded-xl border shadow-card overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -142,11 +161,7 @@ export default function BotInteractionsPage() {
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">{item.type}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={item.direction === "IN" ? "default" : "outline"} className="text-xs">
-                        {item.direction}
-                      </Badge>
-                    </TableCell>
+                    <TableCell>{directionBadge(item.direction)}</TableCell>
                     <TableCell className="max-w-40 truncate text-xs">{item.content || "—"}</TableCell>
                     <TableCell>
                       {item.payload && (

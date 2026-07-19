@@ -81,7 +81,7 @@ export default function MessageStepCard({
   }
 
   return (
-    <Card>
+    <Card className="shadow-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CardHeader className="py-3">
           <div className="flex items-center gap-2">

@@ -41,6 +41,10 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 2px)",
+      },
+      boxShadow: {
+        card: "0 0 0 1px hsl(var(--border)), 0 2px 8px 0 rgba(0, 0, 0, 0.4)",
       },
     },
   },
