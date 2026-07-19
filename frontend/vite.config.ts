@@ -10,7 +10,7 @@ function devMockPlugin(): Plugin {
     configureServer(server) {
       if (!useMocks) return;
 
-      server.middlewares.use("/api", async (req, res, next) => {
+      server.middlewares.use(async (req, res, next) => {
         try {
           const handled = await mockRequest(req, res);
           if (!handled) next();
