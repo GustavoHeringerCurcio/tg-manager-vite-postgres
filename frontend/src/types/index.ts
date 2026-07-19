@@ -3,6 +3,7 @@ export type {
   MessageType,
   ButtonColor,
   ButtonAction,
+  LivePixResponse,
   MessageButton,
   MessageStep,
   Bot,

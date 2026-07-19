@@ -5,13 +5,17 @@ export function newId(): string {
 }
 
 export function newButton(action: ButtonAction = "OPEN_URL"): MessageButton {
-  return {
+  const base: MessageButton = {
     id: newId(),
     label: action === "LIVEPIX_PAYMENT" ? "Pagar agora" : "Abrir link",
     color: action === "LIVEPIX_PAYMENT" ? "GREEN" : "BLUE",
     action,
     url: "",
   };
+  if (action === "LIVEPIX_PAYMENT") {
+    base.price = 29.9;
+  }
+  return base;
 }
 
 export function newStep(index = 0): MessageStep {

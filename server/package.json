@@ -18,11 +18,13 @@
     "@prisma/client": "^6.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "qrcode": "^1.5.4",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
+    "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.2",
     "prisma": "^6.1.0",
     "supertest": "^7.0.0",

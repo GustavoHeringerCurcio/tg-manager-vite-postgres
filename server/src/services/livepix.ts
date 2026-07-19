@@ -1,3 +1,5 @@
+import QRCode from "qrcode";
+import type { Telegram } from "telegraf";
 import { delay } from "../utils/async.js";
 
 const OAUTH_URL = "https://oauth.livepix.gg/oauth2/token";
@@ -28,6 +30,8 @@ export type LivePixPayment = {
 export class LivePixService {
   private accessToken: string | null = null;
   private expiresAt = 0;
+  private pendingPayments = new Map<string, { chatId: number | undefined; amount: number; confirmed: boolean }>();
+  private pollingInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly clientId: string, private readonly clientSecret: string) {}
 
@@ -74,6 +78,73 @@ export class LivePixService {
     if (!checkoutId) return undefined;
     await delay(1500);
     return fetchPixCodeViaWebservice(checkoutId);
+  }
+
+  async checkPayment(reference: string): Promise<{ status: string; amount: number } | null> {
+    const token = await this.requestToken();
+    const response = await fetch(`${API_URL}/payments?reference=${encodeURIComponent(reference)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { data?: Array<{ status?: string; amount?: number }> };
+    if (!data.data || data.data.length === 0) return null;
+    const payment = data.data[0];
+    return { status: payment.status ?? "UNKNOWN", amount: payment.amount ?? 0 };
+  }
+
+  async generateQrCode(pixCode: string): Promise<Buffer> {
+    const qrBuffer = await QRCode.toBuffer(pixCode, {
+      type: "png",
+      width: 512,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" }
+    });
+    return qrBuffer;
+  }
+
+  registerPendingPayment(reference: string, chatId: number | undefined, amount: number): void {
+    this.pendingPayments.set(reference, { chatId, amount, confirmed: false });
+  }
+
+  startPaymentPolling(telegram: Telegram): void {
+    if (this.pollingInterval) return;
+    this.pollingInterval = setInterval(() => {
+      void this.processPendingPayments(telegram);
+    }, 30_000);
+  }
+
+  stopPaymentPolling(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
+
+  private async processPendingPayments(telegram: Telegram): Promise<void> {
+    for (const [ref, entry] of this.pendingPayments.entries()) {
+      if (entry.confirmed) continue;
+      try {
+        const payment = await this.checkPayment(ref);
+        if (payment && payment.amount > 0) {
+          entry.confirmed = true;
+          if (entry.chatId) {
+            try {
+              await telegram.sendMessage(
+                entry.chatId,
+                `Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`
+              );
+            } catch (err) {
+              console.error(`Failed to notify chat ${entry.chatId}:`, err instanceof Error ? err.message : err);
+            }
+          }
+          this.pendingPayments.delete(ref);
+        }
+      } catch (err) {
+        console.error(`Polling error for payment ${ref}:`, err instanceof Error ? err.message : err);
+      }
+    }
   }
 }
 

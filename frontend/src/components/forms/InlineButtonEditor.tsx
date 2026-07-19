@@ -1,9 +1,11 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, ExternalLink, CreditCard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Trash2, ExternalLink, CreditCard, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ButtonAction, ButtonColor, MessageButton } from "@/types";
+import type { ButtonAction, ButtonColor, LivePixResponse, MessageButton } from "@/types";
 
 interface InlineButtonEditorProps {
   button: MessageButton;
@@ -32,7 +34,120 @@ const actionCards: { value: ButtonAction; icon: React.ReactNode; title: string; 
   },
 ];
 
+function newResponse(): LivePixResponse {
+  return {};
+}
+
+function ResponseEditor({
+  response,
+  index,
+  onChange,
+  onRemove,
+}: {
+  response: LivePixResponse;
+  index: number;
+  onChange: (response: LivePixResponse) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-md border border-border/40 bg-background/50 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Response {index + 1}
+        </span>
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onRemove}>
+          <X className="size-3" />
+        </Button>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-[10px]">Text</Label>
+        <Textarea
+          value={response.text ?? ""}
+          onChange={(e) => onChange({ ...response, text: e.target.value || undefined })}
+          className="h-12 text-xs resize-none"
+          placeholder="Use {amount}, {pix_code}, {checkout_url} as placeholders"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[10px]">Image URL</Label>
+          <Input
+            value={response.imageUrl ?? ""}
+            onChange={(e) => onChange({ ...response, imageUrl: e.target.value || undefined })}
+            className="h-7 text-xs"
+            placeholder="https://..."
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px]">Audio URL</Label>
+          <Input
+            value={response.audioUrl ?? ""}
+            onChange={(e) => onChange({ ...response, audioUrl: e.target.value || undefined })}
+            className="h-7 text-xs"
+            placeholder="https://..."
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-[10px]">Video URL</Label>
+        <Input
+          value={response.videoUrl ?? ""}
+          onChange={(e) => onChange({ ...response, videoUrl: e.target.value || undefined })}
+          className="h-7 text-xs"
+          placeholder="https://..."
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-3 pt-1">
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Switch
+            checked={response.includeQrCode ?? false}
+            onCheckedChange={(v) => onChange({ ...response, includeQrCode: v || undefined })}
+            className="scale-75"
+          />
+          <span className="text-[10px]">QR Code</span>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Switch
+            checked={response.includePixCode ?? false}
+            onCheckedChange={(v) => onChange({ ...response, includePixCode: v || undefined })}
+            className="scale-75"
+          />
+          <span className="text-[10px]">PIX Code</span>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Switch
+            checked={response.includeCheckoutUrl ?? false}
+            onCheckedChange={(v) => onChange({ ...response, includeCheckoutUrl: v || undefined })}
+            className="scale-75"
+          />
+          <span className="text-[10px]">LivePix Link</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonEditorProps) {
+  const responses = button.responses ?? [];
+
+  function setResponses(newResponses: LivePixResponse[]) {
+    onChange({ responses: newResponses.length > 0 ? newResponses : undefined });
+  }
+
+  function updateResponse(index: number, updated: LivePixResponse) {
+    const next = [...responses];
+    next[index] = updated;
+    setResponses(next);
+  }
+
+  function removeResponse(index: number) {
+    setResponses(responses.filter((_, i) => i !== index));
+  }
+
   return (
     <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-3">
       <div className="space-y-1.5">
@@ -57,6 +172,7 @@ export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonE
                   action: card.value,
                   label: card.value === "LIVEPIX_PAYMENT" ? "Pagar agora" : button.label || "Abrir link",
                   color: card.value === "LIVEPIX_PAYMENT" ? "GREEN" : "BLUE",
+                  ...(card.value === "LIVEPIX_PAYMENT" ? { price: button.price ?? 29.9 } : {}),
                 });
               }}
               className={cn(
@@ -95,6 +211,21 @@ export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonE
         </div>
       )}
 
+      {button.action === "LIVEPIX_PAYMENT" && (
+        <div className="space-y-1.5 animate-fade-in">
+          <Label className="text-[11px]">Price (R$)</Label>
+          <Input
+            type="number"
+            min={0.01}
+            step={0.01}
+            value={button.price ?? 0}
+            onChange={(e) => onChange({ price: Number(e.target.value) })}
+            className="h-8 text-sm"
+            placeholder="29.90"
+          />
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label className="text-[11px]">Color</Label>
         <div className="flex gap-2">
@@ -123,6 +254,36 @@ export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonE
           ))}
         </div>
       </div>
+
+      {button.action === "LIVEPIX_PAYMENT" && (
+        <div className="space-y-2 animate-fade-in pt-1 border-t border-border/30">
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px]">Response Messages</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() => setResponses([...responses, newResponse()])}
+            >
+              <Plus className="size-3 mr-1" /> Add
+            </Button>
+          </div>
+          {responses.map((resp, i) => (
+            <ResponseEditor
+              key={i}
+              response={resp}
+              index={i}
+              onChange={(updated) => updateResponse(i, updated)}
+              onRemove={() => removeResponse(i)}
+            />
+          ))}
+          {responses.length === 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              No response messages defined. A default payment message will be sent.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="pt-1.5 border-t border-border/30">
         <Button

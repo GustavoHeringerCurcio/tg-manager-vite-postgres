@@ -11,18 +11,19 @@ export class BotManager {
   readonly path: string;
   private readonly secretToken: string;
   private readonly telegraf: Telegraf<Context>;
+  private readonly livePix: LivePixService;
 
   constructor(config: Bot, token: string, env: AppEnv) {
     this.botId = config.id;
     this.path = `/webhook/${config.id}`;
     this.secretToken = randomBytes(32).toString("hex");
     this.telegraf = new Telegraf(token);
-    const livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret);
+    this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret);
     this.telegraf.use(Composer.fork(async (ctx) => {
       ctx.telegram.webhookReply = false;
       return Promise.resolve();
     }));
-    registerHandlers(this.telegraf, config, { env, livePix });
+    registerHandlers(this.telegraf, config, { env, livePix: this.livePix });
     this.telegraf.catch((error) => {
       const message = error instanceof Error ? error.message : "bot handler failed";
       console.error(`[bot:${config.id}] ${message}`);
@@ -39,6 +40,7 @@ export class BotManager {
       drop_pending_updates: true,
       allowed_updates: ["message", "callback_query"]
     });
+    this.livePix.startPaymentPolling(this.telegraf.telegram);
   }
 
   async stop(): Promise<void> {
@@ -48,6 +50,7 @@ export class BotManager {
       const message = error instanceof Error ? error.message : "delete webhook failed";
       console.error(`[bot:${this.botId}] ${message}`);
     }
+    this.livePix.stopPaymentPolling();
   }
 
   get telegram() {

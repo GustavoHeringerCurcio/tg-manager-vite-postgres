@@ -3,12 +3,24 @@ export type MessageType = "TEXT" | "AUDIO" | "VIDEO";
 export type ButtonColor = "BLUE" | "GREEN" | "RED";
 export type ButtonAction = "OPEN_URL" | "LIVEPIX_PAYMENT";
 
+export type LivePixResponse = {
+  text?: string;
+  imageUrl?: string;
+  audioUrl?: string;
+  videoUrl?: string;
+  includeQrCode?: boolean;
+  includePixCode?: boolean;
+  includeCheckoutUrl?: boolean;
+};
+
 export type MessageButton = {
   id: string;
   label: string;
   color: ButtonColor;
   action: ButtonAction;
   url?: string;
+  price?: number;
+  responses?: LivePixResponse[];
 };
 
 export type MessageStep = {

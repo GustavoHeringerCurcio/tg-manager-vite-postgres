@@ -8,7 +8,7 @@ import { logInteraction } from "../services/logger.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { normalizeMessageFlow } from "./messageFlow.js";
-import type { MessageButton, MessageStep } from "./messageFlow.js";
+import type { LivePixResponse, MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizeRemarketing } from "./remarketing.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
@@ -68,6 +68,14 @@ function findPaymentButton(steps: MessageStep[], id: string): MessageButton | un
   return undefined;
 }
 
+function findPaymentButtonAcross(steps: MessageStep[][], id: string): MessageButton | undefined {
+  for (const flow of steps) {
+    const button = findPaymentButton(flow, id);
+    if (button) return button;
+  }
+  return undefined;
+}
+
 async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv): Promise<void> {
   const replyMarkup = keyboard(step);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
@@ -94,20 +102,71 @@ async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: M
   logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: step.text ?? step.title, logPayloads: env.logPayloads });
 }
 
-async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices): Promise<void> {
+function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
+  return text
+    .replace(/\{amount\}/g, `R$ ${amount.toFixed(2)}`)
+    .replace(/\{pix_code\}/g, pixCode ?? "")
+    .replace(/\{checkout_url\}/g, checkoutUrl);
+}
+
+async function sendLivePixResponse(
+  ctx: Context,
+  response: LivePixResponse,
+  amount: number,
+  pixCode: string | undefined,
+  checkoutUrl: string,
+  services: HandlerServices
+): Promise<void> {
+  const metaText = response.text ? resolvePlaceholders(response.text, amount, pixCode, checkoutUrl) : "";
+
+  let finalText = metaText;
+  if (response.includePixCode && pixCode) {
+    finalText = finalText ? `${finalText}\n\nCódigo PIX: <code>${pixCode}</code>` : `<code>${pixCode}</code>`;
+  }
+  if (response.includeCheckoutUrl) {
+    finalText = finalText ? `${finalText}\n\nLink de pagamento: ${checkoutUrl}` : checkoutUrl;
+  }
+
+  if (response.videoUrl) {
+    await ctx.replyWithVideo(response.videoUrl, { caption: finalText || undefined, parse_mode: "HTML" });
+    return;
+  }
+  if (response.audioUrl) {
+    await ctx.replyWithAudio(response.audioUrl, { caption: finalText || undefined, parse_mode: "HTML" });
+    return;
+  }
+  if (response.imageUrl) {
+    await ctx.replyWithPhoto(response.imageUrl, { caption: finalText || undefined, parse_mode: "HTML" });
+  } else if (finalText) {
+    await ctx.reply(finalText, { parse_mode: "HTML" });
+  }
+
+  if (response.includeQrCode && pixCode) {
+    try {
+      const qrBuffer = await services.livePix.generateQrCode(pixCode);
+      await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
+    } catch {
+      await ctx.reply("QR Code não disponível no momento.");
+    }
+  }
+}
+
+async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton): Promise<void> {
+  const amount = button.price ?? botConfig.checkoutAmount;
   try {
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { pixGenerations: { increment: 1 }, lastInteraction: new Date() }
     });
-    const payment = await services.livePix.createPayment(botConfig.checkoutAmount);
+    const payment = await services.livePix.createPayment(amount);
     const pixAllowed = updatedUser.pixGenerations <= services.env.maxPixGenerations;
     const pixCode = pixAllowed ? await services.livePix.extractPixCode(payment.checkoutUrl) : undefined;
+
     await prisma.transaction.create({
       data: {
         botId: botConfig.id,
         userId: user.id,
-        amount: botConfig.checkoutAmount,
+        amount,
         paymentMethod: PaymentMethod.PIX,
         status: "PENDING",
         pixCode,
@@ -115,15 +174,25 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
         livepixReference: payment.reference
       }
     });
-    if (pixCode) {
-      const text = `Pagamento PIX\n\nValor: R$ ${botConfig.checkoutAmount.toFixed(2)}\n\nCódigo PIX copia e cola:\n${pixCode}`;
-      await ctx.reply(text);
-      logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "PIX code sent", logPayloads: services.env.logPayloads });
-      return;
+
+    const responses = button.responses ?? [];
+    if (responses.length > 0) {
+      for (const response of responses) {
+        await sendLivePixResponse(ctx, response, amount, pixCode, payment.checkoutUrl, services);
+      }
+    } else {
+      const defaultText = `Pagamento PIX\n\nValor: R$ ${amount.toFixed(2)}`;
+      if (pixCode) {
+        await ctx.reply(`${defaultText}\n\nCódigo PIX copia e cola:\n<code>${pixCode}</code>`, { parse_mode: "HTML" });
+      } else {
+        const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
+        await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup });
+      }
     }
-    const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
-    await ctx.reply(`Pagamento PIX\n\nValor: R$ ${botConfig.checkoutAmount.toFixed(2)}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup });
-    logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix checkout URL sent", logPayloads: services.env.logPayloads });
+
+    services.livePix.registerPendingPayment(payment.reference, ctx.chat?.id, amount);
+
+    logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix payment response sent", logPayloads: services.env.logPayloads });
   } catch (error) {
     const message = error instanceof Error ? error.message : "payment flow failed";
     console.error(`[bot:${botConfig.id}] ${message}`);
@@ -180,7 +249,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     const data = "data" in ctx.callbackQuery ? ctx.callbackQuery.data : "";
     if (!data.startsWith(LIVEPIX_CALLBACK_PREFIX)) return;
     const buttonId = data.slice(LIVEPIX_CALLBACK_PREFIX.length);
-    const button = findPaymentButton(messageFlow, buttonId);
+    const button = findPaymentButtonAcross([messageFlow, remarketing.messages], buttonId);
     if (!button) {
       await ctx.answerCbQuery("Este botão não está mais disponível.");
       return;
@@ -192,6 +261,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       return;
     }
     logInteraction({ botId: botConfig.id, userId: user.id, type: "callback_query", direction: "incoming", content: data, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-    await sendLivePixPayment(ctx, botConfig, user, services);
+    await sendLivePixPayment(ctx, botConfig, user, services, button);
   });
 }
