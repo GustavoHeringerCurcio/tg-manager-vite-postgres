@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import MessageFlowEditor from "./MessageFlowEditor";
 import RemarketingEditor from "./RemarketingEditor";
-import type { Bot, BotPayload, RemarketingConfig, MessageStep } from "@/types";
+import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep } from "@/types";
+import { Settings, Save, Workflow, Timer } from "lucide-react";
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 const defaultRemarketing: RemarketingConfig = {
   enabled: false,
@@ -16,7 +22,7 @@ const defaultRemarketing: RemarketingConfig = {
 };
 
 interface BotFormProps {
-  bot?: Bot | null;
+  bot?: BotType | null;
   saving: boolean;
   onSave: (payload: BotPayload) => void;
   onCancel: () => void;
@@ -32,6 +38,24 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
   );
+  const [settingsOpen, setSettingsOpen] = useState(!isEditing);
+
+  const initial = useMemo(() => ({
+    name: bot?.name ?? "",
+    messageFlow: bot?.messageFlow ?? [],
+    remarketing: bot?.remarketing ?? defaultRemarketing,
+    checkoutAmount: bot?.checkoutAmount ?? 0,
+  }), [bot]);
+
+  const current = {
+    name,
+    messageFlow,
+    remarketing,
+    checkoutAmount,
+  };
+
+  const isDirty = !deepEqual(initial, current);
+  useUnsavedChanges(isDirty);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,28 +69,34 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
     onSave(payload);
   }
 
+  const settingsSummary = [
+    name && `"${name}"`,
+    checkoutAmount > 0 && `R$ ${checkoutAmount.toFixed(2)}`,
+    token && "Token set",
+    !name && "No name set",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Card className="shadow-card">
-        <CardContent className="space-y-4 pt-6">
-          <div>
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Bot Settings
-            </Label>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <CollapsibleSection
+        title="Bot Settings"
+        summary={settingsSummary || "Configure bot name, token, and pricing"}
+        icon={<Settings className="size-4 text-muted-foreground" />}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        dirty={isDirty && !deepEqual(initial, current)}
+      >
+        <div className="space-y-4 pt-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="bot-name">Bot Name</Label>
-              <Input
-                id="bot-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
+              <Label htmlFor="bot-name" className="text-xs">Bot Name</Label>
+              <Input id="bot-name" value={name} onChange={(e) => setName(e.target.value)} required className="h-8" />
             </div>
             {(requireToken || isEditing) && (
               <div className="space-y-2">
-                <Label htmlFor="bot-token">
+                <Label htmlFor="bot-token" className="text-xs">
                   Telegram Token {!requireToken && "(leave blank to keep current)"}
                 </Label>
                 <Input
@@ -76,12 +106,13 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
                   onChange={(e) => setToken(e.target.value)}
                   placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
                   required={requireToken}
+                  className="h-8"
                 />
               </div>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="checkout-amount">Checkout Amount (R$)</Label>
+            <Label htmlFor="checkout-amount" className="text-xs">Checkout Amount (R$)</Label>
             <Input
               id="checkout-amount"
               type="number"
@@ -89,31 +120,63 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
               step={0.01}
               value={checkoutAmount}
               onChange={(e) => setCheckoutAmount(Number(e.target.value))}
+              className="h-8"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleSection>
 
-      <Card className="shadow-card">
-        <CardContent className="pt-6">
+      <CollapsibleSection
+        title="Message Flow"
+        summary={`${messageFlow.length} step${messageFlow.length !== 1 ? "s" : ""}`}
+        icon={<Workflow className="size-4 text-emerald-400" />}
+        open={true}
+        onOpenChange={() => {}}
+        dirty={isDirty && !deepEqual(initial.messageFlow, messageFlow)}
+      >
+        <div className="pt-4">
           <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleSection>
 
-      <Card className="shadow-card">
-        <CardContent className="pt-6">
+      <CollapsibleSection
+        title="Remarketing"
+        summary={
+          remarketing.enabled
+            ? `${remarketing.messages.length} follow-up message${remarketing.messages.length !== 1 ? "s" : ""}`
+            : "Disabled"
+        }
+        icon={<Timer className="size-4 text-amber-400" />}
+        open={true}
+        onOpenChange={() => {}}
+      >
+        <div className="pt-4">
           <RemarketingEditor config={remarketing} onChange={setRemarketing} />
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleSection>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={saving} className="min-w-32">
-          {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Bot"}
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
+      <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background/80 backdrop-blur-xl border-t flex items-center justify-between z-10">
+        <div className="flex items-center gap-2">
+          {isDirty ? (
+            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+              <span className="flex size-1.5 rounded-full bg-amber-400 animate-pulse-dot" />
+              Unsaved changes
+            </span>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {saving ? "Saving..." : "All changes saved"}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button type="submit" disabled={saving || !isDirty} className="min-w-32 shadow-glow-primary">
+            <Save className="mr-1.5 size-4" />
+            {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Bot"}
+          </Button>
+        </div>
       </div>
+
     </form>
   );
 }

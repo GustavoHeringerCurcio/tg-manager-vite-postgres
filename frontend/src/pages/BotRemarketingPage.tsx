@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import type { BotPayload } from "@/types";
 import { useState } from "react";
+import { Timer } from "lucide-react";
 
 export default function BotRemarketingPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -30,7 +31,7 @@ export default function BotRemarketingPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -46,10 +47,15 @@ export default function BotRemarketingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Remarketing</h1>
-        <p className="text-muted-foreground">Follow-up sequence for {bot.name}</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
+          <Timer className="size-5 text-amber-400" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Remarketing</h1>
+          <p className="text-sm text-muted-foreground">Follow-up sequence for {bot.name}</p>
+        </div>
       </div>
       <BotForm
         bot={bot}

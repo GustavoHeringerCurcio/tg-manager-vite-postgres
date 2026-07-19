@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -11,15 +11,16 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { RefreshCw, Plus, LogOut } from "lucide-react";
+import { RefreshCw, Plus, LogOut, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import type { Bot as BotType } from "@/types";
 import { api } from "@/lib/api";
 
-export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
+export default function AppHeader() {
   const { botId } = useParams<{ botId?: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout } = useAuth();
   const [bot, setBot] = useState<BotType | null>(null);
 
@@ -47,13 +48,13 @@ export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
   }
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b bg-background/80 backdrop-blur-xl px-3">
+      <div className="flex items-center gap-1.5">
         <Tooltip>
           <TooltipTrigger render={<SidebarTrigger />} />
-          <TooltipContent>Toggle sidebar</TooltipContent>
+          <TooltipContent side="bottom">Toggle sidebar (Ctrl+B)</TooltipContent>
         </Tooltip>
-        <Separator orientation="vertical" className="h-5" />
+        <Separator orientation="vertical" className="h-4" />
         <Breadcrumb>
           <BreadcrumbList>
             {pathParts.map((part, i) => {
@@ -62,13 +63,22 @@ export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
               const label = part === botId && bot ? bot.name : pageLabel(part);
 
               return (
-                <span key={href} className="flex items-center gap-1.5">
-                  {i > 0 && <BreadcrumbSeparator />}
+                <span key={href} className="flex items-center gap-1">
+                  {i > 0 && (
+                    <BreadcrumbSeparator>
+                      <ChevronRight className="size-3" />
+                    </BreadcrumbSeparator>
+                  )}
                   <BreadcrumbItem>
                     {isLast ? (
-                      <BreadcrumbPage>{label}</BreadcrumbPage>
+                      <BreadcrumbPage className="font-medium">{label}</BreadcrumbPage>
                     ) : (
-                      <BreadcrumbLink render={<Link to={href} />}>{label}</BreadcrumbLink>
+                      <BreadcrumbLink
+                        render={<Link to={href} />}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {label}
+                      </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
                 </span>
@@ -77,37 +87,30 @@ export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  onRefresh?.();
-                  window.dispatchEvent(new Event("botflix-refresh"));
-                }}
-              >
-                <RefreshCw className="size-4" />
+              <Button variant="ghost" size="icon-sm" onClick={() => navigate(0)}>
+                <RefreshCw className="size-3.5" />
               </Button>
             }
           />
-          <TooltipContent>Refresh data</TooltipContent>
+          <TooltipContent side="bottom">Refresh data</TooltipContent>
         </Tooltip>
-        <Button variant="default" size="sm" render={<Link to="/manager/new" />}>
-          <Plus className="mr-1 size-4" />
+        <Button variant="default" size="xs" render={<Link to="/manager/new" />}>
+          <Plus className="mr-1 size-3" />
           New Bot
         </Button>
         <Tooltip>
           <TooltipTrigger
             render={
               <Button variant="ghost" size="icon-sm" onClick={logout}>
-                <LogOut className="size-4" />
+                <LogOut className="size-3.5" />
               </Button>
             }
           />
-          <TooltipContent>Sign out</TooltipContent>
+          <TooltipContent side="bottom">Sign out</TooltipContent>
         </Tooltip>
       </div>
     </header>

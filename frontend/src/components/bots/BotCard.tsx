@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link, useNavigate } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -19,7 +19,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { MoreHorizontal, Users, MessageSquare, CreditCard, Pencil, Trash2, Power, PowerOff } from "lucide-react";
+import {
+  MoreHorizontal,
+  Users,
+  MessageSquare,
+  CreditCard,
+  Pencil,
+  Trash2,
+  Power,
+  PowerOff,
+  ArrowUpRight,
+} from "lucide-react";
 import { useState } from "react";
 import type { Bot } from "@/types";
 
@@ -37,66 +47,74 @@ interface BotCardProps {
 
 export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
-    <Card className="group relative shadow-card transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10">
-      <Link to={`/manager/${bot.id}/dashboard`} className="block">
-        <CardHeader className="text-center">
-          <Avatar className="mx-auto size-14" size="lg">
-            <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">
-              {bot.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <CardTitle className="mt-3 text-lg">{bot.name}</CardTitle>
-          <StatusBadge status={bot.status} />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2.5 text-sm">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <Users className="size-4 text-primary/60" />
-                <span className="text-muted-foreground">Users</span>
-              </div>
-              <span className="font-medium tabular-nums text-foreground/80">
-                {stats?.totalUsers?.toLocaleString() ?? "—"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <MessageSquare className="size-4 text-sky-400/60" />
-                <span className="text-muted-foreground">Messages</span>
-              </div>
-              <span className="font-medium tabular-nums text-foreground/80">
-                {stats?.messageCount?.toLocaleString() ?? "—"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <CreditCard className="size-4 text-amber-400/60" />
-                <span className="text-muted-foreground">Checkout</span>
-              </div>
-              <span className="font-medium tabular-nums text-foreground/80">
-                R$ {(bot.checkoutAmount || 0).toFixed(2)}
-              </span>
+    <Card className="group relative flex flex-col shadow-sm transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
+      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r from-primary/60 to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      <Link to={`/manager/${bot.id}/dashboard`} className="flex flex-col flex-1 p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <Avatar className="size-11 rounded-xl ring-2 ring-border/50 group-hover:ring-primary/30 transition-all" size="lg">
+              <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-semibold text-sm">
+                {bot.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-semibold text-sm leading-tight">{bot.name}</h3>
+              <StatusBadge status={bot.status} />
             </div>
           </div>
-        </CardContent>
+          <ArrowUpRight className="size-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+        </div>
+
+        <div className="mt-auto grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+          <div className="text-center">
+            <p className="text-lg font-bold tabular-nums leading-none">
+              {stats?.totalUsers?.toLocaleString() ?? "—"}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+              <Users className="size-2.5" />
+              Users
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold tabular-nums leading-none">
+              {stats?.messageCount?.toLocaleString() ?? "—"}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+              <MessageSquare className="size-2.5" />
+              Msgs
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold tabular-nums leading-none">
+              R$ {(bot.checkoutAmount || 0).toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+              <CreditCard className="size-2.5" />
+              Price
+            </p>
+          </div>
+        </div>
       </Link>
+
       <div className="absolute top-3 right-3">
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button variant="ghost" size="icon-sm" className="opacity-0 transition-opacity group-hover:opacity-100">
-                <MoreHorizontal className="size-4" />
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoreHorizontal className="size-3.5" />
               </Button>
             }
           />
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={() => {
-                window.location.href = `/manager/${bot.id}/messages`;
-              }}
-            >
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onSelect={() => navigate(`/manager/${bot.id}/messages`)}>
               <Pencil className="mr-2 size-4" />
               Edit Messages
             </DropdownMenuItem>
@@ -120,7 +138,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               <DialogTrigger
                 render={
                   <DropdownMenuItem
-                    className="text-destructive"
+                    className="text-destructive focus:text-destructive"
                     onSelect={(e) => e.preventDefault()}
                   >
                     <Trash2 className="mr-2 size-4" />

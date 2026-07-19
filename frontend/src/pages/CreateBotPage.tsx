@@ -4,6 +4,7 @@ import BotForm from "@/components/forms/BotForm";
 import { toast } from "sonner";
 import type { BotPayload } from "@/types";
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 
 export default function CreateBotPage() {
   const navigate = useNavigate();
@@ -24,10 +25,15 @@ export default function CreateBotPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Create New Bot</h1>
-        <p className="text-muted-foreground">Set up a new Telegram bot</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+          <Sparkles className="size-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Create New Bot</h1>
+          <p className="text-sm text-muted-foreground">Set up a new Telegram bot from scratch</p>
+        </div>
       </div>
       <BotForm
         saving={saving}

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import type { BotPayload } from "@/types";
 import { useState } from "react";
+import { Workflow } from "lucide-react";
 
 export default function BotMessagesPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -30,7 +31,7 @@ export default function BotMessagesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -46,10 +47,15 @@ export default function BotMessagesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Message Flow</h1>
-        <p className="text-muted-foreground">Edit message sequence and settings for {bot.name}</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
+          <Workflow className="size-5 text-emerald-400" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Message Flow</h1>
+          <p className="text-sm text-muted-foreground">Edit message sequence for {bot.name}</p>
+        </div>
       </div>
       <BotForm
         bot={bot}

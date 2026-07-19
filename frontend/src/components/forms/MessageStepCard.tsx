@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,39 +6,77 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, GripVertical, Trash2, Copy, ArrowUp, ArrowDown, Plus } from "lucide-react";
-import { useState } from "react";
-import type { MessageStep, MessageType, ButtonAction, ButtonColor, MessageButton } from "@/types";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  ChevronDown,
+  GripVertical,
+  Trash2,
+  Copy,
+  Plus,
+  MessageSquare,
+  Music,
+  Video,
+  ChevronRight,
+} from "lucide-react";
+import { memo } from "react";
+import { cn } from "@/lib/utils";
+import type { MessageStep, MessageType, MessageButton } from "@/types";
 import { newId } from "@/lib/helpers";
+import { InlineButtonEditor } from "./InlineButtonEditor";
 
 interface MessageStepCardProps {
   step: MessageStep;
   index: number;
   total: number;
+  isExpanded: boolean;
+  onToggle: (open: boolean) => void;
   onChange: (step: MessageStep) => void;
   onRemove: () => void;
   onDuplicate: () => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
 }
 
-const typeLabels: Record<MessageType, string> = {
-  TEXT: "Text",
-  AUDIO: "Audio",
-  VIDEO: "Video",
+const typeConfig: Record<MessageType, { label: string; icon: React.ReactNode; color: string }> = {
+  TEXT: {
+    label: "Text",
+    icon: <MessageSquare className="size-3" />,
+    color: "border-border bg-secondary/50 text-secondary-foreground",
+  },
+  AUDIO: {
+    label: "Audio",
+    icon: <Music className="size-3" />,
+    color: "border-amber-500/20 bg-amber-500/10 text-amber-400",
+  },
+  VIDEO: {
+    label: "Video",
+    icon: <Video className="size-3" />,
+    color: "border-violet-500/20 bg-violet-500/10 text-violet-400",
+  },
 };
 
-export default function MessageStepCard({
+function MessageStepCardInner({
   step,
   index,
   total,
+  isExpanded,
+  onToggle,
   onChange,
   onRemove,
   onDuplicate,
-  onMoveUp,
-  onMoveDown,
 }: MessageStepCardProps) {
-  const [open, setOpen] = useState(true);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: step.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   function update(fields: Partial<MessageStep>) {
     onChange({ ...step, ...fields });
@@ -80,62 +118,120 @@ export default function MessageStepCard({
     update({ mediaUrls: step.mediaUrls.filter((_, i) => i !== idx) });
   }
 
+  const type = typeConfig[step.type];
+  const hasContent = step.text || step.mediaUrls.length > 0 || step.buttons.length > 0;
+
   return (
-    <Card className="shadow-card">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CardHeader className="py-3">
-          <div className="flex items-center gap-2">
-            <GripVertical className="size-4 cursor-grab text-muted-foreground" />
-            <CollapsibleTrigger
-              render={
-                <button className="flex flex-1 items-center gap-2 text-left">
-                  <ChevronDown className="size-4 transition-transform data-[state=open]:rotate-180" />
-                  <span className="font-medium text-sm">Step {index + 1}</span>
-                  <span className="text-sm text-muted-foreground">— {step.title}</span>
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {typeLabels[step.type]}
-                  </Badge>
-                </button>
-              }
-            />
-            <div className="flex items-center gap-0.5">
-              {onMoveUp && (
-                <Button variant="ghost" size="icon-xs" onClick={onMoveUp} disabled={index === 0}>
-                  <ArrowUp className="size-3" />
-                </Button>
-              )}
-              {onMoveDown && (
-                <Button variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={index === total - 1}>
-                  <ArrowDown className="size-3" />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon-xs" onClick={onDuplicate}>
-                <Copy className="size-3" />
-              </Button>
-              <Button variant="ghost" size="icon-xs" onClick={onRemove}>
-                <Trash2 className="size-3 text-destructive" />
-              </Button>
-            </div>
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "shadow-sm ring-1 ring-border/40 transition-all",
+        isDragging && "opacity-50 shadow-lg z-50",
+        isExpanded && "ring-primary/30"
+      )}
+    >
+      <Collapsible open={isExpanded} onOpenChange={onToggle}>
+        <div className="flex items-center gap-1 px-3 py-2.5">
+          <button
+            {...attributes}
+            {...listeners}
+            className="flex shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors p-0.5"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="size-4" />
+          </button>
+
+          <CollapsibleTrigger
+            render={
+              <button className="flex flex-1 items-center gap-2.5 text-left min-w-0 py-0.5">
+                <ChevronRight
+                  className={cn(
+                    "size-3.5 text-muted-foreground shrink-0 transition-transform duration-200",
+                    isExpanded && "rotate-90"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums",
+                    isExpanded ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="font-medium text-sm truncate">{step.title}</span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] gap-1 shrink-0",
+                    type.color
+                  )}
+                >
+                  {type.icon}
+                  {type.label}
+                </Badge>
+                {step.buttons.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums">
+                    {step.buttons.length} btn{step.buttons.length > 1 ? "s" : ""}
+                  </span>
+                )}
+                {step.delayMs > 0 && (
+                  <span className="text-[10px] text-muted-foreground/30 shrink-0 tabular-nums">
+                    {Math.round(step.delayMs / 1000)}s
+                  </span>
+                )}
+              </button>
+            }
+          />
+
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate();
+              }}
+              title="Duplicate step"
+            >
+              <Copy className="size-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              title="Delete step"
+            >
+              <Trash2 className="size-3 text-destructive" />
+            </Button>
           </div>
-        </CardHeader>
+        </div>
+
         <CollapsibleContent>
-          <CardContent className="space-y-4 pt-0">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor={`step-${step.id}-title`}>Admin Title</Label>
+          <CardContent className="space-y-4 pt-0 px-4 pb-4 animate-fade-in">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor={`step-${step.id}-title`} className="text-[11px]">
+                  Admin Title
+                </Label>
                 <Input
                   id={`step-${step.id}-title`}
                   value={step.title}
                   onChange={(e) => update({ title: e.target.value })}
+                  className="h-8 text-sm"
+                  placeholder="Welcome message"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Message Type</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Message Type</Label>
                 <Select
                   value={step.type}
                   onValueChange={(v) => update({ type: v as MessageType })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -145,21 +241,24 @@ export default function MessageStepCard({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor={`step-${step.id}-delay`}>Delay (seconds)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor={`step-${step.id}-delay`} className="text-[11px]">
+                  Delay (seconds)
+                </Label>
                 <Input
                   id={`step-${step.id}-delay`}
                   type="number"
                   min={0}
                   value={Math.round(step.delayMs / 1000)}
                   onChange={(e) => update({ delayMs: Number(e.target.value) * 1000 })}
+                  className="h-8 text-sm"
                 />
               </div>
             </div>
 
             {(step.type === "TEXT" || step.type === "VIDEO" || step.type === "AUDIO") && (
-              <div className="space-y-2">
-                <Label htmlFor={`step-${step.id}-text`}>
+              <div className="space-y-1.5">
+                <Label htmlFor={`step-${step.id}-text`} className="text-[11px]">
                   {step.type === "TEXT" ? "Message Text" : "Caption"}
                 </Label>
                 <Textarea
@@ -167,110 +266,74 @@ export default function MessageStepCard({
                   value={step.text ?? ""}
                   onChange={(e) => update({ text: e.target.value })}
                   rows={3}
+                  className="text-sm resize-y"
                 />
+                {!hasContent && step.type === "TEXT" && (
+                  <p className="text-[10px] text-muted-foreground/50">
+                    Enter the message users will receive. Use empty lines for paragraph breaks.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {step.type !== "TEXT" && (
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">
+                  {step.type === "AUDIO" ? "Audio" : "Video"} file_id
+                </Label>
+                {step.mediaUrls.map((url, i) => (
+                  <div key={i} className="flex gap-1">
+                    <Input
+                      value={url}
+                      onChange={(e) => updateMediaUrl(i, e.target.value)}
+                      placeholder="Telegram file_id or URL"
+                      className="h-8 text-sm"
+                    />
+                    <Button variant="ghost" size="icon-sm" onClick={() => removeMediaUrl(i)}>
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
+                ))}
+                {step.mediaUrls.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground/50">
+                    Add a Telegram file_id to send as {step.type.toLowerCase()}
+                  </p>
+                )}
+                <Button variant="outline" size="sm" onClick={addMediaUrl} className="h-7 text-xs">
+                  <Plus className="mr-1 size-3" /> Add file_id
+                </Button>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Media URLs (file_id)</Label>
-              {step.mediaUrls.map((url, i) => (
-                <div key={i} className="flex gap-1">
-                  <Input
-                    value={url}
-                    onChange={(e) => updateMediaUrl(i, e.target.value)}
-                    placeholder="Telegram file_id or URL"
-                  />
-                  <Button variant="ghost" size="icon-sm" onClick={() => removeMediaUrl(i)}>
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
-              ))}
-              {step.mediaUrls.length === 0 && (
-                <p className="text-xs text-muted-foreground">No media files</p>
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px]">Inline Buttons</Label>
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  {step.buttons.length}/3
+                </span>
+              </div>
+              {step.buttons.length === 0 && (
+                <p className="text-[10px] text-muted-foreground/50">
+                  Add buttons to let users open links or make payments directly from the message.
+                </p>
               )}
-              <Button variant="outline" size="sm" onClick={addMediaUrl}>
-                <Plus className="mr-1 size-3" /> Add file_id
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Inline Buttons</Label>
               {step.buttons.map((btn, i) => (
-                <div key={btn.id} className="space-y-2 rounded-md border p-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Label</Label>
-                      <Input
-                        value={btn.label}
-                        onChange={(e) => updateButton(i, { label: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Action</Label>
-                      <Select
-                        value={btn.action}
-                        onValueChange={(v) => {
-                          const action = v as ButtonAction;
-                          updateButton(i, {
-                            action,
-                            label: action === "LIVEPIX_PAYMENT" ? "Pagar agora" : "Abrir link",
-                            color: action === "LIVEPIX_PAYMENT" ? "GREEN" : "BLUE",
-                          });
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="OPEN_URL">Open URL</SelectItem>
-                          <SelectItem value="LIVEPIX_PAYMENT">LivePix Payment</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Color</Label>
-                      <Select
-                        value={btn.color}
-                        onValueChange={(v) => updateButton(i, { color: v as ButtonColor })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BLUE">Blue</SelectItem>
-                          <SelectItem value="GREEN">Green</SelectItem>
-                          <SelectItem value="RED">Red</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {btn.action === "OPEN_URL" && (
-                    <div className="space-y-1">
-                      <Label className="text-xs">URL</Label>
-                      <Input
-                        value={btn.url ?? ""}
-                        onChange={(e) => updateButton(i, { url: e.target.value })}
-                        placeholder="https://example.com"
-                      />
-                    </div>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-1 text-destructive"
-                    onClick={() => removeButton(i)}
-                  >
-                    <Trash2 className="mr-1 size-3" /> Remove button
-                  </Button>
-                </div>
+                <InlineButtonEditor
+                  key={btn.id}
+                  button={btn}
+                  onChange={(fields) => updateButton(i, fields)}
+                  onRemove={() => removeButton(i)}
+                />
               ))}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={addButton}
                 disabled={step.buttons.length >= 3}
+                className="h-7 text-xs"
               >
                 <Plus className="mr-1 size-3" /> Add button
+                {step.buttons.length >= 3 && " (max 3)"}
               </Button>
             </div>
           </CardContent>
@@ -279,3 +342,5 @@ export default function MessageStepCard({
     </Card>
   );
 }
+
+export default memo(MessageStepCardInner);

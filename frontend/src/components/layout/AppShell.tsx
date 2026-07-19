@@ -11,7 +11,7 @@ export default function AppShell() {
         <AppSidebar />
         <SidebarInset>
           <AppHeader />
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto scrollbar-thin">
             <div className="container mx-auto p-6">
               <Outlet />
             </div>

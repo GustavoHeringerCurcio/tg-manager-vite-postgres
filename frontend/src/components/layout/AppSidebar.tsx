@@ -1,4 +1,5 @@
 import { Link, useLocation, useParams } from "react-router-dom";
+import { useTheme } from "next-themes";
 import {
   Sidebar,
   SidebarContent,
@@ -19,8 +20,11 @@ import {
   Timer,
   Workflow,
   ChevronDown,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import type { Bot as BotType } from "@/types";
 import { api } from "@/lib/api";
@@ -29,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function AppSidebar() {
   const { botId } = useParams<{ botId?: string }>();
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
   const [bots, setBots] = useState<BotType[]>([]);
   const [loading, setLoading] = useState(true);
   const [botsOpen, setBotsOpen] = useState(true);
@@ -41,11 +46,12 @@ export default function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="border-b border-sidebar-border bg-sidebar-accent/50 px-0 py-0">
+      <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border px-0 py-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/manager" />} className="px-3 py-5">
-              <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/30">
+            <SidebarMenuButton size="lg" render={<Link to="/manager" />} className="relative px-3 py-5">
+              <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-transform group-hover/menu-button:scale-105">
                 <Bot className="size-5" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
@@ -83,7 +89,7 @@ export default function AppSidebar() {
                   isActive={location.pathname === `/manager/${botId}/dashboard`}
                   render={<Link to={`/manager/${botId}/dashboard`} />}
                 >
-                  <LayoutDashboard className="size-4 text-sky-400/70" />
+                  <LayoutDashboard className="size-4 text-sky-400" />
                   <span>Dashboard</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -93,7 +99,7 @@ export default function AppSidebar() {
                   isActive={isActive(`/manager/${botId}/messages`)}
                   render={<Link to={`/manager/${botId}/messages`} />}
                 >
-                  <Workflow className="size-4 text-emerald-400/70" />
+                  <Workflow className="size-4 text-emerald-400" />
                   <span>Message Flow</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -103,7 +109,7 @@ export default function AppSidebar() {
                   isActive={isActive(`/manager/${botId}/remarketing`)}
                   render={<Link to={`/manager/${botId}/remarketing`} />}
                 >
-                  <Timer className="size-4 text-amber-400/70" />
+                  <Timer className="size-4 text-amber-400" />
                   <span>Remarketing</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -113,7 +119,7 @@ export default function AppSidebar() {
                   isActive={isActive(`/manager/${botId}/transactions`)}
                   render={<Link to={`/manager/${botId}/transactions`} />}
                 >
-                  <ArrowLeftRight className="size-4 text-violet-400/70" />
+                  <ArrowLeftRight className="size-4 text-violet-400" />
                   <span>Transactions</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -123,7 +129,7 @@ export default function AppSidebar() {
                   isActive={isActive(`/manager/${botId}/interactions`)}
                   render={<Link to={`/manager/${botId}/interactions`} />}
                 >
-                  <MessageCircle className="size-4 text-rose-400/70" />
+                  <MessageCircle className="size-4 text-rose-400" />
                   <span>Interactions</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -138,12 +144,15 @@ export default function AppSidebar() {
               <SidebarMenuItem>
                 <CollapsibleTrigger render={<button className="w-full" />}>
                   <SidebarMenuButton tooltip="Toggle bot list">
-                    <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                    <span>Bots ({loading ? "..." : bots.length})</span>
+                    <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                    <span>Bots</span>
+                    <span className="ml-auto rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-sidebar-foreground/60">
+                      {loading ? "..." : bots.length}
+                    </span>
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="ml-4 space-y-0.5">
+                  <div className="ml-4 space-y-0.5 animate-fade-in">
                     {loading ? (
                       <>
                         <Skeleton className="h-7 w-full" />
@@ -171,11 +180,31 @@ export default function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={theme === "dark" ? "Switch to light" : "Switch to dark"}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? (
+                <>
+                  <Sun className="size-4 text-amber-400" />
+                  <span>Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="size-4 text-sky-400" />
+                  <span>Dark Mode</span>
+                </>
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton tooltip="Create New Bot" render={<Link to="/manager/new" />}>
-              <Plus className="size-4 text-primary" />
+              <div className="flex size-4 items-center justify-center rounded bg-primary/20">
+                <Plus className="size-3 text-primary" />
+              </div>
               <span>Create New Bot</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
