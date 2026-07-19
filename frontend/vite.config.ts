@@ -1,3 +1,4 @@
+import path from "path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { mockRequest } from "./mockDevServer";
@@ -29,6 +30,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), devMockPlugin(useMocks)],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
     build: { outDir: "../server/public", emptyOutDir: true },
     ...(useMocks
       ? {}
