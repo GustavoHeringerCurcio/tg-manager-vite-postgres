@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { RefreshCw, Plus, LogOut, Sun, Moon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { RefreshCw, Plus, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import type { Bot as BotType } from "@/types";
@@ -22,7 +21,6 @@ export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
   const { botId } = useParams<{ botId?: string }>();
   const location = useLocation();
   const { logout } = useAuth();
-  const { setTheme, resolvedTheme } = useTheme();
   const [bot, setBot] = useState<BotType | null>(null);
 
   useEffect(() => {
@@ -96,22 +94,6 @@ export default function AppHeader({ onRefresh }: { onRefresh?: () => void }) {
             }
           />
           <TooltipContent>Refresh data</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              >
-                <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">Toggle theme</span>
-              </Button>
-            }
-          />
-          <TooltipContent>Toggle theme</TooltipContent>
         </Tooltip>
         <Button variant="default" size="sm" render={<Link to="/manager/new" />}>
           <Plus className="mr-1 size-4" />

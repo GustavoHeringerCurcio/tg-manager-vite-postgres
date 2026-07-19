@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppShell from "@/components/layout/AppShell";
@@ -16,25 +15,23 @@ import NotFoundPage from "@/pages/NotFoundPage";
 export default function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider defaultTheme="dark" attribute="class">
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppShell />}>
-              <Route index element={<Navigate to="/manager" replace />} />
-              <Route path="/manager" element={<ManagerPage />} />
-              <Route path="/manager/new" element={<CreateBotPage />} />
-              <Route path="/manager/:botId/dashboard" element={<BotDashboardPage />} />
-              <Route path="/manager/:botId/messages" element={<BotMessagesPage />} />
-              <Route path="/manager/:botId/remarketing" element={<BotRemarketingPage />} />
-              <Route path="/manager/:botId/transactions" element={<BotTransactionsPage />} />
-              <Route path="/manager/:botId/interactions" element={<BotInteractionsPage />} />
-            </Route>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route index element={<Navigate to="/manager" replace />} />
+            <Route path="/manager" element={<ManagerPage />} />
+            <Route path="/manager/new" element={<CreateBotPage />} />
+            <Route path="/manager/:botId/dashboard" element={<BotDashboardPage />} />
+            <Route path="/manager/:botId/messages" element={<BotMessagesPage />} />
+            <Route path="/manager/:botId/remarketing" element={<BotRemarketingPage />} />
+            <Route path="/manager/:botId/transactions" element={<BotTransactionsPage />} />
+            <Route path="/manager/:botId/interactions" element={<BotInteractionsPage />} />
           </Route>
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-        <Toaster />
-      </ThemeProvider>
+        </Route>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+      <Toaster />
     </BrowserRouter>
   );
 }
