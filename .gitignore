@@ -13,3 +13,4 @@ coverage/
 server/public/
 server/prisma/dev.db
 pgdata/
+remarketing-template
