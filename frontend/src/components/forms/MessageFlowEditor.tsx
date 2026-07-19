@@ -22,6 +22,8 @@ import { newStep } from "@/lib/helpers";
 import { useUndo } from "@/hooks/useUndo";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import MessageStepCard from "./MessageStepCard";
+import MessageFlowCsvDialog from "./MessageFlowCsvDialog";
+import LivePixResponsesCsvDialog from "./LivePixResponsesCsvDialog";
 import { StepNavigator } from "./StepNavigator";
 import { MessagePreview } from "./MessagePreview";
 import { toast } from "sonner";
@@ -107,6 +109,22 @@ export default function MessageFlowEditor({ steps: initialSteps, onChange }: Mes
           <p className="text-xs text-muted-foreground">{steps.length} step{steps.length !== 1 ? "s" : ""} configured</p>
         </div>
         <div className="flex items-center gap-2">
+          <MessageFlowCsvDialog
+            steps={steps}
+            onImport={(newSteps, mode) => {
+              if (mode === "replace") {
+                commit(newSteps, "Imported message flow");
+              } else {
+                commit([...steps, ...newSteps], "Appended from CSV");
+              }
+            }}
+          />
+          <LivePixResponsesCsvDialog
+            steps={steps}
+            onImport={(updatedSteps) => {
+              commit(updatedSteps, "Imported LivePix responses");
+            }}
+          />
           <Button
             variant="ghost"
             size="icon-sm"

@@ -3,9 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, ExternalLink, CreditCard, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ButtonAction, ButtonColor, LivePixResponse, MessageButton } from "@/types";
+import { useButtonPresets } from "@/hooks/useButtonPresets";
 
 interface InlineButtonEditorProps {
   button: MessageButton;
@@ -132,7 +134,21 @@ function ResponseEditor({
 }
 
 export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonEditorProps) {
+  const { presets } = useButtonPresets();
   const responses = button.responses ?? [];
+
+  function handlePresetSelect(presetId: string | null) {
+    if (!presetId) return;
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return;
+    onChange({
+      label: preset.label,
+      action: preset.action,
+      color: preset.color,
+      url: preset.url,
+      price: preset.price,
+    });
+  }
 
   function setResponses(newResponses: LivePixResponse[]) {
     onChange({ responses: newResponses.length > 0 ? newResponses : undefined });
@@ -150,6 +166,24 @@ export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonE
 
   return (
     <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-3">
+      {presets.length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-[11px]">From Preset</Label>
+          <Select value="" onValueChange={handlePresetSelect}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select a preset..." />
+            </SelectTrigger>
+            <SelectContent>
+              {presets.map((preset) => (
+                <SelectItem key={preset.id} value={preset.id}>
+                  {preset.name} ({preset.label})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label className="text-[11px]">Label</Label>
         <Input

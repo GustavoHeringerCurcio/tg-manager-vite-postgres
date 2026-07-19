@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import MessageFlowEditor from "./MessageFlowEditor";
+import MessageFlowCsvDialog from "./MessageFlowCsvDialog";
+import LivePixResponsesCsvDialog from "./LivePixResponsesCsvDialog";
 import type { RemarketingConfig, MessageStep } from "@/types";
 import { newStep } from "@/lib/helpers";
 import { useState, useMemo } from "react";
@@ -201,8 +203,31 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
               Bulk Import
             </Label>
             <p className="text-xs text-muted-foreground">
-              Paste one entry per line: <code className="rounded bg-muted px-1 py-0.5 text-[11px]">URL | Caption text</code>
+              Import your remarketing flow via CSV, or paste entries below
+              using <code className="rounded bg-muted px-1 py-0.5 text-[11px]">URL | Caption text</code> format.
             </p>
+            <div className="flex items-center gap-2">
+              <MessageFlowCsvDialog
+                steps={config.messages}
+                onImport={(newMessages, mode) => {
+                  if (mode === "replace") {
+                    update({ messages: newMessages });
+                  } else {
+                    update({ messages: [...config.messages, ...newMessages] });
+                  }
+                }}
+                botName="remarketing"
+                filenamePrefix="remarketing_flow"
+              />
+              <LivePixResponsesCsvDialog
+                steps={config.messages}
+                onImport={(updatedSteps) => {
+                  update({ messages: updatedSteps });
+                }}
+                botName="remarketing"
+                filenamePrefix="remarketing_responses"
+              />
+            </div>
             <Textarea
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import MessageFlowEditor from "./MessageFlowEditor";
 import RemarketingEditor from "./RemarketingEditor";
+import ButtonPresetsManager from "./ButtonPresetsManager";
 import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep } from "@/types";
@@ -134,7 +135,10 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
         onOpenChange={() => {}}
         dirty={isDirty && !deepEqual(initial.messageFlow, messageFlow)}
       >
-        <div className="pt-4">
+        <div className="pt-4 space-y-3">
+          <div className="flex items-center justify-end">
+            <ButtonPresetsManager />
+          </div>
           <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
         </div>
       </CollapsibleSection>
