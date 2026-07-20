@@ -280,14 +280,14 @@ function MessageStepCardInner({
             {step.type !== "TEXT" && (
               <div className="space-y-1.5">
                 <Label className="text-[11px]">
-                  {step.type === "AUDIO" ? "Audio" : "Video"} file_id
+                  {step.type === "AUDIO" ? "Voice note (OGG)" : "Video"} file_id
                 </Label>
                 {step.mediaUrls.map((url, i) => (
                   <div key={i} className="flex gap-1">
                     <Input
                       value={url}
                       onChange={(e) => updateMediaUrl(i, e.target.value)}
-                      placeholder="Telegram file_id or URL"
+                      placeholder="Telegram voice file_id (OGG)"
                       className="h-8 text-sm"
                     />
                     <Button variant="ghost" size="icon-sm" onClick={() => removeMediaUrl(i)}>
@@ -297,7 +297,7 @@ function MessageStepCardInner({
                 ))}
                 {step.mediaUrls.length === 0 && (
                   <p className="text-[10px] text-muted-foreground/50">
-                    Add a Telegram file_id to send as {step.type.toLowerCase()}
+                    Add a Telegram voice file_id (OGG) to send as voice note
                   </p>
                 )}
                 <Button variant="outline" size="sm" onClick={addMediaUrl} className="h-7 text-xs">

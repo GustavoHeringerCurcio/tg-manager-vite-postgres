@@ -116,7 +116,7 @@ async function sendRemarketingStep(
   }
 
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await telegram.sendAudio(chatId, step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+    await telegram.sendVoice(chatId, step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }

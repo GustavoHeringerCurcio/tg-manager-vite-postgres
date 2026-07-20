@@ -98,7 +98,7 @@ async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: M
     return;
   }
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithAudio(step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+    await ctx.replyWithVoice(step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
     logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `audio:${step.title}`, logPayloads: env.logPayloads });
     return;
   }
