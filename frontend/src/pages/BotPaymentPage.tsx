@@ -4,10 +4,10 @@ import { useBots } from "@/hooks/useBots";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, CreditCard } from "lucide-react";
+import { Save, Settings } from "lucide-react";
 import { toast } from "sonner";
 import type { BotPayload, PaymentFlow } from "@/types";
-import PaymentFlowEditor from "@/components/forms/PaymentFlowEditor";
+import LivepixSettings from "@/components/forms/LivepixSettings";
 
 const defaultPaymentFlow: PaymentFlow = {
   steps: [],
@@ -68,18 +68,18 @@ export default function BotPaymentPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
-          <CreditCard className="size-5 text-amber-400" />
+        <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
+          <Settings className="size-5 text-emerald-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Payment Flow</h1>
+          <h1 className="text-xl font-bold tracking-tight">Payment Settings</h1>
           <p className="text-sm text-muted-foreground">
-            Configure payment responses for {bot.name}
+            Configure payment gateways for {bot.name}
           </p>
         </div>
       </div>
 
-      <PaymentFlowEditor
+      <LivepixSettings
         paymentFlow={currentFlow}
         onChange={setPaymentFlow}
       />

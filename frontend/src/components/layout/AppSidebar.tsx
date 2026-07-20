@@ -106,16 +106,6 @@ export default function AppSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  tooltip="Payment Flow"
-                  isActive={isActive(`/manager/${botId}/payment`)}
-                  render={<Link to={`/manager/${botId}/payment`} />}
-                >
-                  <CreditCard className="size-4 text-amber-400" />
-                  <span>Payment Flow</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
                   tooltip="Remarketing"
                   isActive={isActive(`/manager/${botId}/remarketing`)}
                   render={<Link to={`/manager/${botId}/remarketing`} />}
@@ -142,6 +132,16 @@ export default function AppSidebar() {
                 >
                   <MessageCircle className="size-4 text-rose-400" />
                   <span>Interactions</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Payment Settings"
+                  isActive={isActive(`/manager/${botId}/payment-settings`)}
+                  render={<Link to={`/manager/${botId}/payment-settings`} />}
+                >
+                  <CreditCard className="size-4 text-emerald-400" />
+                  <span>Payment Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

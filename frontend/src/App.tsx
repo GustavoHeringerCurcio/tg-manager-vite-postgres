@@ -28,7 +28,7 @@ export default function App() {
             <Route path="/manager/:botId/remarketing" element={<BotRemarketingPage />} />
             <Route path="/manager/:botId/transactions" element={<BotTransactionsPage />} />
             <Route path="/manager/:botId/interactions" element={<BotInteractionsPage />} />
-            <Route path="/manager/:botId/payment" element={<BotPaymentPage />} />
+            <Route path="/manager/:botId/payment-settings" element={<BotPaymentPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />
