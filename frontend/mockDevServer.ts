@@ -27,6 +27,7 @@ interface MockTransaction {
   paymentMethod: string;
   pixCode: string | null;
   checkoutUrl: string | null;
+  livepixReference: string | null;
   createdAt: string;
   userId: string;
 }
@@ -65,14 +66,14 @@ function randomDate(daysBack: number): Date {
   return d;
 }
 
-function seedTransactions(botId: string, checkoutAmount: number, count: number): void {
-  const statuses = ["completed", "completed", "completed", "pending", "failed", "refunded"];
+function seedTransactions(botId: string, amounts: number[], count: number): void {
+  const statuses = ["COMPLETED", "COMPLETED", "COMPLETED", "PENDING", "FAILED", "COMPLETED"];
   const payments: { method: string; pixCode?: string; checkoutUrl?: string }[] = [
-    { method: "PIX", pixCode: "00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-abcd-ef1234567890520400005303986540510.005802BR5909Botflix6009Sao Paulo62070503***6304A1B2" },
+    { method: "PIX", pixCode: "00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-abcd-ef1234567890520400005303986540510.005802BR5909Botflix6009Sao Paulo62070503***6304A1B2", checkoutUrl: "https://checkout.livepix.gg/p/abc123" },
     { method: "PIX", pixCode: "00020126360014br.gov.bcb.pix0114+551199999999952040000530398654059.905802BR5913Fulano de Tal6008Brasilia62070503***6304C3D4" },
-    { method: "CREDIT_CARD", checkoutUrl: "https://checkout.livepix.gg/pay/test_txn_abc123" },
-    { method: "PIX", pixCode: "00020126450014br.gov.bcb.pix0123payment-ref-xyz-789-456520400005303986540529.905802BR5925Maria Silva6009Sao Paulo62070503***6304E5F6", checkoutUrl: "https://checkout.livepix.gg/pay/test_txn_def456" },
-    { method: "CREDIT_CARD", checkoutUrl: "https://checkout.livepix.gg/pay/test_txn_ghi789" },
+    { method: "PIX", checkoutUrl: "https://checkout.livepix.gg/p/def456" },
+    { method: "PIX", pixCode: "00020126450014br.gov.bcb.pix0123payment-ref-xyz-789-456520400005303986540529.905802BR5925Maria Silva6009Sao Paulo62070503***6304E5F6", checkoutUrl: "https://checkout.livepix.gg/p/ghi789" },
+    { method: "PIX" },
   ];
 
   const txs: MockTransaction[] = [];
@@ -82,11 +83,12 @@ function seedTransactions(botId: string, checkoutAmount: number, count: number):
     txs.push({
       id: `txn_${botId}_${i + 1}`,
       botId,
-      amount: checkoutAmount,
+      amount: amounts[i % amounts.length],
       status: statuses[i % statuses.length],
       paymentMethod: pay.method,
       pixCode: pay.pixCode ?? null,
       checkoutUrl: pay.checkoutUrl ?? null,
+      livepixReference: `livepix_ref_${botId}_${i + 1}`,
       createdAt: randomDate(7).toISOString(),
       userId: user.id,
     });
@@ -247,8 +249,8 @@ function seedBots(): void {
   bots.set(demo1.id, demo1);
   bots.set(demo2.id, demo2);
 
-  seedTransactions(demo1.id, 29.9, 12);
-  seedTransactions(demo2.id, 9.9, 4);
+  seedTransactions(demo1.id, [9.9, 29.9, 49.9], 12);
+  seedTransactions(demo2.id, [14.9, 24.9], 4);
   seedInteractions(demo1.id, 18);
   seedInteractions(demo2.id, 10);
 }
