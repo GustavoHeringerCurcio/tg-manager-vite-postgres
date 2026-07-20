@@ -11,6 +11,7 @@ import BotRemarketingPage from "@/pages/BotRemarketingPage";
 import BotTransactionsPage from "@/pages/BotTransactionsPage";
 import BotInteractionsPage from "@/pages/BotInteractionsPage";
 import BotPaymentPage from "@/pages/BotPaymentPage";
+import BotLivepixPage from "@/pages/BotLivepixPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/manager/:botId/transactions" element={<BotTransactionsPage />} />
             <Route path="/manager/:botId/interactions" element={<BotInteractionsPage />} />
             <Route path="/manager/:botId/payment-settings" element={<BotPaymentPage />} />
+            <Route path="/manager/:botId/payment-settings/livepix" element={<BotLivepixPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />

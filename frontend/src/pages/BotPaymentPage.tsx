@@ -1,33 +1,19 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useBotDetail } from "@/hooks/useBotDetail";
-import { useBots } from "@/hooks/useBots";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, Settings } from "lucide-react";
-import { toast } from "sonner";
-import type { BotPayload, PaymentFlow } from "@/types";
-import LivepixSettings from "@/components/forms/LivepixSettings";
-
-const defaultPaymentFlow: PaymentFlow = {
-  steps: [],
-  verifyLabel: "Verificar pagamento",
-  pixCopyLabel: "Copiar PIX",
-};
+import { Settings, ChevronRight } from "lucide-react";
+import { LIVEPIX_LOGO, isLivepixConfigured } from "@/components/forms/LivepixSettings";
 
 export default function BotPaymentPage() {
   const { botId } = useParams<{ botId: string }>();
   const navigate = useNavigate();
-  const { bot, loading, error, refresh } = useBotDetail(botId);
-  const { updateBot } = useBots();
-  const [saving, setSaving] = useState(false);
-  const [paymentFlow, setPaymentFlow] = useState<PaymentFlow | null>(null);
+  const { bot, loading, error } = useBotDetail(botId);
 
   if (loading) {
     return (
       <div className="space-y-4 animate-fade-in">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-96 w-full" />
+        <Skeleton className="h-32 w-full" />
       </div>
     );
   }
@@ -40,30 +26,7 @@ export default function BotPaymentPage() {
     );
   }
 
-  const currentFlow = paymentFlow ?? bot?.paymentFlow ?? defaultPaymentFlow;
-
-  async function handleSave() {
-    if (!botId || !bot) return;
-    setSaving(true);
-    try {
-      const payload: BotPayload = {
-        name: bot.name,
-        messageFlow: bot.messageFlow,
-        remarketing: bot.remarketing,
-        paymentFlow: currentFlow,
-      };
-      await updateBot(botId, payload);
-      toast.success("Payment flow updated");
-      refresh();
-      setPaymentFlow(null);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update payment flow");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const isDirty = paymentFlow !== null;
+  const configured = isLivepixConfigured(bot.paymentFlow);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -79,33 +42,40 @@ export default function BotPaymentPage() {
         </div>
       </div>
 
-      <LivepixSettings
-        paymentFlow={currentFlow}
-        onChange={setPaymentFlow}
-      />
-
-      <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background/80 backdrop-blur-xl border-t flex items-center justify-between z-10">
-        <div className="flex items-center gap-2">
-          {isDirty ? (
-            <span className="flex items-center gap-1.5 text-xs text-amber-400">
-              <span className="flex size-1.5 rounded-full bg-amber-400 animate-pulse-dot" />
-              Unsaved changes
-            </span>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {saving ? "Saving..." : "All changes saved"}
+      <div className="grid gap-3">
+        <button
+          type="button"
+          onClick={() => navigate(`/manager/${botId}/payment-settings/livepix`)}
+          className="flex w-full items-center gap-4 rounded-xl border border-border/40 bg-card px-5 py-4 text-left shadow-sm hover:bg-muted/20 transition-colors"
+        >
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white p-1 ring-1 ring-border/30 overflow-hidden">
+            <img
+              src={LIVEPIX_LOGO}
+              alt="Livepix"
+              className="size-full object-contain"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Livepix</span>
+              {configured ? (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                  <span className="flex size-1.5 rounded-full bg-emerald-400" />
+                  Configured
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="flex size-1.5 rounded-full bg-muted-foreground/40" />
+                  Not configured
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Gateway for PIX payments via Livepix.gg
             </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate(`/manager/${botId}/dashboard`)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving || !isDirty} className="min-w-32 shadow-glow-primary">
-            <Save className="mr-1.5 size-4" />
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </div>
+          </div>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground/50" />
+        </button>
       </div>
     </div>
   );
