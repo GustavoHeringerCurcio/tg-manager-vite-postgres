@@ -11,7 +11,9 @@ import { normalizeMessageFlow } from "./messageFlow.js";
 import type { MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizePaymentFlow } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
-import { normalizeRemarketing } from "./remarketing.js";
+import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js";
+import type { TimeComplimentConfig } from "./remarketing.js";
+import { resolveAllPlaceholders } from "./placeholders.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -165,8 +167,12 @@ async function sendStep(
   step: MessageStep,
   stepIndex: number,
   env: AppEnv,
+  timeCompliments: TimeComplimentConfig,
   parseMode?: ParseMode
 ): Promise<void> {
+  const resolvedText = step.text
+    ? resolveAllPlaceholders(step.text, { firstName: user?.firstName ?? null }, timeCompliments)
+    : step.text;
   const replyMarkup = keyboard(step);
   const parseOpt = parseMode ? { parse_mode: parseMode } : {};
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, ...parseOpt } : parseOpt;
@@ -175,12 +181,12 @@ async function sendStep(
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await ctx.replyWithVideo(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
+      await ctx.replyWithVideo(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video",
         media: url,
-        ...(i === 0 && step.text ? { caption: step.text, ...parseOpt } : {})
+        ...(i === 0 && resolvedText ? { caption: resolvedText, ...parseOpt } : {})
       }));
       await ctx.replyWithMediaGroup(mediaGroup);
     }
@@ -192,7 +198,7 @@ async function sendStep(
     return;
   }
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithVoice(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
+    await ctx.replyWithVoice(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `audio:${step.title}`, stepIndex, chatId, messageId,
@@ -200,7 +206,7 @@ async function sendStep(
     });
     return;
   }
-  await ctx.reply(step.text ?? " ", Object.keys(options).length > 0 ? options : undefined);
+  await ctx.reply(resolvedText ?? " ", Object.keys(options).length > 0 ? options : undefined);
   logInteraction({
     botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
     content: step.text ?? step.title, stepIndex, chatId, messageId,
@@ -222,7 +228,8 @@ async function sendLivePixPayment(
   sessionId: string,
   services: HandlerServices,
   button: MessageButton,
-  paymentFlow: PaymentFlow
+  paymentFlow: PaymentFlow,
+  timeCompliments: TimeComplimentConfig
 ): Promise<void> {
   const amount = button.price!;
   const chatId = ctx.chat?.id;
@@ -268,6 +275,9 @@ async function sendLivePixPayment(
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
         let resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
+        resolvedText = resolvedText
+          ? resolveAllPlaceholders(resolvedText, { firstName: user.firstName }, timeCompliments)
+          : undefined;
 
         if (step.includePixCode && pixCode) {
           resolvedText = resolvedText
@@ -292,7 +302,7 @@ async function sendLivePixPayment(
             logPayloads: services.env.logPayloads
           });
         } else {
-          await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, "HTML");
+          await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, timeCompliments, "HTML");
         }
 
         if (step.includeQrCode && pixCode) {
@@ -360,6 +370,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
   const messageFlow = normalizeMessageFlow(botConfig.messageFlow);
   const remarketing = normalizeRemarketing(botConfig.remarketing);
   const paymentFlow = normalizePaymentFlow(botConfig.paymentFlow);
+  const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments);
   const activeStarts = new Set<number>();
 
   telegraf.start(async (ctx) => {
@@ -397,7 +408,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       }
 
       for (const [index, step] of messageFlow.entries()) {
-        await sendStep(ctx, botConfig, user, sessionId, step, index, services.env);
+        await sendStep(ctx, botConfig, user, sessionId, step, index, services.env, timeCompliments);
         if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
       }
 
@@ -528,6 +539,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
     });
 
-    await sendLivePixPayment(ctx, botConfig, user, sessionId, services, button, paymentFlow);
+    await sendLivePixPayment(ctx, botConfig, user, sessionId, services, button, paymentFlow, timeCompliments);
   });
 }

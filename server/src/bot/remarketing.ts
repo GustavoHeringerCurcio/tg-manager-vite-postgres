@@ -118,3 +118,66 @@ export function defaultRemarketingMessage(index: number): MessageStep {
     buttons: []
   };
 }
+
+export type TimeComplimentPreset = {
+  label: string;
+  fallback: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+};
+
+export type TimeComplimentConfig = {
+  timezone: string;
+  presets: TimeComplimentPreset[];
+};
+
+function isValidHour(value: number): value is number {
+  return Number.isFinite(value) && Number.isInteger(value) && value >= 0 && value <= 23;
+}
+
+function isValidMinute(value: number): value is number {
+  return Number.isFinite(value) && Number.isInteger(value) && value >= 0 && value <= 59;
+}
+
+function normalizeTimeComplimentPreset(value: unknown, index: number): TimeComplimentPreset | null {
+  if (!isRecord(value)) return null;
+  const label = cleanString(value.label);
+  if (!label) return null;
+  const fallback = cleanString(value.fallback) ?? "";
+  const startHour = Number(value.startHour);
+  const startMinute = Number(value.startMinute);
+  const endHour = Number(value.endHour);
+  const endMinute = Number(value.endMinute);
+  if (!isValidHour(startHour) || !isValidMinute(startMinute)) return null;
+  if (!isValidHour(endHour) || !isValidMinute(endMinute)) return null;
+  return { label, fallback, startHour, startMinute, endHour, endMinute };
+}
+
+function cleanString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+export function normalizeTimeCompliments(value: unknown): TimeComplimentConfig {
+  if (!isRecord(value)) return defaultTimeCompliments();
+  const timezone = cleanString(value.timezone) ?? "America/Sao_Paulo";
+  const rawPresets = value.presets;
+  const presets: TimeComplimentPreset[] = [];
+  if (Array.isArray(rawPresets)) {
+    for (let i = 0; i < rawPresets.length; i++) {
+      const preset = normalizeTimeComplimentPreset(rawPresets[i], i);
+      if (preset) presets.push(preset);
+    }
+  }
+  return { timezone, presets };
+}
+
+export function defaultTimeCompliments(): TimeComplimentConfig {
+  return {
+    timezone: "America/Sao_Paulo",
+    presets: []
+  };
+}

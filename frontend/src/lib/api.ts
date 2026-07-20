@@ -47,6 +47,7 @@ export type Bot = {
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
+  timeCompliments?: TimeComplimentConfig;
   status: BotStatus;
   createdAt: string;
   updatedAt: string;
@@ -60,6 +61,20 @@ export type DiscountTier = {
 export type DiscountOfferConfig = {
   enabled: boolean;
   tiers: DiscountTier[];
+};
+
+export type TimeComplimentPreset = {
+  label: string;
+  fallback: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+};
+
+export type TimeComplimentConfig = {
+  timezone: string;
+  presets: TimeComplimentPreset[];
 };
 
 export type RemarketingConfig = {
@@ -77,6 +92,7 @@ export type BotPayload = {
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
+  timeCompliments?: TimeComplimentConfig;
 };
 
 export type Paginated<T> = { items: T[]; total: number; page: number; pageSize: number };

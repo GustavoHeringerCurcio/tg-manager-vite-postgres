@@ -17,4 +17,8 @@ export type {
   Stats,
   UserSession,
   ChatTimelineItem,
+  DiscountTier,
+  DiscountOfferConfig,
+  TimeComplimentPreset,
+  TimeComplimentConfig,
 } from "../lib/api";

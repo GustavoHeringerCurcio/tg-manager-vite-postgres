@@ -3,8 +3,9 @@ import { BotStatus } from "@prisma/client";
 import type { Telegram } from "telegraf";
 import type { InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
-import { normalizeRemarketing, getDiscountPercentage } from "../bot/remarketing.js";
-import { resolveUserPlaceholders } from "../bot/placeholders.js";
+import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
+import type { TimeComplimentConfig } from "../bot/remarketing.js";
+import { resolveAllPlaceholders } from "../bot/placeholders.js";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { prisma } from "./prisma.js";
@@ -71,6 +72,8 @@ async function processOne(
   const manager = getBotManager(state.botId);
   if (!manager) return;
 
+  const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments);
+
   const index = state.nextIndex % config.messages.length;
   const step = config.messages[index];
   if (!step) return;
@@ -80,7 +83,7 @@ async function processOne(
 
   const chatId = String(telegramId);
   try {
-    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, applyDiscount, discountPercentage);
+    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage);
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
     console.error(`[remarketing:${state.botId}] ${message}`);
@@ -112,12 +115,13 @@ async function sendRemarketingStep(
   botId: string,
   userId: string | null,
   firstName: string | null,
+  timeCompliments: TimeComplimentConfig,
   applyDiscount: boolean = false,
   discountPercentage: number = 0
 ): Promise<void> {
   const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
-  const resolvedText = step.text ? resolveUserPlaceholders(step.text, { firstName }) : step.text;
+  const resolvedText = step.text ? resolveAllPlaceholders(step.text, { firstName }, timeCompliments) : step.text;
   const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
 

@@ -5,11 +5,12 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import MessageFlowEditor from "./MessageFlowEditor";
 import RemarketingEditor from "./RemarketingEditor";
+import TimeComplimentsEditor from "./TimeComplimentsEditor";
 import ButtonPresetsManager from "./ButtonPresetsManager";
 import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
-import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep, PaymentFlow } from "@/types";
-import { Settings, Save, Workflow, Timer, Percent, Plus, X } from "lucide-react";
+import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep, PaymentFlow, TimeComplimentConfig } from "@/types";
+import { Settings, Save, Workflow, Timer, Percent, Plus, X, Clock } from "lucide-react";
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -42,6 +43,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     bot?.remarketing ?? defaultRemarketing
   );
   const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" });
+  const [timeCompliments, setTimeCompliments] = useState<TimeComplimentConfig>(bot?.timeCompliments ?? { timezone: "America/Sao_Paulo", presets: [] });
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);
 
   const initial = useMemo(() => ({
@@ -49,6 +51,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
     paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" },
+    timeCompliments: bot?.timeCompliments ?? { timezone: "America/Sao_Paulo", presets: [] },
   }), [bot]);
 
   const current = {
@@ -56,6 +59,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     messageFlow,
     remarketing,
     paymentFlow,
+    timeCompliments,
   };
 
   const isDirty = !deepEqual(initial, current);
@@ -68,6 +72,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
       messageFlow,
       remarketing,
       paymentFlow,
+      timeCompliments,
     };
     if (requireToken || token) payload.token = token;
     onSave(payload);
@@ -267,6 +272,22 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
           </div>
         </CollapsibleSection>
       )}
+
+      <CollapsibleSection
+        title="Time Compliments"
+        summary={
+          timeCompliments.presets.length > 0
+            ? `${timeCompliments.presets.length} preset${timeCompliments.presets.length !== 1 ? "s" : ""} · ${timeCompliments.timezone}`
+            : "No presets configured"
+        }
+        icon={<Clock className="size-4 text-sky-400" />}
+        open={true}
+        onOpenChange={() => {}}
+      >
+        <div className="pt-4">
+          <TimeComplimentsEditor config={timeCompliments} onChange={setTimeCompliments} />
+        </div>
+      </CollapsibleSection>
 
       <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background/80 backdrop-blur-xl border-t flex items-center justify-between z-10">
         <div className="flex items-center gap-2">

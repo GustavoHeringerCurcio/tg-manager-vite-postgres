@@ -9,7 +9,7 @@ import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
 import { defaultMessageFlow, normalizeMessageFlow } from "../bot/messageFlow.js";
 import { defaultPaymentFlow, normalizePaymentFlow } from "../bot/paymentFlow.js";
-import { defaultRemarketing, normalizeRemarketing } from "../bot/remarketing.js";
+import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments } from "../bot/remarketing.js";
 
 type BotBody = {
   name?: string;
@@ -17,6 +17,7 @@ type BotBody = {
   messageFlow?: unknown;
   remarketing?: unknown;
   paymentFlow?: unknown;
+  timeCompliments?: unknown;
 };
 
 type StatusBody = { status?: string };
@@ -85,6 +86,16 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
     }
   } else if (requireToken) {
     data.paymentFlow = defaultPaymentFlow() as Prisma.InputJsonValue;
+  }
+  if (body.timeCompliments !== undefined) {
+    try {
+      data.timeCompliments = normalizeTimeCompliments(body.timeCompliments) as Prisma.InputJsonValue;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "timeCompliments is invalid";
+      throw new HttpError(400, message);
+    }
+  } else if (requireToken) {
+    data.timeCompliments = defaultTimeCompliments() as Prisma.InputJsonValue;
   }
   const token = cleanString(body.token);
   if (token) data.token = token;
