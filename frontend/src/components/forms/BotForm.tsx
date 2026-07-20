@@ -28,9 +28,10 @@ interface BotFormProps {
   onSave: (payload: BotPayload) => void;
   onCancel: () => void;
   requireToken?: boolean;
+  mode?: "create" | "messages" | "remarketing";
 }
 
-export default function BotForm({ bot, saving, onSave, onCancel, requireToken }: BotFormProps) {
+export default function BotForm({ bot, saving, onSave, onCancel, requireToken, mode }: BotFormProps) {
   const isEditing = Boolean(bot);
   const [name, setName] = useState(bot?.name ?? "");
   const [token, setToken] = useState("");
@@ -114,37 +115,41 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection
-        title="Message Flow"
-        summary={`${messageFlow.length} step${messageFlow.length !== 1 ? "s" : ""}`}
-        icon={<Workflow className="size-4 text-emerald-400" />}
-        open={true}
-        onOpenChange={() => {}}
-        dirty={isDirty && !deepEqual(initial.messageFlow, messageFlow)}
-      >
-        <div className="pt-4 space-y-3">
-          <div className="flex items-center justify-end">
-            <ButtonPresetsManager />
+      {mode !== "remarketing" && (
+        <CollapsibleSection
+          title="Message Flow"
+          summary={`${messageFlow.length} step${messageFlow.length !== 1 ? "s" : ""}`}
+          icon={<Workflow className="size-4 text-emerald-400" />}
+          open={true}
+          onOpenChange={() => {}}
+          dirty={isDirty && !deepEqual(initial.messageFlow, messageFlow)}
+        >
+          <div className="pt-4 space-y-3">
+            <div className="flex items-center justify-end">
+              <ButtonPresetsManager />
+            </div>
+            <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
           </div>
-          <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
-        </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      )}
 
-      <CollapsibleSection
-        title="Remarketing"
-        summary={
-          remarketing.enabled
-            ? `${remarketing.messages.length} follow-up message${remarketing.messages.length !== 1 ? "s" : ""}`
-            : "Disabled"
-        }
-        icon={<Timer className="size-4 text-amber-400" />}
-        open={true}
-        onOpenChange={() => {}}
-      >
-        <div className="pt-4">
-          <RemarketingEditor config={remarketing} onChange={setRemarketing} />
-        </div>
-      </CollapsibleSection>
+      {mode !== "messages" && (
+        <CollapsibleSection
+          title="Remarketing"
+          summary={
+            remarketing.enabled
+              ? `${remarketing.messages.length} follow-up message${remarketing.messages.length !== 1 ? "s" : ""}`
+              : "Disabled"
+          }
+          icon={<Timer className="size-4 text-amber-400" />}
+          open={true}
+          onOpenChange={() => {}}
+        >
+          <div className="pt-4">
+            <RemarketingEditor config={remarketing} onChange={setRemarketing} />
+          </div>
+        </CollapsibleSection>
+      )}
 
       <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background/80 backdrop-blur-xl border-t flex items-center justify-between z-10">
         <div className="flex items-center gap-2">

@@ -62,6 +62,7 @@ export default function BotMessagesPage() {
         saving={saving}
         onSave={handleSave}
         onCancel={() => navigate(`/manager/${botId}/dashboard`)}
+        mode="messages"
       />
     </div>
   );

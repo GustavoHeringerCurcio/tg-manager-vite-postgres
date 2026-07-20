@@ -62,6 +62,7 @@ export default function BotRemarketingPage() {
         saving={saving}
         onSave={handleSave}
         onCancel={() => navigate(`/manager/${botId}/dashboard`)}
+        mode="remarketing"
       />
     </div>
   );
