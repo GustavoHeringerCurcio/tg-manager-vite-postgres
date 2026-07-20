@@ -14,3 +14,4 @@ server/public/
 server/prisma/dev.db
 pgdata/
 remarketing-template.md
+remarketing-template.csv
