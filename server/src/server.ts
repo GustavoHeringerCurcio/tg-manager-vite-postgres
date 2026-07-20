@@ -49,7 +49,7 @@ app.use("/api", (_req, res) => {
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = error instanceof HttpError ? error.status : 500;
   const message = status === 500 && env.nodeEnv === "production" ? "Internal server error" : error.message;
-  if (status === 500) console.error(error);
+  if (status === 500) console.error(`[server] ${error.message}`);
   res.status(status).json({ error: message });
 });
 

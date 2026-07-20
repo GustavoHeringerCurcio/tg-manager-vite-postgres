@@ -12,6 +12,7 @@ export class BotManager {
   private readonly secretToken: string;
   private readonly telegraf: Telegraf<Context>;
   private readonly livePix: LivePixService;
+  private readonly webhookHandler: (req: any, res: any, next: any) => void;
 
   constructor(config: Bot, token: string, env: AppEnv) {
     this.botId = config.id;
@@ -19,6 +20,7 @@ export class BotManager {
     this.secretToken = randomBytes(32).toString("hex");
     this.telegraf = new Telegraf(token);
     this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
+    this.webhookHandler = this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
     this.telegraf.use(Composer.fork(async (ctx) => {
       ctx.telegram.webhookReply = false;
       return Promise.resolve();
@@ -74,6 +76,6 @@ export class BotManager {
   }
 
   webhookMiddleware() {
-    return this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
+    return this.webhookHandler;
   }
 }

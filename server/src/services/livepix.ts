@@ -156,7 +156,7 @@ export async function fetchPixCodeViaWebservice(checkoutId: string): Promise<str
       return data.code ?? data.pixCode;
     } catch (error) {
       if (attempt === delays.length - 1) {
-        console.warn(`[livepix] webservice exhausted ${delays.length} retries for checkout ${checkoutId}`, error instanceof Error ? error.message : error);
+        console.warn(`[livepix] webservice exhausted ${delays.length} retries for checkout ${checkoutId}: ${error instanceof Error ? error.message : String(error)}`);
         return undefined;
       }
     }
