@@ -49,9 +49,8 @@ echo ""
 
 echo "  ✓ Generating secure passwords..."
 
-ADMIN_PASSWORD=$(openssl rand -hex 16)
-POSTGRES_PASSWORD=$(openssl rand -hex 16)
-ENCRYPTION_KEY=$(openssl rand -hex 32)
+ADMIN_PASSWORD="admin-botflix"
+POSTGRES_PASSWORD="botflix-pass"
 
 # ── 5. Check Docker ────────────────────────────────────────────────
 
@@ -64,7 +63,15 @@ fi
 
 # ── 6. Create .env ─────────────────────────────────────────────────
 
-echo "  ✓ Creating .env..."
+OVERWRITE="y"
+if [ -f .env ]; then
+  echo "  ⚠  .env já existe!"
+  read -r -p "  Sobrescrever? Senha admin e chaves serão perdidas (y/N): " OVERWRITE
+  OVERWRITE=${OVERWRITE:-n}
+fi
+
+if [ "${OVERWRITE,,}" = "y" ]; then
+  echo "  ✓ Creating .env..."
 
 cat > .env <<EOF
 NODE_ENV=production
@@ -77,8 +84,6 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 POSTGRES_DB=botflix
 DATABASE_URL=postgresql://botflix:${POSTGRES_PASSWORD}@db:5432/botflix?schema=public
 
-ENCRYPTION_KEY=${ENCRYPTION_KEY}
-
 LIVEPIX_CLIENT_ID=${LIVEPIX_CLIENT_ID}
 LIVEPIX_CLIENT_SECRET=${LIVEPIX_CLIENT_SECRET}
 
@@ -87,23 +92,51 @@ INTERACTION_RETENTION_DAYS=90
 LOG_PAYLOADS=false
 PAYMENT_POLL_WINDOW_MINUTES=30
 EOF
+else
+  echo "  ✓ Mantendo .env existente."
+fi
 
-# ── 7. Start containers ────────────────────────────────────────────
+echo ""
+
+# ── 7. EasyPanel / Traefik (auto-detect) ──────────────────────────
+
+DOCKER_COMPOSE_CMD="sudo docker compose up -d --build"
+if sudo docker network ls --format '{{.Name}}' 2>/dev/null | grep -qx 'easypanel'; then
+  echo "  ✓ EasyPanel/Traefik detectado — usando HTTPS automático."
+  DOCKER_COMPOSE_CMD="sudo docker compose -f docker-compose.yml -f docker-compose.easypanel.yml up -d --build"
+  USE_EASYPANEL="y"
+else
+  USE_EASYPANEL="n"
+fi
+
+echo ""
+
+# ── 8. Start containers ────────────────────────────────────────────
 
 echo "  ✓ Building and starting containers..."
-sudo docker compose up -d --build
+eval "$DOCKER_COMPOSE_CMD"
 
-# ── 8. Done ────────────────────────────────────────────────────────
+# ── 9. Done ────────────────────────────────────────────────────────
 
 echo ""
 echo "  ╔════════════════════════════════════╗"
 echo "  ║          Deploy concluído          ║"
 echo "  ╠════════════════════════════════════╣"
 echo "  ║                                    ║"
-printf "  ║  Dashboard:  https://%-15s║\n" "${DOMAIN}"
-printf "  ║  Senha:      %-21s║\n" "${ADMIN_PASSWORD}"
-echo "  ║                                    ║"
-echo "  ║  Guarde a senha. Ela não será     ║"
-echo "  ║  exibida novamente.               ║"
+if [ "${USE_EASYPANEL,,}" = "y" ]; then
+  printf "  ║  Dashboard:  https://%-15s║\n" "${DOMAIN}"
+elif [ "${APP_PORT}" = "80" ]; then
+  printf "  ║  Dashboard:  http://%-16s║\n" "${DOMAIN}"
+else
+  printf "  ║  Dashboard:  http://%s:%-11s║\n" "${DOMAIN}" "${APP_PORT}"
+fi
+if [ "${OVERWRITE,,}" = "y" ]; then
+  printf "  ║  Senha:      %-21s║\n" "${ADMIN_PASSWORD}"
+  echo "  ║                                    ║"
+  echo "  ║  Guarde a senha. Ela não será     ║"
+  echo "  ║  exibida novamente.               ║"
+else
+  echo "  ║  Senha:      (consulte .env)      ║"
+fi
 echo "  ╚════════════════════════════════════╝"
 echo ""

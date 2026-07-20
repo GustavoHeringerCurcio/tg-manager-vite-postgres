@@ -1,6 +1,5 @@
 import { BotStatus, type Bot } from "@prisma/client";
 import type { AppEnv } from "../utils/env.js";
-import { decryptToken } from "./crypto.js";
 import { prisma } from "./prisma.js";
 import { BotManager } from "../bot/manager.js";
 import { getBotManager, listBotManagers, registerBotManager, removeBotManager } from "./botRegistry.js";
@@ -8,8 +7,7 @@ import { getBotManager, listBotManagers, registerBotManager, removeBotManager } 
 export async function startBot(bot: Bot, env: AppEnv): Promise<void> {
   const existing = getBotManager(bot.id);
   if (existing) return;
-  const token = decryptToken(bot.token, env.encryptionKey);
-  const manager = new BotManager(bot, token, env);
+  const manager = new BotManager(bot, bot.token, env);
   await manager.validateToken();
   await manager.start(env.domain);
   await registerBotManager(bot.id, manager);

@@ -13,7 +13,7 @@ Single-admin platform for managing multiple Telegram bots that create LivePix PI
 
 Copy `.env.example` to `.env` and set real values. Keep `.env` private.
 
-Required variables: `DATABASE_URL`, `DOMAIN`, `ADMIN_PASSWORD`, `ENCRYPTION_KEY`, `LIVEPIX_CLIENT_ID`, `LIVEPIX_CLIENT_SECRET`.
+Required variables: `DATABASE_URL`, `DOMAIN`, `ADMIN_PASSWORD`, `LIVEPIX_CLIENT_ID`, `LIVEPIX_CLIENT_SECRET`.
 
 `DOMAIN` must be a host only, for example `botflix.example.com`, because Telegram webhook URLs are registered as `https://DOMAIN/webhook/:botId`.
 
@@ -92,7 +92,6 @@ The dashboard asks for the admin password and sends it as `Authorization: Bearer
 
 ## Security Notes
 
-- Bot tokens are encrypted before database storage.
-- API responses never include plaintext or encrypted token values.
+- API responses never include bot token values.
 - Secrets are not logged.
 - Docker runtime uses a non-root user.

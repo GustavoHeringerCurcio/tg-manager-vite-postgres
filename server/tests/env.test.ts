@@ -5,7 +5,6 @@ const baseEnv = {
   DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
   DOMAIN: "example.com",
   ADMIN_PASSWORD: "secret",
-  ENCRYPTION_KEY: "12345678901234567890123456789012",
   LIVEPIX_CLIENT_ID: "client",
   LIVEPIX_CLIENT_SECRET: "secret"
 };

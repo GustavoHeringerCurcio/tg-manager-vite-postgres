@@ -112,8 +112,7 @@ auto-generates secrets, builds and starts containers. Docker network `easypanel`
 
 - **Admin auth**: Bearer token (`Authorization: Bearer <ADMIN_PASSWORD>`) using `timingSafeEqual`
   for constant-time comparison. All `/api/*` routes protected; `/api/health` is public.
-- **Bot tokens**: AES-256-GCM encrypted with `ENCRYPTION_KEY` (32 bytes). Never returned in API
-  responses. Decrypted only when loading bot instances into memory.
+- **Bot tokens**: Stored in database. Never returned in API responses.
 - **Webhook verification**: Telegram `X-Telegram-Bot-Api-Secret-Token` header validated per-bot
   using a unique `secret_token` derived from the bot token.
 

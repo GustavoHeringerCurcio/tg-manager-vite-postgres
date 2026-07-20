@@ -5,7 +5,6 @@ import { Telegraf } from "telegraf";
 import type { AppEnv } from "../utils/env.js";
 import { HttpError } from "../utils/errors.js";
 import { parsePagination, sanitizeBot, sanitizeBots, serializeJson } from "../utils/serialize.js";
-import { encryptToken } from "../services/crypto.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
 import { defaultMessageFlow, normalizeMessageFlow } from "../bot/messageFlow.js";
@@ -88,7 +87,7 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
     data.paymentFlow = defaultPaymentFlow() as Prisma.InputJsonValue;
   }
   const token = cleanString(body.token);
-  if (token) data.token = encryptToken(token, env.encryptionKey);
+  if (token) data.token = token;
   return data;
 }
 

@@ -56,7 +56,6 @@ describe("BotManager", () => {
       appPort: 3000,
       domain: "example.com",
       adminPassword: "secret",
-      encryptionKey: "test-key",
       livepixClientId: "client-id",
       livepixClientSecret: "client-secret",
       livepixRedirectUrl: "https://t.me/bot",

@@ -1,11 +1,8 @@
-import { normalizeKey } from "../services/crypto.js";
-
 export type AppEnv = {
   nodeEnv: string;
   appPort: number;
   domain: string;
   adminPassword: string;
-  encryptionKey: string;
   livepixClientId: string;
   livepixClientSecret: string;
   livepixRedirectUrl: string;
@@ -20,7 +17,6 @@ const requiredKeys = [
   "DATABASE_URL",
   "DOMAIN",
   "ADMIN_PASSWORD",
-  "ENCRYPTION_KEY",
   "LIVEPIX_CLIENT_ID",
   "LIVEPIX_CLIENT_SECRET"
 ] as const;
@@ -55,15 +51,12 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
   if (domain.startsWith("http://") || domain.startsWith("https://")) {
     throw new Error("DOMAIN must be a host without protocol");
   }
-  const encryptionKey = required(source, "ENCRYPTION_KEY");
-  normalizeKey(encryptionKey);
 
   return {
     nodeEnv: source.NODE_ENV ?? "development",
     appPort: numberValue(source, "APP_PORT", 3000),
     domain,
     adminPassword: required(source, "ADMIN_PASSWORD"),
-    encryptionKey,
     livepixClientId: required(source, "LIVEPIX_CLIENT_ID"),
     livepixClientSecret: required(source, "LIVEPIX_CLIENT_SECRET"),
     livepixRedirectUrl: source.LIVEPIX_REDIRECT_URL ?? `https://t.me/${domain}`,
