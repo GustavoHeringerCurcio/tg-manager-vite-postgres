@@ -32,6 +32,7 @@ model Bot {
   users              User[]
   transactions       Transaction[]
   interactions       Interaction[]
+  userSessions       UserSession[]
   remarketingStates  RemarketingState[]
 
   @@index([status])
@@ -39,21 +40,31 @@ model Bot {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  botId           String
-  telegramId      BigInt
-  username        String?
-  firstName       String?
-  lastName        String?
-  pixGenerations  Int       @default(0)
-  lastInteraction DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  botId             String
+  telegramId        BigInt
+  username          String?
+  firstName         String?
+  lastName          String?
+  pixGenerations    Int       @default(0)
+  lastInteraction   DateTime?
+  currentSessionId  String?
+  currentStepIndex  Int?
+  settings          Json      @default("{}")
+  totalInteractions Int       @default(0)
+  totalPayments     Int       @default(0)
+  totalAmount       Float     @default(0)
+  isBlocked         Boolean   @default(false)
+  tags              Json      @default("[]")
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  bot          Bot           @relation(fields: [botId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
-  interactions Interaction[]
+  bot               Bot               @relation(fields: [botId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  interactions      Interaction[]
   remarketingStates RemarketingState[]
+  sessions          UserSession[]
 
   @@unique([botId, telegramId])
   @@index([botId])
@@ -86,19 +97,51 @@ model Interaction {
   id        String   @id @default(cuid())
   botId     String
   userId    String?
+  sessionId String?
   type      String
   direction String
   content   String?
   payload   Json?
+  stepIndex Int?
+  buttonId  String?
+  messageId BigInt?
+  chatId    BigInt?
+  metadata  Json?
   createdAt DateTime @default(now())
 
-  bot  Bot   @relation(fields: [botId], references: [id], onDelete: Cascade)
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bot     Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user    User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([botId, createdAt])
   @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
   @@index([createdAt])
   @@map("interactions")
+}
+
+model UserSession {
+  id                String    @id @default(cuid())
+  botId             String
+  userId            String
+  status            String    @default("ACTIVE")
+  currentStepIndex  Int?
+  stepsCompleted    Json      @default("[]")
+  messageCount      Int       @default(0)
+  metadata          Json      @default("{}")
+  startedAt         DateTime  @default(now())
+  endedAt           DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  bot          Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interactions Interaction[]
+
+  @@index([botId, userId])
+  @@index([botId, status])
+  @@index([botId, startedAt(sort: Desc)])
+  @@map("user_sessions")
 }
 
 model RemarketingState {

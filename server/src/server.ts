@@ -6,10 +6,10 @@ import type { NextFunction, Request, Response } from "express";
 import { adminAuth } from "./middleware/auth.js";
 import { webhookDispatcher } from "./middleware/webhook.js";
 import { apiRouter } from "./routes/api.js";
+import { chatRouter } from "./routes/chat.js";
 import { loadEnv } from "./utils/env.js";
 import { HttpError } from "./utils/errors.js";
 import { prisma } from "./services/prisma.js";
-import { cleanupOldInteractions } from "./services/retention.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
 
@@ -27,6 +27,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
+app.use("/api", adminAuth(env.adminPassword), chatRouter());
 
 app.use(express.static(publicDir));
 app.get(/^\/(?!api|webhook).*/, (_req, res) => {
@@ -48,7 +49,6 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 const server = app.listen(env.appPort, async () => {
   try {
-    await cleanupOldInteractions(env.interactionRetentionDays);
     await loadActiveBots(env);
     startRemarketingPoller();
     console.log(`[server] Listening on ${env.appPort}`);

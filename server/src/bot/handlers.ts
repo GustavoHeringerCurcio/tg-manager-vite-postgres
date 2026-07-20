@@ -12,10 +12,11 @@ import type { MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizePaymentFlow } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing } from "./remarketing.js";
-import { resolveUserPlaceholders } from "./placeholders.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
+
+const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 type HandlerServices = {
   env: AppEnv;
@@ -45,6 +46,82 @@ async function upsertTelegramUser(botId: string, ctx: Context): Promise<User | n
       lastInteraction: new Date()
     }
   });
+}
+
+async function createOrResumeSession(botId: string, userId: string, stepIndex?: number): Promise<string> {
+  const now = new Date();
+  const existing = await prisma.userSession.findFirst({
+    where: { botId, userId, status: "ACTIVE" },
+    orderBy: { startedAt: "desc" }
+  });
+
+  if (existing) {
+    const updateData: Record<string, unknown> = { messageCount: { increment: 1 }, updatedAt: now };
+    if (stepIndex !== undefined) {
+      updateData.currentStepIndex = stepIndex;
+      const steps = (existing.stepsCompleted as number[]) ?? [];
+      if (!steps.includes(stepIndex)) {
+        updateData.stepsCompleted = [...steps, stepIndex];
+      }
+    }
+    await prisma.userSession.update({ where: { id: existing.id }, data: updateData });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { currentSessionId: existing.id, currentStepIndex: stepIndex }
+    });
+    return existing.id;
+  }
+
+  const closed = await prisma.userSession.findFirst({
+    where: { botId, userId, status: "CLOSED" },
+    orderBy: { startedAt: "desc" }
+  });
+  if (closed) {
+    const closedAt = closed.endedAt ?? closed.startedAt;
+    if ((now.getTime() - closedAt.getTime()) < SESSION_TIMEOUT_MS) {
+      await prisma.userSession.update({
+        where: { id: closed.id },
+        data: { status: "ACTIVE", endedAt: null, messageCount: { increment: 1 }, updatedAt: now }
+      });
+      await prisma.user.update({
+        where: { id: userId },
+        data: { currentSessionId: closed.id, currentStepIndex: stepIndex }
+      });
+      return closed.id;
+    }
+  }
+
+  await prisma.userSession.updateMany({
+    where: { botId, userId, status: "ACTIVE" },
+    data: { status: "CLOSED", endedAt: now }
+  });
+
+  const session = await prisma.userSession.create({
+    data: {
+      botId,
+      userId,
+      status: "ACTIVE",
+      currentStepIndex: stepIndex,
+      stepsCompleted: stepIndex !== undefined ? [stepIndex] : [],
+      messageCount: 1,
+      metadata: {}
+    }
+  });
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { currentSessionId: session.id, currentStepIndex: stepIndex }
+  });
+
+  return session.id;
+}
+
+async function incrementUserStats(userId: string, field: "totalInteractions" | "totalPayments", amountDelta?: number): Promise<void> {
+  const data: Record<string, unknown> = { [field]: { increment: 1 } };
+  if (field === "totalPayments" && amountDelta) {
+    data.totalAmount = { increment: amountDelta };
+  }
+  await prisma.user.update({ where: { id: userId }, data }).catch(() => {});
 }
 
 type KeyboardButton = { text: string; callback_data?: string; url?: string; copy_text?: { text: string } };
@@ -80,32 +157,55 @@ function findPaymentButtonAcross(steps: MessageStep[][], id: string): MessageBut
   return undefined;
 }
 
-async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv, parseMode?: ParseMode): Promise<void> {
-  const resolvedText = step.text && user ? resolveUserPlaceholders(step.text, user) : step.text;
+async function sendStep(
+  ctx: Context,
+  botConfig: Bot,
+  user: User | null,
+  sessionId: string | null,
+  step: MessageStep,
+  stepIndex: number,
+  env: AppEnv,
+  parseMode?: ParseMode
+): Promise<void> {
   const replyMarkup = keyboard(step);
   const parseOpt = parseMode ? { parse_mode: parseMode } : {};
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, ...parseOpt } : parseOpt;
+  const chatId = ctx.chat?.id;
+  const messageId = ctx.message?.message_id;
+
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await ctx.replyWithVideo(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
+      await ctx.replyWithVideo(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video",
         media: url,
-        ...(i === 0 && resolvedText ? { caption: resolvedText, ...parseOpt } : {})
+        ...(i === 0 && step.text ? { caption: step.text, ...parseOpt } : {})
       }));
       await ctx.replyWithMediaGroup(mediaGroup);
     }
-    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `video:${step.title}`, logPayloads: env.logPayloads });
+    logInteraction({
+      botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
+      content: `video:${step.title}`, stepIndex, chatId, messageId,
+      logPayloads: env.logPayloads
+    });
     return;
   }
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithVoice(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
-    logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `audio:${step.title}`, logPayloads: env.logPayloads });
+    await ctx.replyWithVoice(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
+    logInteraction({
+      botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
+      content: `audio:${step.title}`, stepIndex, chatId, messageId,
+      logPayloads: env.logPayloads
+    });
     return;
   }
-  await ctx.reply(resolvedText ?? " ", Object.keys(options).length > 0 ? options : undefined);
-  logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: env.logPayloads });
+  await ctx.reply(step.text ?? " ", Object.keys(options).length > 0 ? options : undefined);
+  logInteraction({
+    botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
+    content: step.text ?? step.title, stepIndex, chatId, messageId,
+    logPayloads: env.logPayloads
+  });
 }
 
 function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
@@ -115,8 +215,18 @@ function resolvePlaceholders(text: string, amount: number, pixCode: string | und
     .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
-async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton, paymentFlow: PaymentFlow): Promise<void> {
+async function sendLivePixPayment(
+  ctx: Context,
+  botConfig: Bot,
+  user: User,
+  sessionId: string,
+  services: HandlerServices,
+  button: MessageButton,
+  paymentFlow: PaymentFlow
+): Promise<void> {
   const amount = button.price!;
+  const chatId = ctx.chat?.id;
+  const messageId = ctx.message?.message_id;
   try {
     const botUsername = ctx.botInfo?.username;
     const redirectUrl = botUsername ? `https://t.me/${botUsername}` : undefined;
@@ -152,11 +262,12 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
       }
     });
 
+    await incrementUserStats(user.id, "totalPayments", amount);
+
     const steps = paymentFlow.steps;
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
         let resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
-        resolvedText = resolvedText ? resolveUserPlaceholders(resolvedText, user) : undefined;
 
         if (step.includePixCode && pixCode) {
           resolvedText = resolvedText
@@ -175,14 +286,24 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
           const replyMarkup = keyboard(resolvedStep);
           const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
           await ctx.reply(resolvedText, options as object);
+          logInteraction({
+            botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+            content: resolvedText, stepIndex: -1 - index, chatId, messageId,
+            logPayloads: services.env.logPayloads
+          });
         } else {
-          await sendStep(ctx, botConfig, user, resolvedStep, services.env, "HTML");
+          await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, "HTML");
         }
 
         if (step.includeQrCode && pixCode) {
           try {
             const qrBuffer = await services.livePix.generateQrCode(pixCode);
             await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
+            logInteraction({
+              botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+              content: "qr_code", stepIndex: -1 - index, chatId, messageId,
+              logPayloads: services.env.logPayloads
+            });
           } catch (error) {
             console.error(`[bot:${botConfig.id}] QR code generation failed`, error instanceof Error ? error.message : error);
             await ctx.reply("QR Code não disponível no momento.");
@@ -199,6 +320,11 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
         const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
         await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup });
       }
+      logInteraction({
+        botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+        content: "LivePix payment default", chatId, messageId,
+        logPayloads: services.env.logPayloads
+      });
     }
 
     const pixCodeBlock = pixCode ? `\n\n<code>${pixCode}</code>` : "";
@@ -213,12 +339,20 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
     const finalMarkup: Keyboard = { inline_keyboard: finalButtons };
     await ctx.reply(finalText, { reply_markup: finalMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
 
-    logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix payment response sent", logPayloads: services.env.logPayloads });
+    logInteraction({
+      botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+      content: "LivePix payment response sent", chatId, messageId,
+      logPayloads: services.env.logPayloads
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "payment flow failed";
     console.error(`[bot:${botConfig.id}] ${message}`);
     await ctx.reply("Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
-    logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "payment error shown", logPayloads: services.env.logPayloads });
+    logInteraction({
+      botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+      content: "payment error shown", chatId, messageId,
+      logPayloads: services.env.logPayloads
+    });
   }
 }
 
@@ -234,17 +368,48 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     activeStarts.add(chatId);
     try {
       const user = await upsertTelegramUser(botConfig.id, ctx);
-      const message = ctx.message ? textFromMessage(ctx.message) : "/start";
-      logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "incoming", content: message, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-      if (messageFlow.length === 0) {
-        await ctx.reply("Nenhuma mensagem configurada para este bot.");
-        logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: "empty message flow", logPayloads: services.env.logPayloads });
+      if (!user) return;
+
+      if (user.isBlocked) {
+        await ctx.reply("Você está bloqueado.");
         return;
       }
+
+      const message = ctx.message ? textFromMessage(ctx.message) : "/start";
+      const sessionId = await createOrResumeSession(botConfig.id, user.id, 0);
+      await incrementUserStats(user.id, "totalInteractions");
+
+      logInteraction({
+        botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "incoming",
+        content: message, stepIndex: 0, chatId, messageId: ctx.message?.message_id,
+        payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads,
+        metadata: { isStart: true }
+      });
+
+      if (messageFlow.length === 0) {
+        await ctx.reply("Nenhuma mensagem configurada para este bot.");
+        logInteraction({
+          botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+          content: "empty message flow", stepIndex: 0, chatId, messageId: ctx.message?.message_id,
+          logPayloads: services.env.logPayloads
+        });
+        return;
+      }
+
       for (const [index, step] of messageFlow.entries()) {
-        await sendStep(ctx, botConfig, user, step, services.env);
+        await sendStep(ctx, botConfig, user, sessionId, step, index, services.env);
         if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
       }
+
+      await prisma.userSession.update({
+        where: { id: sessionId },
+        data: { currentStepIndex: messageFlow.length - 1 }
+      });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { currentStepIndex: messageFlow.length - 1 }
+      });
+
       if (user && remarketing.enabled && remarketing.messages.length > 0) {
         await prisma.remarketingState.upsert({
           where: { userId_botId: { userId: user.id, botId: botConfig.id } },
@@ -267,8 +432,31 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     }
   });
 
+  telegraf.on("text", async (ctx) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
+
+    const messageText = ctx.message ? textFromMessage(ctx.message) : "";
+    if (messageText.startsWith("/start")) return;
+
+    const user = await upsertTelegramUser(botConfig.id, ctx);
+    if (!user) return;
+
+    if (user.isBlocked) return;
+
+    const sessionId = await createOrResumeSession(botConfig.id, user.id);
+    await incrementUserStats(user.id, "totalInteractions");
+
+    logInteraction({
+      botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "incoming",
+      content: messageText, chatId, messageId: ctx.message?.message_id,
+      payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
+    });
+  });
+
   telegraf.on("callback_query", async (ctx) => {
     const data = "data" in ctx.callbackQuery ? ctx.callbackQuery.data : "";
+    const chatId = ctx.chat?.id;
 
     if (data.startsWith(LIVEPIX_VERIFY_PREFIX)) {
       const reference = data.slice(LIVEPIX_VERIFY_PREFIX.length);
@@ -281,6 +469,15 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
           });
+          const user = await upsertTelegramUser(botConfig.id, ctx);
+          if (user) {
+            const sessionId = await createOrResumeSession(botConfig.id, user.id);
+            logInteraction({
+              botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+              content: "Payment confirmed", chatId,
+              logPayloads: services.env.logPayloads
+            });
+          }
         } else {
           await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
         }
@@ -305,7 +502,17 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       await ctx.reply("Não foi possível identificar seu usuário. Tente novamente.");
       return;
     }
-    logInteraction({ botId: botConfig.id, userId: user.id, type: "callback_query", direction: "incoming", content: data, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-    await sendLivePixPayment(ctx, botConfig, user, services, button, paymentFlow);
+    if (user.isBlocked) return;
+
+    const sessionId = await createOrResumeSession(botConfig.id, user.id);
+    await incrementUserStats(user.id, "totalInteractions");
+
+    logInteraction({
+      botId: botConfig.id, userId: user.id, sessionId, type: "callback_query", direction: "incoming",
+      content: data, buttonId, chatId, messageId: ctx.callbackQuery.message?.message_id,
+      payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
+    });
+
+    await sendLivePixPayment(ctx, botConfig, user, sessionId, services, button, paymentFlow);
   });
 }
