@@ -55,6 +55,10 @@ export class BotManager {
     return this.telegraf.telegram;
   }
 
+  get livepix() {
+    return this.livePix;
+  }
+
   webhookMiddleware() {
     return this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
   }

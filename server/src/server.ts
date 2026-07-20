@@ -12,6 +12,7 @@ import { HttpError } from "./utils/errors.js";
 import { prisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
+import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 
 const env = loadEnv();
 const app = express();
@@ -51,6 +52,7 @@ const server = app.listen(env.appPort, async () => {
   try {
     await loadActiveBots(env);
     startRemarketingPoller();
+    startPaymentPoller();
     console.log(`[server] Listening on ${env.appPort}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "startup failed";
@@ -63,6 +65,7 @@ const server = app.listen(env.appPort, async () => {
 async function shutdown(signal: string): Promise<void> {
   console.log(`[server] Received ${signal}, shutting down`);
   stopRemarketingPoller();
+  stopPaymentPoller();
   server.close(async () => {
     await shutdownAllBots();
     await prisma.$disconnect();
