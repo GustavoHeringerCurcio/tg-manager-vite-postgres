@@ -214,10 +214,14 @@ async function sendStep(
   });
 }
 
+function formatPixCode(pixCode: string): string {
+  return `<blockquote><code>${pixCode}</code></blockquote>`;
+}
+
 function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
   return text
     .replace(/\{amount\}/g, `R$ ${amount.toFixed(2)}`)
-    .replace(/\{pix_code\}/g, pixCode ? `<code>${pixCode}</code>` : "")
+    .replace(/\{pix_code\}/g, pixCode ? formatPixCode(pixCode) : "")
     .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
@@ -280,9 +284,10 @@ async function sendLivePixPayment(
           : undefined;
 
         if (step.includePixCode && pixCode) {
+          const formattedCode = formatPixCode(pixCode);
           resolvedText = resolvedText
-            ? `${resolvedText}\n\n<code>${pixCode}</code>`
-            : `<code>${pixCode}</code>`;
+            ? `${resolvedText}\n\n${formattedCode}`
+            : formattedCode;
         }
         if (step.includeCheckoutUrl) {
           resolvedText = resolvedText
@@ -325,7 +330,7 @@ async function sendLivePixPayment(
     } else {
       const defaultText = `Pagamento PIX\n\nValor: R$ ${amount.toFixed(2)}`;
       if (pixCode) {
-        await ctx.reply(`${defaultText}\n\nCódigo PIX copia e cola:\n<code>${pixCode}</code>`, { parse_mode: "HTML" });
+        await ctx.reply(`${defaultText}\n\nCódigo PIX copia e cola:\n${formatPixCode(pixCode)}`, { parse_mode: "HTML" });
       } else {
         const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
         await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup });
@@ -337,7 +342,7 @@ async function sendLivePixPayment(
       });
     }
 
-    const pixCodeBlock = pixCode ? `\n\n<code>${pixCode}</code>` : "";
+    const pixCodeBlock = pixCode ? `\n\n${formatPixCode(pixCode)}` : "";
     const finalText = `Pagamento PIX - R$ ${amount.toFixed(2)}${pixCodeBlock}`;
 
     const finalButtons: KeyboardButton[][] = [[
