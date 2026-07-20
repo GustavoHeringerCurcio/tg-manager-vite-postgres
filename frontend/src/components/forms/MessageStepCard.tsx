@@ -135,7 +135,7 @@ function MessageStepCardInner({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "border-2 border-border/50 bg-card",
+        "border-2 border-border/50 bg-muted dark:bg-black",
         isDragging && "opacity-60 shadow-2xl z-50 relative scale-[1.02] border-primary/40",
         isExpanded && "border-primary/30",
         !isDragging && "transition-all duration-200"
