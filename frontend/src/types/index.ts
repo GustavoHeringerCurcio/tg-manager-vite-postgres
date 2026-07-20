@@ -5,6 +5,7 @@ export type {
   ButtonAction,
   LivePixResponse,
   MessageButton,
+  PaymentFlow,
   MessageStep,
   Bot,
   RemarketingConfig,

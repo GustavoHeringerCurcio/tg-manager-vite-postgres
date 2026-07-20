@@ -2,7 +2,6 @@ import Papa from "papaparse";
 import type {
   MessageStep,
   MessageButton,
-  LivePixResponse,
   ButtonAction,
   ButtonColor,
 } from "@/types";
@@ -20,16 +19,6 @@ export const MESSAGE_FLOW_HEADERS = [
   "button_url",
   "button_price",
   "button_color",
-] as const;
-
-export const PAYMENT_FLOW_HEADERS = [
-  "text",
-  "image_url",
-  "video_url",
-  "audio_url",
-  "include_qr_code",
-  "include_pix_code",
-  "include_checkout_url",
 ] as const;
 
 export const BUTTON_PRESET_HEADERS = [
@@ -357,56 +346,6 @@ export function stepsToFlowCsv(steps: MessageStep[]): string {
 
 export function exportFlowCsv(steps: MessageStep[], filename: string): void {
   downloadCsv(filename, stepsToFlowCsv(steps));
-}
-
-export function parsePaymentFlowCsv(data: string[][]): LivePixResponse[] {
-  if (data.length < 2) return [];
-
-  const rows = data.slice(1);
-  const responses: LivePixResponse[] = [];
-
-  for (const row of rows) {
-    if (row.every((cell) => !cell.trim())) continue;
-
-    const text = colSafe(row, 0);
-    const imageUrl = colSafe(row, 1);
-    const videoUrl = colSafe(row, 2);
-    const audioUrl = colSafe(row, 3);
-    const includeQr = colSafe(row, 4);
-    const includePix = colSafe(row, 5);
-    const includeCheckout = colSafe(row, 6);
-
-    const resp: LivePixResponse = {};
-    if (text) resp.text = text;
-    if (imageUrl) resp.imageUrl = imageUrl;
-    if (videoUrl) resp.videoUrl = videoUrl;
-    if (audioUrl) resp.audioUrl = audioUrl;
-    if (includeQr.toLowerCase() === "true") resp.includeQrCode = true;
-    if (includePix.toLowerCase() === "true") resp.includePixCode = true;
-    if (includeCheckout.toLowerCase() === "true") resp.includeCheckoutUrl = true;
-
-    if (Object.keys(resp).length > 0) {
-      responses.push(resp);
-    }
-  }
-
-  return responses;
-}
-
-export function exportPaymentFlowCsv(responses: LivePixResponse[]): string {
-  if (responses.length === 0) return "";
-
-  const rows: string[][] = responses.map((resp) => [
-    resp.text ?? "",
-    resp.imageUrl ?? "",
-    resp.videoUrl ?? "",
-    resp.audioUrl ?? "",
-    resp.includeQrCode ? "true" : "false",
-    resp.includePixCode ? "true" : "false",
-    resp.includeCheckoutUrl ? "true" : "false",
-  ]);
-
-  return generateCsv([...PAYMENT_FLOW_HEADERS], rows);
 }
 
 export type ButtonPreset = {

@@ -8,12 +8,14 @@ import { logInteraction } from "../services/logger.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { normalizeMessageFlow } from "./messageFlow.js";
-import type { LivePixResponse, MessageButton, MessageStep } from "./messageFlow.js";
+import type { MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizePaymentFlow } from "./paymentFlow.js";
+import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing } from "./remarketing.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
+const LIVEPIX_COPY_PREFIX = "livepix_copy:";
 
 type HandlerServices = {
   env: AppEnv;
@@ -111,49 +113,7 @@ function resolvePlaceholders(text: string, amount: number, pixCode: string | und
     .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
-async function sendLivePixResponse(
-  ctx: Context,
-  response: LivePixResponse,
-  amount: number,
-  pixCode: string | undefined,
-  checkoutUrl: string,
-  services: HandlerServices
-): Promise<void> {
-  const metaText = response.text ? resolvePlaceholders(response.text, amount, pixCode, checkoutUrl) : "";
-
-  let finalText = metaText;
-  if (response.includePixCode && pixCode) {
-    finalText = finalText ? `${finalText}\n\nCódigo PIX: <code>${pixCode}</code>` : `<code>${pixCode}</code>`;
-  }
-  if (response.includeCheckoutUrl) {
-    finalText = finalText ? `${finalText}\n\nLink de pagamento: ${checkoutUrl}` : checkoutUrl;
-  }
-
-  if (response.videoUrl) {
-    await ctx.replyWithVideo(response.videoUrl, { caption: finalText || undefined, parse_mode: "HTML" });
-    return;
-  }
-  if (response.audioUrl) {
-    await ctx.replyWithAudio(response.audioUrl, { caption: finalText || undefined, parse_mode: "HTML" });
-    return;
-  }
-  if (response.imageUrl) {
-    await ctx.replyWithPhoto(response.imageUrl, { caption: finalText || undefined, parse_mode: "HTML" });
-  } else if (finalText) {
-    await ctx.reply(finalText, { parse_mode: "HTML" });
-  }
-
-  if (response.includeQrCode && pixCode) {
-    try {
-      const qrBuffer = await services.livePix.generateQrCode(pixCode);
-      await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
-    } catch {
-      await ctx.reply("QR Code não disponível no momento.");
-    }
-  }
-}
-
-async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton, paymentFlow: LivePixResponse[]): Promise<void> {
+async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton, paymentFlow: PaymentFlow): Promise<void> {
   const amount = button.price ?? botConfig.checkoutAmount;
   try {
     const updatedUser = await prisma.user.update({
@@ -177,10 +137,13 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
       }
     });
 
-    const responses = paymentFlow;
-    if (responses.length > 0) {
-      for (const response of responses) {
-        await sendLivePixResponse(ctx, response, amount, pixCode, payment.checkoutUrl, services);
+    const steps = paymentFlow.steps;
+    if (steps.length > 0) {
+      for (const [index, step] of steps.entries()) {
+        const resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
+        const resolvedStep: MessageStep = { ...step, text: resolvedText };
+        await sendStep(ctx, botConfig, user, resolvedStep, services.env);
+        if (step.delayMs > 0 && index < steps.length - 1) await delay(step.delayMs);
       }
     } else {
       const defaultText = `Pagamento PIX\n\nValor: R$ ${amount.toFixed(2)}`;
@@ -192,10 +155,26 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
       }
     }
 
-    const verifyMarkup: Keyboard = {
-      inline_keyboard: [[{ text: "✅ Verificar pagamento", callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }]]
-    };
-    await ctx.reply("Após realizar o pagamento, clique no botão abaixo para verificar.", { reply_markup: verifyMarkup as InlineKeyboardMarkup });
+    const pixCodeBlock = pixCode ? `\n\n<code>${pixCode}</code>` : "";
+    const finalText = `Pagamento PIX - R$ ${amount.toFixed(2)}${pixCodeBlock}`;
+
+    const finalButtons: KeyboardButton[][] = [[
+      { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
+    ]];
+    if (pixCode) {
+      finalButtons.push([{ text: paymentFlow.pixCopyLabel, callback_data: `livepix_copy:${payment.reference}` }]);
+    }
+    const finalMarkup: Keyboard = { inline_keyboard: finalButtons };
+    await ctx.reply(finalText, { reply_markup: finalMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
+
+    if (paymentFlow.includeQrCode && pixCode) {
+      try {
+        const qrBuffer = await services.livePix.generateQrCode(pixCode);
+        await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
+      } catch {
+        await ctx.reply("QR Code não disponível no momento.");
+      }
+    }
 
     logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix payment response sent", logPayloads: services.env.logPayloads });
   } catch (error) {
@@ -272,6 +251,25 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         const message = error instanceof Error ? error.message : "payment verification failed";
         console.error(`[bot:${botConfig.id}] ${message}`);
         await ctx.answerCbQuery("Falha ao verificar pagamento. Tente novamente.", { show_alert: true });
+      }
+      return;
+    }
+
+    if (data.startsWith(LIVEPIX_COPY_PREFIX)) {
+      const reference = data.slice(LIVEPIX_COPY_PREFIX.length);
+      await ctx.answerCbQuery("Reenviando código PIX...");
+      try {
+        const transaction = await prisma.transaction.findFirst({
+          where: { livepixReference: reference },
+          orderBy: { createdAt: "desc" }
+        });
+        if (transaction?.pixCode) {
+          await ctx.reply(`<code>${transaction.pixCode}</code>`, { parse_mode: "HTML" });
+        } else {
+          await ctx.answerCbQuery("Código PIX não disponível.", { show_alert: true });
+        }
+      } catch {
+        await ctx.answerCbQuery("Falha ao reenviar código PIX.", { show_alert: true });
       }
       return;
     }

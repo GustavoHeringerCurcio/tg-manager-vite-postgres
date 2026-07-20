@@ -13,6 +13,13 @@ export type LivePixResponse = {
   includeCheckoutUrl?: boolean;
 };
 
+export type PaymentFlow = {
+  steps: MessageStep[];
+  verifyLabel: string;
+  pixCopyLabel: string;
+  includeQrCode: boolean;
+};
+
 export type MessageButton = {
   id: string;
   label: string;
@@ -37,7 +44,7 @@ export type Bot = {
   name: string;
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
-  paymentFlow: LivePixResponse[];
+  paymentFlow: PaymentFlow;
   checkoutAmount: number;
   status: BotStatus;
   createdAt: string;
@@ -57,7 +64,7 @@ export type BotPayload = {
   token?: string;
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
-  paymentFlow: LivePixResponse[];
+  paymentFlow: PaymentFlow;
   checkoutAmount: number;
 };
 

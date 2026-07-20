@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Save, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import type { BotPayload, LivePixResponse } from "@/types";
+import type { BotPayload, PaymentFlow } from "@/types";
 import PaymentFlowEditor from "@/components/forms/PaymentFlowEditor";
+
+const defaultPaymentFlow: PaymentFlow = {
+  steps: [],
+  verifyLabel: "Verificar pagamento",
+  pixCopyLabel: "Copiar PIX",
+  includeQrCode: false,
+};
 
 export default function BotPaymentPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -15,7 +22,7 @@ export default function BotPaymentPage() {
   const { bot, loading, error, refresh } = useBotDetail(botId);
   const { updateBot } = useBots();
   const [saving, setSaving] = useState(false);
-  const [paymentFlow, setPaymentFlow] = useState<LivePixResponse[] | null>(null);
+  const [paymentFlow, setPaymentFlow] = useState<PaymentFlow | null>(null);
 
   if (loading) {
     return (
@@ -34,22 +41,23 @@ export default function BotPaymentPage() {
     );
   }
 
-  const currentFlow = paymentFlow ?? bot.paymentFlow ?? [];
+  const currentFlow = paymentFlow ?? bot?.paymentFlow ?? defaultPaymentFlow;
 
   async function handleSave() {
-    if (!botId) return;
+    if (!botId || !bot) return;
     setSaving(true);
     try {
       const payload: BotPayload = {
-        name: bot?.name ?? "",
-        messageFlow: bot?.messageFlow ?? [],
-        remarketing: bot?.remarketing ?? { enabled: false, intervalMs: 86400000, initialDelayMs: 0, maxSends: 0, messages: [] },
+        name: bot.name,
+        messageFlow: bot.messageFlow,
+        remarketing: bot.remarketing,
         paymentFlow: currentFlow,
-        checkoutAmount: bot?.checkoutAmount ?? 0,
+        checkoutAmount: bot.checkoutAmount,
       };
       await updateBot(botId, payload);
       toast.success("Payment flow updated");
       refresh();
+      setPaymentFlow(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update payment flow");
     } finally {
@@ -74,9 +82,8 @@ export default function BotPaymentPage() {
       </div>
 
       <PaymentFlowEditor
-        responses={currentFlow}
+        paymentFlow={currentFlow}
         onChange={setPaymentFlow}
-        botName={bot.name}
       />
 
       <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-background/80 backdrop-blur-xl border-t flex items-center justify-between z-10">
