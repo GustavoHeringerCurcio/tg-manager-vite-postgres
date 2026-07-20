@@ -7,6 +7,7 @@ import { BUTTON_STYLE_MAP } from "../bot/messageFlow.js";
 import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
 import type { TimeComplimentConfig } from "../bot/remarketing.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
+import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { prisma } from "./prisma.js";
@@ -122,13 +123,15 @@ async function sendRemarketingStep(
 ): Promise<void> {
   const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
-  const resolvedText = step.text ? resolveAllPlaceholders(step.text, { firstName }, timeCompliments) : step.text;
+  const resolvedText = step.text
+    ? markdownToHtml(resolveAllPlaceholders(step.text, { firstName }, timeCompliments))
+    : step.text;
   const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage);
-  const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
+  const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await withTimeout(telegram.sendVideo(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) }), 10000);
+      await withTimeout(telegram.sendVideo(chatId, step.mediaUrls[0], { caption: resolvedText, ...options }), 10000);
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video" as const,
@@ -142,12 +145,12 @@ async function sendRemarketingStep(
   }
 
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await withTimeout(telegram.sendVoice(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) }), 10000);
+    await withTimeout(telegram.sendVoice(chatId, step.mediaUrls[0], { caption: resolvedText, ...options }), 10000);
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }
 
-  await withTimeout(telegram.sendMessage(chatId, resolvedText ?? " ", options as any), 10000);
+  await withTimeout(telegram.sendMessage(chatId, resolvedText ?? " ", options), 10000);
   logInteraction({ botId, userId, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: false });
 }
 

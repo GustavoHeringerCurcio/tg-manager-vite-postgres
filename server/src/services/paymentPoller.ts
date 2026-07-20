@@ -84,7 +84,8 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
   try {
     const sendPromise = manager.telegram.sendMessage(
       chatId,
-      `✅ Pagamento confirmado!\n\nValor: R$ ${amountBrl}\n\nObrigado pela sua compra!`
+      `✅ Pagamento confirmado!\n\nValor: R$ ${amountBrl}\n\nObrigado pela sua compra!`,
+      { parse_mode: "HTML" }
     );
     await Promise.race([
       sendPromise,

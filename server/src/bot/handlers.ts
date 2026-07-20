@@ -14,6 +14,7 @@ import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js";
 import type { TimeComplimentConfig } from "./remarketing.js";
 import { resolveAllPlaceholders } from "./placeholders.js";
+import { markdownToHtml } from "../utils/markdownToHtml.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -171,11 +172,12 @@ async function sendStep(
   timeCompliments: TimeComplimentConfig,
   parseMode?: ParseMode
 ): Promise<void> {
-  const resolvedText = step.text
+  let resolvedText = step.text
     ? resolveAllPlaceholders(step.text, { firstName: user?.firstName ?? null }, timeCompliments)
     : step.text;
+  resolvedText = resolvedText ? markdownToHtml(resolvedText) : resolvedText;
   const replyMarkup = keyboard(step);
-  const parseOpt = parseMode ? { parse_mode: parseMode } : {};
+  const parseOpt = parseMode ? { parse_mode: parseMode } : { parse_mode: "HTML" as const };
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, ...parseOpt } : parseOpt;
   const chatId = ctx.chat?.id;
   const messageId = ctx.message?.message_id;
@@ -283,6 +285,7 @@ async function sendLivePixPayment(
         resolvedText = resolvedText
           ? resolveAllPlaceholders(resolvedText, { firstName: user.firstName }, timeCompliments)
           : undefined;
+        resolvedText = resolvedText ? markdownToHtml(resolvedText) : resolvedText;
 
         if (step.includePixCode && pixCode) {
           const formattedCode = formatPixCode(pixCode);
@@ -314,7 +317,7 @@ async function sendLivePixPayment(
         if (step.includeQrCode && pixCode) {
           try {
             const qrBuffer = await services.livePix.generateQrCode(pixCode);
-            await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
+            await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}`, parse_mode: "HTML" });
             logInteraction({
               botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
               content: "qr_code", stepIndex: -1 - index, chatId, messageId,
@@ -322,7 +325,7 @@ async function sendLivePixPayment(
             });
           } catch (error) {
             console.error(`[bot:${botConfig.id}] QR code generation failed`, error instanceof Error ? error.message : error);
-            await ctx.reply("QR Code não disponível no momento.");
+            await ctx.reply("QR Code não disponível no momento.", { parse_mode: "HTML" });
           }
         }
 
@@ -334,7 +337,7 @@ async function sendLivePixPayment(
         await ctx.reply(`${defaultText}\n\nCódigo PIX copia e cola:\n${formatPixCode(pixCode)}`, { parse_mode: "HTML" });
       } else {
         const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
-        await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup });
+        await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
       }
       logInteraction({
         botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
@@ -363,7 +366,7 @@ async function sendLivePixPayment(
   } catch (error) {
     const message = error instanceof Error ? error.message : "payment flow failed";
     console.error(`[bot:${botConfig.id}] ${message}`);
-    await ctx.reply("Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
+    await ctx.reply("Não foi possível gerar o pagamento agora. Tente novamente em instantes.", { parse_mode: "HTML" });
     logInteraction({
       botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
       content: "payment error shown", chatId, messageId,
@@ -388,7 +391,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       if (!user) return;
 
       if (user.isBlocked) {
-        await ctx.reply("Você está bloqueado.");
+        await ctx.reply("Você está bloqueado.", { parse_mode: "HTML" });
         return;
       }
 
@@ -404,7 +407,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       });
 
       if (messageFlow.length === 0) {
-        await ctx.reply("Nenhuma mensagem configurada para este bot.");
+        await ctx.reply("Nenhuma mensagem configurada para este bot.", { parse_mode: "HTML" });
         logInteraction({
           botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
           content: "empty message flow", stepIndex: 0, chatId, messageId: ctx.message?.message_id,
@@ -481,7 +484,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       try {
         const payment = await services.livePix.checkPayment(reference);
         if (payment && payment.amount != null && payment.amount > 0) {
-          await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`);
+          await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`, { parse_mode: "HTML" });
           await prisma.transaction.updateMany({
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
@@ -531,7 +534,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     await ctx.answerCbQuery("Gerando pagamento...");
     const user = await upsertTelegramUser(botConfig.id, ctx);
     if (!user) {
-      await ctx.reply("Não foi possível identificar seu usuário. Tente novamente.");
+      await ctx.reply("Não foi possível identificar seu usuário. Tente novamente.", { parse_mode: "HTML" });
       return;
     }
     if (user.isBlocked) return;
