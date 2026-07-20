@@ -63,7 +63,7 @@ function validateUrl(value: string | undefined, field: string): string {
 
 function idFrom(value: unknown): string {
   const clean = cleanString(value);
-  return clean && clean.length <= 48 ? clean : randomUUID();
+  return clean && clean.length <= 47 ? clean : randomUUID();
 }
 
 function normalizeButton(value: unknown, messageIndex: number, buttonIndex: number): MessageButton {

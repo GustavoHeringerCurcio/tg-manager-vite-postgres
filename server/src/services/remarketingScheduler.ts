@@ -69,7 +69,7 @@ async function processOne(
   const step = config.messages[index];
   if (!step) return;
 
-  const chatId = Number(telegramId);
+  const chatId = String(telegramId);
   await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId);
 
   const newTotalSent = state.totalSent + 1;
@@ -92,7 +92,7 @@ async function processOne(
 
 async function sendRemarketingStep(
   telegram: Telegram,
-  chatId: number,
+  chatId: string | number,
   step: MessageStep,
   botId: string,
   userId: string | null

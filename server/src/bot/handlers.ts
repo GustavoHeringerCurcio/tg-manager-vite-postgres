@@ -1,7 +1,7 @@
 import type { Bot, User } from "@prisma/client";
 import { PaymentMethod } from "@prisma/client";
 import type { Context, Telegraf } from "telegraf";
-import type { InlineKeyboardMarkup, InputMediaVideo, Message } from "telegraf/types";
+import type { InlineKeyboardMarkup, InputMediaVideo, Message, ParseMode } from "telegraf/types";
 import { delay } from "../utils/async.js";
 import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
@@ -79,17 +79,18 @@ function findPaymentButtonAcross(steps: MessageStep[][], id: string): MessageBut
   return undefined;
 }
 
-async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv): Promise<void> {
+async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv, parseMode?: ParseMode): Promise<void> {
   const replyMarkup = keyboard(step);
-  const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
+  const parseOpt = parseMode ? { parse_mode: parseMode } : {};
+  const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, ...parseOpt } : parseOpt;
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await ctx.replyWithVideo(step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+      await ctx.replyWithVideo(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video",
         media: url,
-        ...(i === 0 && step.text ? { caption: step.text } : {})
+        ...(i === 0 && step.text ? { caption: step.text, ...parseOpt } : {})
       }));
       await ctx.replyWithMediaGroup(mediaGroup);
     }
@@ -97,11 +98,11 @@ async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: M
     return;
   }
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithVoice(step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+    await ctx.replyWithVoice(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `audio:${step.title}`, logPayloads: env.logPayloads });
     return;
   }
-  await ctx.reply(step.text ?? " ", options);
+  await ctx.reply(step.text ?? " ", Object.keys(options).length > 0 ? options : undefined);
   logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: step.text ?? step.title, logPayloads: env.logPayloads });
 }
 
@@ -172,14 +173,15 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
           const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
           await ctx.reply(resolvedText, options as object);
         } else {
-          await sendStep(ctx, botConfig, user, resolvedStep, services.env);
+          await sendStep(ctx, botConfig, user, resolvedStep, services.env, "HTML");
         }
 
         if (step.includeQrCode && pixCode) {
           try {
             const qrBuffer = await services.livePix.generateQrCode(pixCode);
             await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
-          } catch {
+          } catch (error) {
+            console.error(`[bot:${botConfig.id}] QR code generation failed`, error instanceof Error ? error.message : error);
             await ctx.reply("QR Code não disponível no momento.");
           }
         }
@@ -270,7 +272,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       await ctx.answerCbQuery("Verificando pagamento...");
       try {
         const payment = await services.livePix.checkPayment(reference);
-        if (payment && payment.amount > 0) {
+        if (payment && payment.amount != null && payment.amount > 0) {
           await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`);
           await prisma.transaction.updateMany({
             where: { livepixReference: reference },

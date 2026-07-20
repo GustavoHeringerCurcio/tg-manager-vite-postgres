@@ -86,6 +86,11 @@ function MessageStepCardInner({
   function updateButton(btnIndex: number, fields: Partial<MessageButton>) {
     const buttons = [...step.buttons];
     buttons[btnIndex] = { ...buttons[btnIndex], ...fields };
+    if (buttons[btnIndex].action === "OPEN_URL") {
+      delete buttons[btnIndex].price;
+    } else if (buttons[btnIndex].action === "LIVEPIX_PAYMENT") {
+      delete buttons[btnIndex].url;
+    }
     update({ buttons });
   }
 
