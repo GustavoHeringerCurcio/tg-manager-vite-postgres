@@ -325,9 +325,9 @@ function MessageStepCardInner({
               <div className="flex flex-wrap gap-3">
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Sends a QR code image right after this step">
                   <Switch
+                    size="sm"
                     checked={step.includeQrCode ?? false}
                     onCheckedChange={(v) => update({ includeQrCode: v || undefined })}
-                    className="scale-75"
                   />
                   <span className={step.includeQrCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
                     {step.includeQrCode ? "QR Code ON" : "QR Code OFF"}
@@ -335,9 +335,9 @@ function MessageStepCardInner({
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the PIX copy-paste code at the end of this message">
                   <Switch
+                    size="sm"
                     checked={step.includePixCode ?? false}
                     onCheckedChange={(v) => update({ includePixCode: v || undefined })}
-                    className="scale-75"
                   />
                   <span className={step.includePixCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
                     {step.includePixCode ? "PIX Code ON" : "PIX Code OFF"}
@@ -345,9 +345,9 @@ function MessageStepCardInner({
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the LivePix checkout URL at the end of this message">
                   <Switch
+                    size="sm"
                     checked={step.includeCheckoutUrl ?? false}
                     onCheckedChange={(v) => update({ includeCheckoutUrl: v || undefined })}
-                    className="scale-75"
                   />
                   <span className={step.includeCheckoutUrl ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
                     {step.includeCheckoutUrl ? "LivePix Link ON" : "LivePix Link OFF"}

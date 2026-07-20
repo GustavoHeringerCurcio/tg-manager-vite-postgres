@@ -116,5 +116,35 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function ({ addVariant }) {
+      addVariant("data-checked", [
+        '&[data-state="checked"]',
+        '&[data-checked]:not([data-checked="false"])',
+      ]);
+      addVariant("data-unchecked", [
+        '&[data-state="unchecked"]',
+        '&[data-unchecked]:not([data-unchecked="false"])',
+      ]);
+      addVariant("data-open", [
+        '&[data-state="open"]',
+        '&[data-open]:not([data-open="false"])',
+      ]);
+      addVariant("data-closed", [
+        '&[data-state="closed"]',
+        '&[data-closed]:not([data-closed="false"])',
+      ]);
+      addVariant("data-selected", '&[data-selected="true"]');
+      addVariant("data-disabled", [
+        '&[data-disabled="true"]',
+        '&[data-disabled]:not([data-disabled="false"])',
+      ]);
+      addVariant("data-active", [
+        '&[data-state="active"]',
+        '&[data-active]:not([data-active="false"])',
+      ]);
+      addVariant("data-horizontal", '&[data-orientation="horizontal"]');
+      addVariant("data-vertical", '&[data-orientation="vertical"]');
+    },
+  ],
 };
