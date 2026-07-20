@@ -8,6 +8,7 @@ export type AppEnv = {
   encryptionKey: string;
   livepixClientId: string;
   livepixClientSecret: string;
+  livepixRedirectUrl: string;
   maxPixGenerations: number;
   interactionRetentionDays: number;
   logPayloads: boolean;
@@ -65,6 +66,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     encryptionKey,
     livepixClientId: required(source, "LIVEPIX_CLIENT_ID"),
     livepixClientSecret: required(source, "LIVEPIX_CLIENT_SECRET"),
+    livepixRedirectUrl: source.LIVEPIX_REDIRECT_URL ?? `https://t.me/${domain}`,
     maxPixGenerations: numberValue(source, "MAX_PIX_GENERATIONS", 5),
     interactionRetentionDays: numberValue(source, "INTERACTION_RETENTION_DAYS", 90),
     logPayloads: booleanValue(source, "LOG_PAYLOADS", false)

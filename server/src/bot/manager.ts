@@ -18,7 +18,7 @@ export class BotManager {
     this.path = `/webhook/${config.id}`;
     this.secretToken = randomBytes(32).toString("hex");
     this.telegraf = new Telegraf(token);
-    this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret);
+    this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
     this.telegraf.use(Composer.fork(async (ctx) => {
       ctx.telegram.webhookReply = false;
       return Promise.resolve();

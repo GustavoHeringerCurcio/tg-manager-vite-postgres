@@ -18,7 +18,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function normalizePaymentFlow(value: unknown): PaymentFlow {
-  if (value === undefined || value === null) return defaultPaymentFlow();
+  if (value === undefined || value === null || Array.isArray(value)) return defaultPaymentFlow();
   if (!isRecord(value)) throw new Error("paymentFlow must be an object");
 
   const steps = normalizeMessageFlow(value.steps);

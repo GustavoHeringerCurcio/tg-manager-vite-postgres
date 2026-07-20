@@ -59,6 +59,7 @@ describe("BotManager", () => {
       encryptionKey: "test-key",
       livepixClientId: "client-id",
       livepixClientSecret: "client-secret",
+      livepixRedirectUrl: "https://t.me/bot",
       maxPixGenerations: 5,
       interactionRetentionDays: 90,
       logPayloads: false

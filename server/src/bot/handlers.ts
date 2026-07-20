@@ -15,7 +15,6 @@ import { normalizeRemarketing } from "./remarketing.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
-const LIVEPIX_COPY_PREFIX = "livepix_copy:";
 
 type HandlerServices = {
   env: AppEnv;
@@ -47,7 +46,7 @@ async function upsertTelegramUser(botId: string, ctx: Context): Promise<User | n
   });
 }
 
-type KeyboardButton = { text: string; callback_data?: string; url?: string };
+type KeyboardButton = { text: string; callback_data?: string; url?: string; copy_text?: { text: string } };
 type Keyboard = { inline_keyboard: KeyboardButton[][] };
 
 function jsonPayload(value: object): object {
@@ -116,13 +115,26 @@ function resolvePlaceholders(text: string, amount: number, pixCode: string | und
 async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton, paymentFlow: PaymentFlow): Promise<void> {
   const amount = button.price!;
   try {
-    const updatedUser = await prisma.user.update({
+    const botUsername = ctx.botInfo?.username;
+    const redirectUrl = botUsername ? `https://t.me/${botUsername}` : undefined;
+    const payment = await services.livePix.createPayment(amount, redirectUrl);
+
+    let pixCode: string | undefined;
+    const currentCount = user.pixGenerations;
+    if (currentCount < services.env.maxPixGenerations) {
+      pixCode = await services.livePix.extractPixCode(payment.checkoutUrl);
+      if (pixCode) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { pixGenerations: { increment: 1 } }
+        });
+      }
+    }
+
+    await prisma.user.update({
       where: { id: user.id },
-      data: { pixGenerations: { increment: 1 }, lastInteraction: new Date() }
+      data: { lastInteraction: new Date() }
     });
-    const payment = await services.livePix.createPayment(amount);
-    const pixAllowed = updatedUser.pixGenerations <= services.env.maxPixGenerations;
-    const pixCode = pixAllowed ? await services.livePix.extractPixCode(payment.checkoutUrl) : undefined;
 
     await prisma.transaction.create({
       data: {
@@ -191,7 +203,7 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
     if (pixCode) {
-      finalButtons.push([{ text: paymentFlow.pixCopyLabel, callback_data: `livepix_copy:${payment.reference}` }]);
+      finalButtons.push([{ text: paymentFlow.pixCopyLabel, copy_text: { text: pixCode } }]);
     }
     const finalMarkup: Keyboard = { inline_keyboard: finalButtons };
     await ctx.reply(finalText, { reply_markup: finalMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
@@ -271,25 +283,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         const message = error instanceof Error ? error.message : "payment verification failed";
         console.error(`[bot:${botConfig.id}] ${message}`);
         await ctx.answerCbQuery("Falha ao verificar pagamento. Tente novamente.", { show_alert: true });
-      }
-      return;
-    }
-
-    if (data.startsWith(LIVEPIX_COPY_PREFIX)) {
-      const reference = data.slice(LIVEPIX_COPY_PREFIX.length);
-      await ctx.answerCbQuery("Reenviando código PIX...");
-      try {
-        const transaction = await prisma.transaction.findFirst({
-          where: { livepixReference: reference },
-          orderBy: { createdAt: "desc" }
-        });
-        if (transaction?.pixCode) {
-          await ctx.reply(`<code>${transaction.pixCode}</code>`, { parse_mode: "HTML" });
-        } else {
-          await ctx.answerCbQuery("Código PIX não disponível.", { show_alert: true });
-        }
-      } catch {
-        await ctx.answerCbQuery("Falha ao reenviar código PIX.", { show_alert: true });
       }
       return;
     }

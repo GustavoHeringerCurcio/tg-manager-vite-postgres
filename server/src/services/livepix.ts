@@ -30,7 +30,11 @@ export class LivePixService {
   private accessToken: string | null = null;
   private expiresAt = 0;
 
-  constructor(private readonly clientId: string, private readonly clientSecret: string) {}
+  constructor(
+    private readonly clientId: string,
+    private readonly clientSecret: string,
+    private readonly redirectUrl: string
+  ) {}
 
   private async requestToken(): Promise<string> {
     if (this.accessToken && Date.now() < this.expiresAt) return this.accessToken;
@@ -38,7 +42,7 @@ export class LivePixService {
       grant_type: "client_credentials",
       client_id: this.clientId,
       client_secret: this.clientSecret,
-      scope: "payments:write"
+      scope: "payments:write payments:read"
     });
     const response = await fetch(OAUTH_URL, {
       method: "POST",
@@ -54,12 +58,13 @@ export class LivePixService {
     return this.accessToken;
   }
 
-  async createPayment(amountBrl: number): Promise<LivePixPayment> {
+  async createPayment(amountBrl: number, redirectUrlOverride?: string): Promise<LivePixPayment> {
     const token = await this.requestToken();
+    const redirectUrl = redirectUrlOverride ?? this.redirectUrl;
     const response = await fetch(`${API_URL}/payments`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: Math.round(amountBrl * 100), currency: "BRL" }),
+      body: JSON.stringify({ amount: Math.round(amountBrl * 100), currency: "BRL", redirectUrl }),
       signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) throw new Error(`LivePix payment creation failed with status ${response.status}`);
