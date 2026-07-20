@@ -45,7 +45,8 @@ describe("BotManager", () => {
       name: "Test Bot",
       token: "encrypted-token",
       messageFlow: [{ id: "welcome", title: "Welcome", type: "TEXT", text: "Welcome", delayMs: 0, buttons: [] }],
-      checkoutAmount: 29.9,
+      remarketing: {},
+      paymentFlow: { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" },
       status: BotStatus.ACTIVE,
       createdAt: new Date(),
       updatedAt: new Date()

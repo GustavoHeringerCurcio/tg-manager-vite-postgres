@@ -47,7 +47,6 @@ export type Bot = {
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
-  checkoutAmount: number;
   status: BotStatus;
   createdAt: string;
   updatedAt: string;
@@ -67,7 +66,6 @@ export type BotPayload = {
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
-  checkoutAmount: number;
 };
 
 export type Paginated<T> = { items: T[]; total: number; page: number; pageSize: number };

@@ -51,7 +51,6 @@ export default function BotPaymentPage() {
         messageFlow: bot.messageFlow,
         remarketing: bot.remarketing,
         paymentFlow: currentFlow,
-        checkoutAmount: bot.checkoutAmount,
       };
       await updateBot(botId, payload);
       toast.success("Payment flow updated");

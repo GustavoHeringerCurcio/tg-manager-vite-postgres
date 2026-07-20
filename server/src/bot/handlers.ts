@@ -114,7 +114,7 @@ function resolvePlaceholders(text: string, amount: number, pixCode: string | und
 }
 
 async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton, paymentFlow: PaymentFlow): Promise<void> {
-  const amount = button.price ?? botConfig.checkoutAmount;
+  const amount = button.price!;
   try {
     const updatedUser = await prisma.user.update({
       where: { id: user.id },

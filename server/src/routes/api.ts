@@ -18,7 +18,6 @@ type BotBody = {
   messageFlow?: unknown;
   remarketing?: unknown;
   paymentFlow?: unknown;
-  checkoutAmount?: number;
 };
 
 type StatusBody = { status?: string };
@@ -57,9 +56,6 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
   const name = cleanString(body.name);
   if (!name) throw new HttpError(400, "name is required");
   if (requireToken && !cleanString(body.token)) throw new HttpError(400, "token is required");
-  if (body.checkoutAmount !== undefined && (!Number.isFinite(body.checkoutAmount) || body.checkoutAmount <= 0)) {
-    throw new HttpError(400, "checkoutAmount must be positive");
-  }
   const data: Prisma.BotCreateInput | Prisma.BotUpdateInput = { name };
   if (body.messageFlow !== undefined) {
     try {
@@ -91,7 +87,6 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
   } else if (requireToken) {
     data.paymentFlow = defaultPaymentFlow() as Prisma.InputJsonValue;
   }
-  if (body.checkoutAmount !== undefined) data.checkoutAmount = body.checkoutAmount;
   const token = cleanString(body.token);
   if (token) data.token = encryptToken(token, env.encryptionKey);
   return data;

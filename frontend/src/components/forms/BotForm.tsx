@@ -34,7 +34,6 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
   const isEditing = Boolean(bot);
   const [name, setName] = useState(bot?.name ?? "");
   const [token, setToken] = useState("");
-  const [checkoutAmount, setCheckoutAmount] = useState(bot?.checkoutAmount ?? 0);
   const [messageFlow, setMessageFlow] = useState<MessageStep[]>(bot?.messageFlow ?? []);
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
@@ -47,7 +46,6 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
     paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" },
-    checkoutAmount: bot?.checkoutAmount ?? 0,
   }), [bot]);
 
   const current = {
@@ -55,7 +53,6 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
     messageFlow,
     remarketing,
     paymentFlow,
-    checkoutAmount,
   };
 
   const isDirty = !deepEqual(initial, current);
@@ -68,7 +65,6 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
       messageFlow,
       remarketing,
       paymentFlow,
-      checkoutAmount,
     };
     if (requireToken || token) payload.token = token;
     onSave(payload);
@@ -76,7 +72,6 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
 
   const settingsSummary = [
     name && `"${name}"`,
-    checkoutAmount > 0 && `R$ ${checkoutAmount.toFixed(2)}`,
     token && "Token set",
     !name && "No name set",
   ]
@@ -115,18 +110,6 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
                 />
               </div>
             )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="checkout-amount" className="text-xs">Checkout Amount (R$)</Label>
-            <Input
-              id="checkout-amount"
-              type="number"
-              min={0}
-              step={0.01}
-              value={checkoutAmount}
-              onChange={(e) => setCheckoutAmount(Number(e.target.value))}
-              className="h-8"
-            />
           </div>
         </div>
       </CollapsibleSection>

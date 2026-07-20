@@ -6,7 +6,6 @@ interface MockBot {
   token: string;
   messageFlow: unknown;
   remarketing: unknown;
-  checkoutAmount: number;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -209,7 +208,6 @@ function seedBots(): void {
         },
       ],
     },
-    checkoutAmount: 29.9,
     status: "ACTIVE",
     createdAt: ts(86_400_000),
     updatedAt: ts(3_600_000),
@@ -239,7 +237,6 @@ function seedBots(): void {
       maxSends: 0,
       messages: [],
     },
-    checkoutAmount: 9.9,
     status: "INACTIVE",
     createdAt: ts(172_800_000),
     updatedAt: ts(86_400_000),
@@ -248,8 +245,8 @@ function seedBots(): void {
   bots.set(demo1.id, demo1);
   bots.set(demo2.id, demo2);
 
-  seedTransactions(demo1.id, demo1.checkoutAmount, 12);
-  seedTransactions(demo2.id, demo2.checkoutAmount, 4);
+  seedTransactions(demo1.id, 29.9, 12);
+  seedTransactions(demo2.id, 9.9, 4);
   seedInteractions(demo1.id, 18);
   seedInteractions(demo2.id, 10);
 }
@@ -322,7 +319,6 @@ export async function mockRequest(
       token: "mock-encrypted-token",
       messageFlow: body.messageFlow ?? [],
       remarketing: body.remarketing ?? {},
-      checkoutAmount: (body.checkoutAmount as number) ?? 29.9,
       status: "ACTIVE",
       createdAt: now,
       updatedAt: now,
@@ -351,7 +347,6 @@ export async function mockRequest(
     bot.name = (body.name as string) ?? bot.name;
     bot.messageFlow = body.messageFlow ?? bot.messageFlow;
     bot.remarketing = body.remarketing ?? bot.remarketing;
-    bot.checkoutAmount = (body.checkoutAmount as number) ?? bot.checkoutAmount;
     bot.updatedAt = new Date().toISOString();
     json(res, sanitizeBot(bot));
     return true;

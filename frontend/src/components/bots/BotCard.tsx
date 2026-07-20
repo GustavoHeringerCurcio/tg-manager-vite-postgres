@@ -23,7 +23,6 @@ import {
   MoreHorizontal,
   Users,
   MessageSquare,
-  CreditCard,
   Pencil,
   Trash2,
   Power,
@@ -86,15 +85,6 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
             <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
               <MessageSquare className="size-2.5" />
               Msgs
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-bold tabular-nums leading-none">
-              R$ {(bot.checkoutAmount || 0).toFixed(0)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-              <CreditCard className="size-2.5" />
-              Price
             </p>
           </div>
         </div>
