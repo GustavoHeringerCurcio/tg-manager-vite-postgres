@@ -1,0 +1,1 @@
+ALTER TABLE "bots" ADD COLUMN "paymentFlow" JSON NOT NULL DEFAULT '[]';

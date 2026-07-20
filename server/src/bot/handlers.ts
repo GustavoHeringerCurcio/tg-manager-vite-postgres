@@ -9,6 +9,7 @@ import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { normalizeMessageFlow } from "./messageFlow.js";
 import type { LivePixResponse, MessageButton, MessageStep } from "./messageFlow.js";
+import { normalizePaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing } from "./remarketing.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
@@ -152,7 +153,7 @@ async function sendLivePixResponse(
   }
 }
 
-async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton): Promise<void> {
+async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, services: HandlerServices, button: MessageButton, paymentFlow: LivePixResponse[]): Promise<void> {
   const amount = button.price ?? botConfig.checkoutAmount;
   try {
     const updatedUser = await prisma.user.update({
@@ -176,7 +177,7 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
       }
     });
 
-    const responses = button.responses ?? [];
+    const responses = paymentFlow;
     if (responses.length > 0) {
       for (const response of responses) {
         await sendLivePixResponse(ctx, response, amount, pixCode, payment.checkoutUrl, services);
@@ -208,6 +209,7 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
 export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, services: HandlerServices): void {
   const messageFlow = normalizeMessageFlow(botConfig.messageFlow);
   const remarketing = normalizeRemarketing(botConfig.remarketing);
+  const paymentFlow = normalizePaymentFlow(botConfig.paymentFlow);
   const activeStarts = new Set<number>();
 
   telegraf.start(async (ctx) => {
@@ -288,6 +290,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       return;
     }
     logInteraction({ botId: botConfig.id, userId: user.id, type: "callback_query", direction: "incoming", content: data, payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads });
-    await sendLivePixPayment(ctx, botConfig, user, services, button);
+    await sendLivePixPayment(ctx, botConfig, user, services, button, paymentFlow);
   });
 }

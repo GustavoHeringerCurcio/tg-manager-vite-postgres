@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  CreditCard,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,16 @@ export default function AppSidebar() {
                 >
                   <Workflow className="size-4 text-emerald-400" />
                   <span>Message Flow</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Payment Flow"
+                  isActive={isActive(`/manager/${botId}/payment`)}
+                  render={<Link to={`/manager/${botId}/payment`} />}
+                >
+                  <CreditCard className="size-4 text-amber-400" />
+                  <span>Payment Flow</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

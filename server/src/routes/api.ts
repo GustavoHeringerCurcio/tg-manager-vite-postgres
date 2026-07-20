@@ -9,6 +9,7 @@ import { encryptToken } from "../services/crypto.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
 import { defaultMessageFlow, normalizeMessageFlow } from "../bot/messageFlow.js";
+import { defaultPaymentFlow, normalizePaymentFlow } from "../bot/paymentFlow.js";
 import { defaultRemarketing, normalizeRemarketing } from "../bot/remarketing.js";
 
 type BotBody = {
@@ -16,6 +17,7 @@ type BotBody = {
   token?: string;
   messageFlow?: unknown;
   remarketing?: unknown;
+  paymentFlow?: unknown;
   checkoutAmount?: number;
 };
 
@@ -78,6 +80,16 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
     }
   } else if (requireToken) {
     data.remarketing = defaultRemarketing() as Prisma.InputJsonValue;
+  }
+  if (body.paymentFlow !== undefined) {
+    try {
+      data.paymentFlow = normalizePaymentFlow(body.paymentFlow) as Prisma.InputJsonValue;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "paymentFlow is invalid";
+      throw new HttpError(400, message);
+    }
+  } else if (requireToken) {
+    data.paymentFlow = defaultPaymentFlow() as Prisma.InputJsonValue;
   }
   if (body.checkoutAmount !== undefined) data.checkoutAmount = body.checkoutAmount;
   const token = cleanString(body.token);

@@ -7,7 +7,7 @@ import RemarketingEditor from "./RemarketingEditor";
 import ButtonPresetsManager from "./ButtonPresetsManager";
 import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
-import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep } from "@/types";
+import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep, LivePixResponse } from "@/types";
 import { Settings, Save, Workflow, Timer } from "lucide-react";
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -39,12 +39,14 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
   );
+  const [paymentFlow, setPaymentFlow] = useState<LivePixResponse[]>(bot?.paymentFlow ?? []);
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);
 
   const initial = useMemo(() => ({
     name: bot?.name ?? "",
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
+    paymentFlow: bot?.paymentFlow ?? [],
     checkoutAmount: bot?.checkoutAmount ?? 0,
   }), [bot]);
 
@@ -52,6 +54,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
     name,
     messageFlow,
     remarketing,
+    paymentFlow,
     checkoutAmount,
   };
 
@@ -64,6 +67,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
       name,
       messageFlow,
       remarketing,
+      paymentFlow,
       checkoutAmount,
     };
     if (requireToken || token) payload.token = token;

@@ -22,9 +22,7 @@ export const MESSAGE_FLOW_HEADERS = [
   "button_color",
 ] as const;
 
-export const LIVEPIX_RESPONSES_HEADERS = [
-  "step_id",
-  "button_label",
+export const PAYMENT_FLOW_HEADERS = [
   "text",
   "image_url",
   "video_url",
@@ -361,169 +359,54 @@ export function exportFlowCsv(steps: MessageStep[], filename: string): void {
   downloadCsv(filename, stepsToFlowCsv(steps));
 }
 
-export type LivePixResponseRow = {
-  step_id: string;
-  button_label: string;
-  text: string;
-  image_url: string;
-  video_url: string;
-  audio_url: string;
-  include_qr_code: string;
-  include_pix_code: string;
-  include_checkout_url: string;
-  errors: CsvParseError[];
-};
-
-export function parseLivePixResponsesCsv(data: string[][]): LivePixResponseRow[] {
+export function parsePaymentFlowCsv(data: string[][]): LivePixResponse[] {
   if (data.length < 2) return [];
 
   const rows = data.slice(1);
-  const responseRows: LivePixResponseRow[] = [];
+  const responses: LivePixResponse[] = [];
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
+  for (const row of rows) {
     if (row.every((cell) => !cell.trim())) continue;
 
-    const stepId = colSafe(row, 0);
-    const buttonLabel = colSafe(row, 1);
-    const text = colSafe(row, 2);
-    const imageUrl = colSafe(row, 3);
-    const videoUrl = colSafe(row, 4);
-    const audioUrl = colSafe(row, 5);
-    const includeQr = colSafe(row, 6);
-    const includePix = colSafe(row, 7);
-    const includeCheckout = colSafe(row, 8);
+    const text = colSafe(row, 0);
+    const imageUrl = colSafe(row, 1);
+    const videoUrl = colSafe(row, 2);
+    const audioUrl = colSafe(row, 3);
+    const includeQr = colSafe(row, 4);
+    const includePix = colSafe(row, 5);
+    const includeCheckout = colSafe(row, 6);
 
-    const errors: CsvParseError[] = [];
-    const rowNum = i + 2;
+    const resp: LivePixResponse = {};
+    if (text) resp.text = text;
+    if (imageUrl) resp.imageUrl = imageUrl;
+    if (videoUrl) resp.videoUrl = videoUrl;
+    if (audioUrl) resp.audioUrl = audioUrl;
+    if (includeQr.toLowerCase() === "true") resp.includeQrCode = true;
+    if (includePix.toLowerCase() === "true") resp.includePixCode = true;
+    if (includeCheckout.toLowerCase() === "true") resp.includeCheckoutUrl = true;
 
-    if (!stepId) {
-      errors.push({ row: rowNum, field: "step_id", message: "step_id is required" });
+    if (Object.keys(resp).length > 0) {
+      responses.push(resp);
     }
-    if (!buttonLabel) {
-      errors.push({
-        row: rowNum,
-        field: "button_label",
-        message: "button_label is required",
-      });
-    }
-
-    responseRows.push({
-      step_id: stepId,
-      button_label: buttonLabel,
-      text,
-      image_url: imageUrl,
-      video_url: videoUrl,
-      audio_url: audioUrl,
-      include_qr_code: includeQr,
-      include_pix_code: includePix,
-      include_checkout_url: includeCheckout,
-      errors,
-    });
   }
 
-  return responseRows;
+  return responses;
 }
 
-export function applyLivePixResponses(
-  steps: MessageStep[],
-  responseRows: LivePixResponseRow[],
-): { steps: MessageStep[]; errors: CsvParseError[] } {
-  const updated = steps.map((s) => ({
-    ...s,
-    buttons: s.buttons.map((b) => ({ ...b, responses: b.responses ? [...b.responses] : undefined })),
-  }));
+export function exportPaymentFlowCsv(responses: LivePixResponse[]): string {
+  if (responses.length === 0) return "";
 
-  const errors: CsvParseError[] = [];
+  const rows: string[][] = responses.map((resp) => [
+    resp.text ?? "",
+    resp.imageUrl ?? "",
+    resp.videoUrl ?? "",
+    resp.audioUrl ?? "",
+    resp.includeQrCode ? "true" : "false",
+    resp.includePixCode ? "true" : "false",
+    resp.includeCheckoutUrl ? "true" : "false",
+  ]);
 
-  const grouped = new Map<string, LivePixResponseRow[]>();
-  for (const r of responseRows) {
-    const key = `${r.step_id}|${r.button_label}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(r);
-  }
-
-  for (const [key, rows] of grouped) {
-    const [stepId, buttonLabel] = key.split("|");
-
-    const step = updated.find((s) => s.id === stepId);
-    if (!step) {
-      errors.push({
-        row: 0,
-        field: "step_id",
-        message: `Step "${stepId}" not found in current flow`,
-      });
-      continue;
-    }
-
-    const button = step.buttons.find(
-      (b) => b.label === buttonLabel && b.action === "LIVEPIX_PAYMENT",
-    );
-    if (!button) {
-      errors.push({
-        row: 0,
-        field: "button_label",
-        message: `LivePix button "${buttonLabel}" not found in step "${stepId}"`,
-      });
-      continue;
-    }
-
-    const responses: LivePixResponse[] = [];
-    for (const row of rows) {
-      if (row.errors.length > 0) continue;
-
-      const resp: LivePixResponse = {};
-      if (row.text) resp.text = row.text;
-      if (row.image_url) resp.imageUrl = row.image_url;
-      if (row.video_url) resp.videoUrl = row.video_url;
-      if (row.audio_url) resp.audioUrl = row.audio_url;
-      if (row.include_qr_code.toLowerCase() === "true") resp.includeQrCode = true;
-      if (row.include_pix_code.toLowerCase() === "true") resp.includePixCode = true;
-      if (row.include_checkout_url.toLowerCase() === "true") resp.includeCheckoutUrl = true;
-
-      if (Object.keys(resp).length > 0) {
-        responses.push(resp);
-      }
-    }
-
-    if (responses.length > 0) {
-      button.responses = responses;
-    }
-  }
-
-  return { steps: updated, errors };
-}
-
-export function exportLivePixResponsesCsv(steps: MessageStep[]): string {
-  const rows: string[][] = [];
-
-  for (const step of steps) {
-    for (const btn of step.buttons) {
-      if (btn.action !== "LIVEPIX_PAYMENT" || !btn.responses || btn.responses.length === 0) continue;
-
-      for (const resp of btn.responses) {
-        rows.push([
-          step.id,
-          btn.label,
-          resp.text ?? "",
-          resp.imageUrl ?? "",
-          resp.videoUrl ?? "",
-          resp.audioUrl ?? "",
-          resp.includeQrCode ? "true" : "false",
-          resp.includePixCode ? "true" : "false",
-          resp.includeCheckoutUrl ? "true" : "false",
-        ]);
-      }
-    }
-  }
-
-  return generateCsv([...LIVEPIX_RESPONSES_HEADERS], rows);
-}
-
-export function downloadLivePixResponsesCsv(steps: MessageStep[], filename: string): void {
-  const csv = exportLivePixResponsesCsv(steps);
-  if (!csv) return;
-  downloadCsv(filename, csv);
+  return generateCsv([...PAYMENT_FLOW_HEADERS], rows);
 }
 
 export type ButtonPreset = {

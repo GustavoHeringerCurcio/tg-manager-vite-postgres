@@ -20,7 +20,6 @@ export type MessageButton = {
   action: ButtonAction;
   url?: string;
   price?: number;
-  responses?: LivePixResponse[];
 };
 
 export type MessageStep = {
@@ -38,6 +37,7 @@ export type Bot = {
   name: string;
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
+  paymentFlow: LivePixResponse[];
   checkoutAmount: number;
   status: BotStatus;
   createdAt: string;
@@ -57,6 +57,7 @@ export type BotPayload = {
   token?: string;
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
+  paymentFlow: LivePixResponse[];
   checkoutAmount: number;
 };
 

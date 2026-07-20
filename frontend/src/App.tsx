@@ -10,6 +10,7 @@ import BotMessagesPage from "@/pages/BotMessagesPage";
 import BotRemarketingPage from "@/pages/BotRemarketingPage";
 import BotTransactionsPage from "@/pages/BotTransactionsPage";
 import BotInteractionsPage from "@/pages/BotInteractionsPage";
+import BotPaymentPage from "@/pages/BotPaymentPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/manager/:botId/remarketing" element={<BotRemarketingPage />} />
             <Route path="/manager/:botId/transactions" element={<BotTransactionsPage />} />
             <Route path="/manager/:botId/interactions" element={<BotInteractionsPage />} />
+            <Route path="/manager/:botId/payment" element={<BotPaymentPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />

@@ -24,6 +24,7 @@ model Bot {
   token          String
   messageFlow    Json      @default("[]")
   remarketing    Json      @default("{}")
+  paymentFlow    Json      @default("[]")
   checkoutAmount Float     @default(29.9)
   status         BotStatus @default(ACTIVE)
   createdAt      DateTime  @default(now())

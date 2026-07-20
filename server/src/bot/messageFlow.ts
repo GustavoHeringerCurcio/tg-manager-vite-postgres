@@ -25,7 +25,6 @@ export type MessageButton = {
   action: ButtonAction;
   url?: string;
   price?: number;
-  responses?: LivePixResponse[];
 };
 
 export type MessageStep = {
@@ -64,26 +63,6 @@ function idFrom(value: unknown): string {
   return clean && clean.length <= 48 ? clean : randomUUID();
 }
 
-function normalizeResponse(value: unknown, index: number, buttonIndex: number): LivePixResponse {
-  if (!isRecord(value)) throw new Error(`button ${buttonIndex + 1}, response ${index + 1} must be an object`);
-  const text = cleanString(value.text);
-  const imageUrl = cleanString(value.imageUrl);
-  const audioUrl = cleanString(value.audioUrl);
-  const videoUrl = cleanString(value.videoUrl);
-  if (imageUrl) validateUrl(imageUrl, `button ${buttonIndex + 1}, response ${index + 1} imageUrl`);
-  if (audioUrl) validateUrl(audioUrl, `button ${buttonIndex + 1}, response ${index + 1} audioUrl`);
-  if (videoUrl) validateUrl(videoUrl, `button ${buttonIndex + 1}, response ${index + 1} videoUrl`);
-  return {
-    ...(text ? { text } : {}),
-    ...(imageUrl ? { imageUrl } : {}),
-    ...(audioUrl ? { audioUrl } : {}),
-    ...(videoUrl ? { videoUrl } : {}),
-    includeQrCode: typeof value.includeQrCode === "boolean" ? value.includeQrCode : undefined,
-    includePixCode: typeof value.includePixCode === "boolean" ? value.includePixCode : undefined,
-    includeCheckoutUrl: typeof value.includeCheckoutUrl === "boolean" ? value.includeCheckoutUrl : undefined
-  };
-}
-
 function normalizeButton(value: unknown, messageIndex: number, buttonIndex: number): MessageButton {
   if (!isRecord(value)) throw new Error(`message ${messageIndex + 1}, button ${buttonIndex + 1} must be an object`);
   const label = cleanString(value.label);
@@ -104,11 +83,6 @@ function normalizeButton(value: unknown, messageIndex: number, buttonIndex: numb
     const price = Number(value.price);
     if (!Number.isFinite(price) || price <= 0) throw new Error(`message ${messageIndex + 1}, button ${buttonIndex + 1} price must be a positive number`);
     button.price = Math.round(price * 100) / 100;
-    const rawResponses = value.responses;
-    if (rawResponses !== undefined && rawResponses !== null) {
-      if (!Array.isArray(rawResponses)) throw new Error(`message ${messageIndex + 1}, button ${buttonIndex + 1} responses must be an array`);
-      button.responses = rawResponses.map((resp, respIndex) => normalizeResponse(resp, respIndex, buttonIndex));
-    }
   }
   return button;
 }
