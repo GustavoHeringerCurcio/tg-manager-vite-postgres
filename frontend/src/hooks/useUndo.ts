@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MessageStep } from "@/types";
 
 interface UndoEntry {
@@ -10,6 +10,10 @@ export function useUndo(initial: MessageStep[]) {
   const [steps, setSteps] = useState<MessageStep[]>(initial);
   const undoStack = useRef<UndoEntry[]>([]);
   const maxStack = 10;
+
+  useEffect(() => {
+    setSteps(initial);
+  }, [initial]);
 
   const push = useCallback(
     (newSteps: MessageStep[], label: string) => {
@@ -26,7 +30,7 @@ export function useUndo(initial: MessageStep[]) {
     const entry = undoStack.current.shift();
     if (!entry) return null;
     setSteps(entry.steps);
-    return entry.label;
+    return { label: entry.label, steps: entry.steps };
   }, []);
 
   const clear = useCallback(() => {

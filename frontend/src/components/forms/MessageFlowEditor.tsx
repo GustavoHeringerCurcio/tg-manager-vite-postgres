@@ -40,10 +40,10 @@ export default function MessageFlowEditor({ steps: initialSteps, onChange }: Mes
 
   useKeyboardShortcuts({
     "mod+z": () => {
-      const label = undo();
-      if (label) {
-        toast.success(`Undo: ${label}`);
-        onChange(steps);
+      const result = undo();
+      if (result) {
+        toast.success(`Undo: ${result.label}`);
+        onChange(result.steps);
       }
     },
     "mod+shift+n": () => addStep(),

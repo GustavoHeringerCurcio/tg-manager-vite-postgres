@@ -135,17 +135,19 @@ function MessageStepCardInner({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "shadow-sm ring-1 ring-border/40 transition-all",
-        isDragging && "opacity-50 shadow-lg z-50",
-        isExpanded && "ring-primary/30"
+        "shadow-sm ring-1 ring-border/40",
+        isDragging && "opacity-50 shadow-lg z-50 relative",
+        isExpanded && "ring-primary/30",
+        !isDragging && "transition-all"
       )}
     >
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
         <div className="flex items-center gap-1 px-3 py-2.5">
           <button
+            type="button"
             {...attributes}
             {...listeners}
-            className="flex shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors p-0.5"
+            className="flex shrink-0 cursor-grab touch-none active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors p-0.5"
             aria-label="Drag to reorder"
           >
             <GripVertical className="size-4" />
