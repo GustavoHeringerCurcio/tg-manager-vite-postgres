@@ -311,7 +311,7 @@ function MessageStepCardInner({
                 <Label className="text-[11px]">Payment Options</Label>
               </div>
               <div className="flex flex-wrap gap-3">
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label className="flex items-center gap-1.5 cursor-pointer" title="Sends a QR code image right after this step">
                   <Switch
                     checked={step.includeQrCode ?? false}
                     onCheckedChange={(v) => update({ includeQrCode: v || undefined })}
@@ -321,7 +321,7 @@ function MessageStepCardInner({
                     {step.includeQrCode ? "QR Code ON" : "QR Code OFF"}
                   </span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the PIX copy-paste code at the end of this message">
                   <Switch
                     checked={step.includePixCode ?? false}
                     onCheckedChange={(v) => update({ includePixCode: v || undefined })}
@@ -331,7 +331,7 @@ function MessageStepCardInner({
                     {step.includePixCode ? "PIX Code ON" : "PIX Code OFF"}
                   </span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the LivePix checkout URL at the end of this message">
                   <Switch
                     checked={step.includeCheckoutUrl ?? false}
                     onCheckedChange={(v) => update({ includeCheckoutUrl: v || undefined })}
