@@ -114,20 +114,25 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
   if (data.length < 2) return [];
 
   const rows = data.slice(1);
-  const groups = new Map<string, string[][]>();
+  const groups: { key: string; rows: string[][] }[] = [];
+  let lastKey: string | null = null;
 
   for (const row of rows) {
     if (row.every((cell) => !cell.trim())) continue;
     const sid = colSafe(row, 0);
-    if (!sid) continue;
-    const key = sid.toLocaleLowerCase();
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(row);
+    const key = sid ? sid.toLocaleLowerCase() : null;
+
+    if (key) {
+      lastKey = key;
+      groups.push({ key, rows: [row] });
+    } else if (lastKey && groups.length > 0) {
+      groups[groups.length - 1].rows.push(row);
+    }
   }
 
   const steps: ParsedFlowStep[] = [];
 
-  for (const [, group] of groups) {
+  for (const { rows: group } of groups) {
     const first = group[0];
     const stepId = colSafe(first, 0);
     const title = colSafe(first, 1);
