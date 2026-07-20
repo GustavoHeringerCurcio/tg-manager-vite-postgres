@@ -4,6 +4,7 @@ import type { Telegram } from "telegraf";
 import type { InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
 import { normalizeRemarketing } from "../bot/remarketing.js";
+import { resolveUserPlaceholders } from "../bot/placeholders.js";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { prisma } from "./prisma.js";
@@ -52,7 +53,7 @@ async function processRemarketingBatch(): Promise<void> {
 }
 
 async function processOne(
-  state: RemarketingState & { bot: Bot; user: { telegramId: bigint } },
+  state: RemarketingState & { bot: Bot; user: { telegramId: bigint; firstName: string | null } },
   botConfig: Bot,
   telegramId: bigint
 ): Promise<void> {
@@ -70,7 +71,7 @@ async function processOne(
   if (!step) return;
 
   const chatId = String(telegramId);
-  await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId);
+  await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName);
 
   const newTotalSent = state.totalSent + 1;
   const newNextIndex = (state.nextIndex + 1) % config.messages.length;
@@ -95,19 +96,21 @@ async function sendRemarketingStep(
   chatId: string | number,
   step: MessageStep,
   botId: string,
-  userId: string | null
+  userId: string | null,
+  firstName: string | null
 ): Promise<void> {
+  const resolvedText = step.text ? resolveUserPlaceholders(step.text, { firstName }) : step.text;
   const replyMarkup = buildInlineKeyboard(step);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await telegram.sendVideo(chatId, step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+      await telegram.sendVideo(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) });
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video" as const,
         media: url,
-        ...(i === 0 && step.text ? { caption: step.text } : {})
+        ...(i === 0 && resolvedText ? { caption: resolvedText } : {})
       }));
       await (telegram as any).sendMediaGroup(chatId, mediaGroup);
     }
@@ -116,13 +119,13 @@ async function sendRemarketingStep(
   }
 
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await telegram.sendVoice(chatId, step.mediaUrls[0], { caption: step.text, ...(options ?? {}) });
+    await telegram.sendVoice(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) });
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }
 
-  await telegram.sendMessage(chatId, step.text ?? " ", options as any);
-  logInteraction({ botId, userId, type: "message", direction: "outgoing", content: step.text ?? step.title, logPayloads: false });
+  await telegram.sendMessage(chatId, resolvedText ?? " ", options as any);
+  logInteraction({ botId, userId, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: false });
 }
 
 function buildInlineKeyboard(step: MessageStep): { inline_keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> } | undefined {

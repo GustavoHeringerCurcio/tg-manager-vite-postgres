@@ -102,6 +102,24 @@ export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlow
               </div>
             </div>
             <div className="border-t border-border/40 pt-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">User Placeholders</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                Personalize messages with the user&apos;s Telegram info.
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex items-baseline gap-2 text-xs">
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{name}`}</code>
+                  <span className="text-muted-foreground">Resolves to</span>
+                  <span className="text-foreground/80">user&apos;s first name</span>
+                </div>
+                <div className="flex items-baseline gap-2 text-xs">
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{name:Friend}`}</code>
+                  <span className="text-muted-foreground">Resolves to</span>
+                  <span className="text-foreground/80">user&apos;s first name or &quot;Friend&quot; if unavailable</span>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-border/40 pt-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Per‑step Toggles</p>
               <p className="text-xs text-muted-foreground mb-2">
                 Enable on any step to inject payment elements at that position in the flow.

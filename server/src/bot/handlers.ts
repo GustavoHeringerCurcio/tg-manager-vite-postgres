@@ -12,6 +12,7 @@ import type { MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizePaymentFlow } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing } from "./remarketing.js";
+import { resolveUserPlaceholders } from "./placeholders.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -80,17 +81,18 @@ function findPaymentButtonAcross(steps: MessageStep[][], id: string): MessageBut
 }
 
 async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: MessageStep, env: AppEnv, parseMode?: ParseMode): Promise<void> {
+  const resolvedText = step.text && user ? resolveUserPlaceholders(step.text, user) : step.text;
   const replyMarkup = keyboard(step);
   const parseOpt = parseMode ? { parse_mode: parseMode } : {};
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, ...parseOpt } : parseOpt;
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await ctx.replyWithVideo(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
+      await ctx.replyWithVideo(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video",
         media: url,
-        ...(i === 0 && step.text ? { caption: step.text, ...parseOpt } : {})
+        ...(i === 0 && resolvedText ? { caption: resolvedText, ...parseOpt } : {})
       }));
       await ctx.replyWithMediaGroup(mediaGroup);
     }
@@ -98,12 +100,12 @@ async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: M
     return;
   }
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithVoice(step.mediaUrls[0], { caption: step.text, ...(Object.keys(options).length > 0 ? options : {}) });
+    await ctx.replyWithVoice(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: `audio:${step.title}`, logPayloads: env.logPayloads });
     return;
   }
-  await ctx.reply(step.text ?? " ", Object.keys(options).length > 0 ? options : undefined);
-  logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: step.text ?? step.title, logPayloads: env.logPayloads });
+  await ctx.reply(resolvedText ?? " ", Object.keys(options).length > 0 ? options : undefined);
+  logInteraction({ botId: botConfig.id, userId: user?.id, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: env.logPayloads });
 }
 
 function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
@@ -154,6 +156,7 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
         let resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
+        resolvedText = resolvedText ? resolveUserPlaceholders(resolvedText, user) : undefined;
 
         if (step.includePixCode && pixCode) {
           resolvedText = resolvedText

@@ -23,6 +23,7 @@ import { useUndo } from "@/hooks/useUndo";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import MessageStepCard from "./MessageStepCard";
 import MessageFlowCsvDialog from "./MessageFlowCsvDialog";
+import { UserPlaceholdersInfo } from "./UserPlaceholdersInfo";
 import { StepNavigator } from "./StepNavigator";
 import { MessagePreview } from "./MessagePreview";
 import { toast } from "sonner";
@@ -140,6 +141,8 @@ export default function MessageFlowEditor({ steps: initialSteps, onChange }: Mes
           />
         </div>
       )}
+
+      <UserPlaceholdersInfo />
 
       {steps.length === 0 ? (
         <button
