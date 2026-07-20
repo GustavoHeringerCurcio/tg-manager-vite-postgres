@@ -18,6 +18,18 @@ export type LogInteractionInput = {
 };
 
 export function logInteraction(input: LogInteractionInput): void {
+  let messageIdBigInt: bigint | undefined;
+  let chatIdBigInt: bigint | undefined;
+  try {
+    messageIdBigInt = input.messageId != null ? BigInt(input.messageId) : undefined;
+  } catch {
+    console.error(`[logger] Invalid messageId for BigInt conversion: ${String(input.messageId)}`);
+  }
+  try {
+    chatIdBigInt = input.chatId != null ? BigInt(input.chatId) : undefined;
+  } catch {
+    console.error(`[logger] Invalid chatId for BigInt conversion: ${String(input.chatId)}`);
+  }
   void prisma.interaction.create({
     data: {
       botId: input.botId,
@@ -29,8 +41,8 @@ export function logInteraction(input: LogInteractionInput): void {
       payload: input.logPayloads ? input.payload : undefined,
       stepIndex: input.stepIndex ?? undefined,
       buttonId: input.buttonId ?? undefined,
-      messageId: input.messageId != null ? BigInt(input.messageId) : undefined,
-      chatId: input.chatId != null ? BigInt(input.chatId) : undefined,
+      messageId: messageIdBigInt,
+      chatId: chatIdBigInt,
       metadata: input.metadata as Prisma.InputJsonValue | undefined
     }
   }).catch((error: Error) => {

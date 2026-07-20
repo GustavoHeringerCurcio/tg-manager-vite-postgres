@@ -23,8 +23,13 @@ app.use(express.json({ limit: "1mb" }));
 app.post("/webhook/:botId", webhookDispatcher);
 
 app.get("/api/health", async (_req, res) => {
-  await prisma.$queryRaw`SELECT 1`;
-  res.json({ ok: true, uptime: process.uptime(), database: "ok" });
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, uptime: process.uptime(), database: "ok" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "healthcheck failed";
+    res.status(500).json({ error: message, ok: false });
+  }
 });
 
 app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
@@ -44,7 +49,7 @@ app.use("/api", (_req, res) => {
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = error instanceof HttpError ? error.status : 500;
   const message = status === 500 && env.nodeEnv === "production" ? "Internal server error" : error.message;
-  if (status === 500) console.error(error);
+  if (status === 500) console.error(`[server] ${error.message}`);
   res.status(status).json({ error: message });
 });
 
@@ -67,9 +72,15 @@ async function shutdown(signal: string): Promise<void> {
   stopRemarketingPoller();
   stopPaymentPoller();
   server.close(async () => {
-    await shutdownAllBots();
-    await prisma.$disconnect();
-    process.exit(0);
+    try {
+      await shutdownAllBots();
+      await prisma.$disconnect();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "shutdown failed";
+      console.error(`[server] ${message}`);
+    } finally {
+      process.exit(0);
+    }
   });
 }
 

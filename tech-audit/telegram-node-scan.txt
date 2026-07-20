@@ -1,0 +1,65 @@
+Telegram/Node Production Hazards Scan (Targeted)
+
+Scope
+- Server files provided: server/src/server.ts, server/src/middleware/webhook.ts, server/src/services/remarketingScheduler.ts, server/src/services/paymentPoller.ts, server/src/bot/manager.ts, server/src/services/logger.ts, server/src/services/prisma.ts.
+- This scan lists only missing defensive guards; no logic refactors suggested.
+
+1) Webhook Retry Loops (ensure Telegram does not retry on internal errors)
+- server/src/middleware/webhook.ts
+  - Lines 12–16: 
+    try {
+      manager.webhookMiddleware()(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  - Risk: If a synchronous error occurs before Telegraf’s middleware takes ownership of the response, next(error) will lead to a 500 response via the global error handler. Telegram interprets non-2xx as a failure and will retry the same update repeatedly. There is no guard to force a 200 OK when internal processing fails.
+
+- server/src/server.ts
+  - Line 23: app.post("/webhook/:botId", webhookDispatcher);
+  - Note: Route is correctly registered, but relies entirely on webhookDispatcher behavior above. The hazard is in webhookDispatcher returning non-2xx on errors.
+
+2) Telegram 429 Rate Limits (graceful handling)
+- server/src/services/remarketingScheduler.ts
+  - Lines 82–118: sendRemarketingStep() issues telegram.sendVideo / sendMediaGroup / sendVoice / sendMessage with a with-timeout wrapper but no local try/catch. Errors, including 429, bubble up.
+  - Lines 43–50 (processOne): wraps await sendRemarketingStep(...) in try/catch and rethrows, which is then caught in:
+  - Lines 25–31 (processRemarketingBatch): per-state try/catch logs and continues loop.
+  - Assessment: The loop will not crash or block on 429; errors are caught at the outer level. There is no 429-specific backoff or logging, but no missing crash guard.
+
+- server/src/services/paymentPoller.ts
+  - Lines 55–70: manager.telegram.sendMessage(...) is inside try/catch with a 10s timeout. 429 errors will be caught and logged; the loop continues.
+  - Assessment: No missing crash guard here.
+
+- server/src/bot/manager.ts
+  - Lines 18–41: validateToken() and start() use Promise.race timeouts and throw on failure; these are not looped send paths. No missing guard relevant to 429 loops.
+
+3) Global Process Handlers (unhandledRejection / uncaughtException)
+- server/src/server.ts
+  - Missing: process.on("unhandledRejection", ...) and process.on("uncaughtException", ...).
+  - Risk: Any unhandled promise rejection or uncaught exception outside Express/Telegraf and interval try/catch blocks can terminate the process or leave it in an undefined state without structured logging or shutdown. Add near the bottom of the file (e.g., after SIGINT/SIGTERM handlers).
+
+4) Database Timeout Safety (error boundaries on high-frequency paths)
+- server/src/services/remarketingScheduler.ts
+  - Line 36: prisma.remarketingState.findMany(...) is inside a try/catch in processRemarketingBatch (lines 16–33). OK.
+  - Lines 60–66: await prisma.remarketingState.delete({ where: { id: state.id } }).catch(() => {});
+    - Risk: The .catch(() => {}) swallows DB errors entirely (no log). If delete fails, the same state may be retried continuously, causing repeated sends or loops with no visibility.
+  - Lines 96–105: prisma.remarketingState.update(...) is not wrapped locally, but processOne() is invoked within a try/catch at the batch level (lines 25–31), so failures are logged and the loop continues. Acceptable, but consider local logging if this path is high-frequency.
+
+- server/src/services/paymentPoller.ts
+  - Lines 28–47: prisma.transaction.findMany(...) is inside try/catch in processPendingPayments(). OK.
+  - Lines 47–54: verifyOne(...) is called per transaction inside a try/catch in processPendingPayments() (per-item guard). OK.
+  - Lines 72–76: prisma.transaction.update(...) is not locally wrapped, but verifyOne() rejections are caught by the caller (lines 37–45). OK for crash-safety. If this update is frequently hit, consider local logging to disambiguate DB vs. Telegram failures.
+
+- server/src/services/logger.ts
+  - Lines 25–43: prisma.interaction.create(...).catch(...) logs failures — OK for safety and visibility.
+
+Summary of Missing Guards
+- Webhook retry loop guard:
+  - server/src/middleware/webhook.ts lines 12–16: Errors lead to non-2xx responses; Telegram may retry indefinitely.
+- Global process handlers:
+  - server/src/server.ts: No handlers for unhandledRejection or uncaughtException.
+- Swallowed DB error:
+  - server/src/services/remarketingScheduler.ts line 66: Empty catch on delete() hides DB failures, enabling silent loops.
+
+All other reviewed Telegram send paths are caught at some level and should not crash or block the loops, though they do not have 429-specific handling (not required in this task).
+
+End of scan.

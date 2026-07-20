@@ -14,7 +14,12 @@ let pollerInterval: ReturnType<typeof setInterval> | null = null;
 export function startRemarketingPoller(): void {
   if (pollerInterval) return;
   pollerInterval = setInterval(() => {
-    void processRemarketingBatch();
+    try {
+      void processRemarketingBatch();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "remarketing tick failed";
+      console.error(`[remarketing] ${message}`);
+    }
   }, 30_000);
 }
 
@@ -74,7 +79,13 @@ async function processOne(
   const applyDiscount = discountPercentage > 0;
 
   const chatId = String(telegramId);
-  await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, applyDiscount, discountPercentage);
+  try {
+    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, applyDiscount, discountPercentage);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "remarketing send failed";
+    console.error(`[remarketing:${state.botId}] ${message}`);
+    throw error;
+  }
 
   const newTotalSent = state.totalSent + 1;
   const newNextIndex = (state.nextIndex + 1) % config.messages.length;
@@ -104,32 +115,34 @@ async function sendRemarketingStep(
   applyDiscount: boolean = false,
   discountPercentage: number = 0
 ): Promise<void> {
+  const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
+    Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
   const resolvedText = step.text ? resolveUserPlaceholders(step.text, { firstName }) : step.text;
   const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await telegram.sendVideo(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) });
+      await withTimeout(telegram.sendVideo(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) }), 10000);
     } else {
       const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
         type: "video" as const,
         media: url,
         ...(i === 0 && resolvedText ? { caption: resolvedText } : {})
       }));
-      await (telegram as any).sendMediaGroup(chatId, mediaGroup);
+      await withTimeout((telegram as any).sendMediaGroup(chatId, mediaGroup), 10000);
     }
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }
 
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await telegram.sendVoice(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) });
+    await withTimeout(telegram.sendVoice(chatId, step.mediaUrls[0], { caption: resolvedText, ...(options ?? {}) }), 10000);
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }
 
-  await telegram.sendMessage(chatId, resolvedText ?? " ", options as any);
+  await withTimeout(telegram.sendMessage(chatId, resolvedText ?? " ", options as any), 10000);
   logInteraction({ botId, userId, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: false });
 }
 

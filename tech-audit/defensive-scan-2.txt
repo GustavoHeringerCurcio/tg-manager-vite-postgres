@@ -1,0 +1,69 @@
+Defensive Gaps Scan #2 (Concurrency, Swallowed Errors, Payload Limits)
+
+Scope
+- Files analyzed here are those provided in chat. Line numbers refer to the exact contents you shared.
+- Focused strictly on defensive gaps: race conditions, swallowed errors, and payload size limits.
+
+1) Concurrency and Race Conditions (duplicate work from rapid user actions or overlapping timers)
+
+- server/src/services/paymentPoller.ts
+  - Lines 11–21 (startPaymentPoller setInterval tick)
+    - Issue: The tick invokes processPendingPayments without a reentrancy guard. If a tick takes longer than POLL_INTERVAL_MS (30s), a new tick can overlap, causing two concurrent scans of PENDING transactions.
+    - Risk: The same PENDING transaction can be read and processed twice before the first update to COMPLETED commits, leading to duplicate confirmation messages and duplicate logs for the same payment. While double-billing against LivePix is unlikely here (this code only checks status), duplicate customer notifications can occur.
+  - Lines 32–59 (processPendingPayments batch)
+    - Issue: No transactional or optimistic locking around the loop. Two overlapping runs (or two app instances) can process the same transaction concurrently.
+    - Risk: Duplicate side effects (e.g., two calls to sendMessage in verifyOne for the same txn) before status flips to COMPLETED.
+  - Lines 76–79 (prisma.transaction.update to COMPLETED)
+    - Issue: No conditional guard (e.g., update-if-still-PENDING) to make the state transition idempotent at DB level.
+    - Risk: In a race, both updates succeed (status stays COMPLETED) but both paths will have executed post-update effects (notification/log).
+
+- server/src/services/remarketingScheduler.ts
+  - Lines 14–24 (startRemarketingPoller setInterval tick)
+    - Issue: The tick invokes processRemarketingBatch without a reentrancy guard. If a batch takes longer than 30s, subsequent ticks can overlap.
+    - Risk: The same due remarketingState can be picked up by two overlapping runs and both will attempt to send messages before nextSendAt is advanced, leading to duplicate remarketing sends.
+  - Lines 33–58 (processRemarketingBatch)
+    - Issue: No claim/lease or transactional update to mark a state “in-flight” before sending.
+    - Risk: Concurrent app instances (or overlapping intervals) can both process the same state and send users the same message twice.
+  - Lines 98–105 (remarketingState.update after send)
+    - Issue: The update that advances nextIndex/nextSendAt is not guarded by a where clause that ensures nextSendAt <= now and a known totalSent. This creates a race window.
+    - Risk: Two workers may both update the same record based on stale reads, causing off-by-one counters and repeated sends.
+
+- server/src/bot/manager.ts
+  - Lines 17–24 (registerHandlers invocation happens at construction; webhook processing is fully delegated to Telegraf)
+    - Issue: At the webhook layer (server/src/middleware/webhook.ts) there is no idempotency or dedup logic; rapid double-clicks on Telegram inline buttons will result in multiple callback_query updates delivered to handlers.
+    - Risk: If the downstream handlers (not included in this scan) call LivePixService.createPayment (server/src/services/livepix.ts lines 61–76) without idempotency keys, the user could generate multiple LivePix checkouts/payments with a double-click.
+
+- server/src/services/livepix.ts
+  - Lines 61–76 (createPayment)
+    - Issue: No idempotency key or dedupe parameter passed to LivePix; if upstream logic triggers multiple createPayment calls rapidly (e.g., due to user double-clicks), multiple payments will be created.
+    - Risk: Potential double-billing exposure if the frontend/backoffice reconciles any of these checkouts as paid.
+
+2) Swallowed Errors (catch blocks that hide failures without logging)
+
+- server/src/services/remarketingScheduler.ts
+  - Line 67: await prisma.remarketingState.delete({ where: { id: state.id } }).catch(() => {});
+    - Issue: The catch is empty and swallows errors.
+    - Risk: If delete fails, the state remains in DB and can be reprocessed repeatedly, causing repeated attempts and hard-to-diagnose loops.
+
+- server/src/services/livepix.ts
+  - Lines 113–118 (extractCheckoutId)
+    - Issue: The function has a try/catch that returns undefined in the catch without logging; although there is a separate warning when checkoutId is falsy at call site (lines 79–83), malformed URLs that throw in URL constructor won’t be logged here.
+    - Risk: Silent input parsing failures could obscure upstream bugs when invalid URLs are passed.
+
+- frontend/src/hooks/useBotDetail.ts
+  - Lines 27–34 (inner try/catch around api.stats)
+    - Issue: The catch setsStats(null) without any logging or user-visible indication.
+    - Risk: Stats fetch failures become silent; UI may present partial data, making debugging production issues harder.
+
+3) Express Payload Limits (ensure strict size limit to avoid OOM)
+
+- server/src/server.ts
+  - Line 22: app.use(express.json({ limit: "1mb" }));
+    - Finding: A strict JSON body size limit is present and correctly configured.
+    - Risk: None here. For non-JSON routes (e.g., file uploads), confirm separate limits if introduced later. Current webhook and API endpoints benefit from this cap.
+
+Notes
+- The concurrency items above are high-impact despite being small changes to guard for overlap or incorporate idempotency at critical points. No core logic assumptions are changed by acknowledging these risks.
+- This scan did not include handler implementations (registerHandlers), so concurrency around payment creation triggered by user actions is inferred from call paths and the absence of idempotency in LivePixService.createPayment.
+
+End of report.

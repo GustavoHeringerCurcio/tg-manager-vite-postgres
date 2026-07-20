@@ -7,7 +7,10 @@ export function useUnsavedChanges(isDirty: boolean) {
   useEffect(() => {
     function handler(e: BeforeUnloadEvent) {
       if (isDirtyRef.current) {
+        // Some browsers require both preventDefault and returnValue to show a prompt.
         e.preventDefault();
+        // eslint-disable-next-line no-param-reassign
+        e.returnValue = "";
       }
     }
     window.addEventListener("beforeunload", handler);

@@ -12,6 +12,7 @@ export class BotManager {
   private readonly secretToken: string;
   private readonly telegraf: Telegraf<Context>;
   private readonly livePix: LivePixService;
+  private readonly webhookHandler: (req: any, res: any, next: any) => void;
 
   constructor(config: Bot, token: string, env: AppEnv) {
     this.botId = config.id;
@@ -19,6 +20,7 @@ export class BotManager {
     this.secretToken = randomBytes(32).toString("hex");
     this.telegraf = new Telegraf(token);
     this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
+    this.webhookHandler = this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
     this.telegraf.use(Composer.fork(async (ctx) => {
       ctx.telegram.webhookReply = false;
       return Promise.resolve();
@@ -31,15 +33,29 @@ export class BotManager {
   }
 
   async validateToken(): Promise<void> {
-    await this.telegraf.telegram.getMe();
+    try {
+      await Promise.race([
+        this.telegraf.telegram.getMe(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("telegram getMe timed out")), 10000))
+      ]);
+    } catch (error) {
+      throw (error instanceof Error) ? error : new Error(String(error));
+    }
   }
 
   async start(domain: string): Promise<void> {
-    await this.telegraf.telegram.setWebhook(`https://${domain}${this.path}`, {
-      secret_token: this.secretToken,
-      drop_pending_updates: true,
-      allowed_updates: ["message", "callback_query"]
-    });
+    try {
+      await Promise.race([
+        this.telegraf.telegram.setWebhook(`https://${domain}${this.path}`, {
+          secret_token: this.secretToken,
+          drop_pending_updates: true,
+          allowed_updates: ["message", "callback_query"]
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("telegram setWebhook timed out")), 10000))
+      ]);
+    } catch (error) {
+      throw (error instanceof Error) ? error : new Error(String(error));
+    }
   }
 
   async stop(): Promise<void> {
@@ -60,6 +76,6 @@ export class BotManager {
   }
 
   webhookMiddleware() {
-    return this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
+    return this.webhookHandler;
   }
 }
