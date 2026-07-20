@@ -114,6 +114,7 @@ async function pollOnce() {
       if (!msg) continue;
 
       const chatId = msg.chat && msg.chat.id;
+      const fileName = (msg.document && msg.document.file_name) || (msg.audio && msg.audio.file_name) || (msg.video && msg.video.file_name) || (msg.voice && msg.voice.file_name) || (msg.video_note && msg.video_note.file_name) || null;
 
       if (msg.video) {
         const v = msg.video;
@@ -129,6 +130,7 @@ async function pollOnce() {
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
           `file_unique_id: ${fileUniqueId}`,
+          fileName ? `file_name: ${fileName}` : null,
           fileSize ? `file_size: ${fileSize}` : null,
           duration ? `duration: ${duration}s` : null,
         ].filter(Boolean);
@@ -150,6 +152,7 @@ async function pollOnce() {
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
           `file_unique_id: ${fileUniqueId}`,
+          fileName ? `file_name: ${fileName}` : null,
           fileSize ? `file_size: ${fileSize}` : null,
           duration ? `duration: ${duration}s` : null,
         ].filter(Boolean);
@@ -173,6 +176,7 @@ async function pollOnce() {
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
           `file_unique_id: ${fileUniqueId}`,
+          fileName ? `file_name: ${fileName}` : null,
           performer ? `performer: ${performer}` : null,
           title ? `title: ${title}` : null,
           fileSize ? `file_size: ${fileSize}` : null,
@@ -197,6 +201,7 @@ async function pollOnce() {
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
           `file_unique_id: ${fileUniqueId}`,
+          fileName ? `file_name: ${fileName}` : null,
           mimeType ? `mime_type: ${mimeType}` : null,
           fileSize ? `file_size: ${fileSize}` : null,
           duration ? `duration: ${duration}s` : null,
