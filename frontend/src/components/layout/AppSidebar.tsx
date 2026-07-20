@@ -23,6 +23,7 @@ import {
   Sun,
   Moon,
   CreditCard,
+  MessageSquare,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -132,6 +133,16 @@ export default function AppSidebar() {
                 >
                   <MessageCircle className="size-4 text-rose-400" />
                   <span>Interactions</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Chat Preview"
+                  isActive={location.pathname === `/manager/${botId}/chat-preview`}
+                  render={<Link to={`/manager/${botId}/chat-preview`} />}
+                >
+                  <MessageSquare className="size-4 text-cyan-400" />
+                  <span>Chat Preview</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

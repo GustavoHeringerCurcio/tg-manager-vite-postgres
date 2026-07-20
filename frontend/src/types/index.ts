@@ -15,4 +15,6 @@ export type {
   Transaction,
   Interaction,
   Stats,
+  UserSession,
+  ChatTimelineItem,
 } from "../lib/api";
