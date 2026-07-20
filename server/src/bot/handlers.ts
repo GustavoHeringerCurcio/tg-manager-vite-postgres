@@ -109,7 +109,7 @@ async function sendStep(ctx: Context, botConfig: Bot, user: User | null, step: M
 function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
   return text
     .replace(/\{amount\}/g, `R$ ${amount.toFixed(2)}`)
-    .replace(/\{pix_code\}/g, pixCode ?? "")
+    .replace(/\{pix_code\}/g, pixCode ? `<code>${pixCode}</code>` : "")
     .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
