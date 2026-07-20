@@ -52,12 +52,23 @@ export type Bot = {
   updatedAt: string;
 };
 
+export type DiscountTier = {
+  afterMessages: number;
+  percentage: number;
+};
+
+export type DiscountOfferConfig = {
+  enabled: boolean;
+  tiers: DiscountTier[];
+};
+
 export type RemarketingConfig = {
   enabled: boolean;
   intervalMs: number;
   initialDelayMs: number;
   maxSends: number;
   messages: MessageStep[];
+  discountOffer: DiscountOfferConfig;
 };
 
 export type BotPayload = {

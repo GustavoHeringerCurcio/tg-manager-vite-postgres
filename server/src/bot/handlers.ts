@@ -490,12 +490,27 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     }
 
     if (!data.startsWith(LIVEPIX_CALLBACK_PREFIX)) return;
-    const buttonId = data.slice(LIVEPIX_CALLBACK_PREFIX.length);
-    const button = findPaymentButtonAcross([messageFlow, remarketing.messages], buttonId);
-    if (!button) {
+    const rest = data.slice(LIVEPIX_CALLBACK_PREFIX.length);
+    const colonIndex = rest.lastIndexOf(":");
+    let buttonId: string;
+    let priceOverride: number | undefined;
+    if (colonIndex > 0) {
+      buttonId = rest.slice(0, colonIndex);
+      const priceCents = Number(rest.slice(colonIndex + 1));
+      if (Number.isFinite(priceCents) && priceCents > 0) {
+        priceOverride = priceCents / 100;
+      }
+    } else {
+      buttonId = rest;
+    }
+    const foundButton = findPaymentButtonAcross([messageFlow, remarketing.messages], buttonId);
+    if (!foundButton) {
       await ctx.answerCbQuery("Este botão não está mais disponível.");
       return;
     }
+    const button: MessageButton = priceOverride != null
+      ? { ...foundButton, price: priceOverride }
+      : foundButton;
     await ctx.answerCbQuery("Gerando pagamento...");
     const user = await upsertTelegramUser(botConfig.id, ctx);
     if (!user) {

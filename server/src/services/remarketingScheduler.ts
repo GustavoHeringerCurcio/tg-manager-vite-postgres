@@ -3,7 +3,7 @@ import { BotStatus } from "@prisma/client";
 import type { Telegram } from "telegraf";
 import type { InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
-import { normalizeRemarketing } from "../bot/remarketing.js";
+import { normalizeRemarketing, getDiscountPercentage } from "../bot/remarketing.js";
 import { resolveUserPlaceholders } from "../bot/placeholders.js";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
@@ -70,8 +70,11 @@ async function processOne(
   const step = config.messages[index];
   if (!step) return;
 
+  const discountPercentage = getDiscountPercentage(config.discountOffer, state.totalSent);
+  const applyDiscount = discountPercentage > 0;
+
   const chatId = String(telegramId);
-  await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName);
+  await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, applyDiscount, discountPercentage);
 
   const newTotalSent = state.totalSent + 1;
   const newNextIndex = (state.nextIndex + 1) % config.messages.length;
@@ -97,10 +100,12 @@ async function sendRemarketingStep(
   step: MessageStep,
   botId: string,
   userId: string | null,
-  firstName: string | null
+  firstName: string | null,
+  applyDiscount: boolean = false,
+  discountPercentage: number = 0
 ): Promise<void> {
   const resolvedText = step.text ? resolveUserPlaceholders(step.text, { firstName }) : step.text;
-  const replyMarkup = buildInlineKeyboard(step);
+  const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup } : undefined;
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
@@ -128,12 +133,26 @@ async function sendRemarketingStep(
   logInteraction({ botId, userId, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: false });
 }
 
-function buildInlineKeyboard(step: MessageStep): { inline_keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> } | undefined {
+function buildInlineKeyboard(
+  step: MessageStep,
+  applyDiscount: boolean = false,
+  discountPercentage: number = 0
+): { inline_keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> } | undefined {
   if (step.buttons.length === 0) return undefined;
   return {
-    inline_keyboard: step.buttons.map((button) => [{
-      text: button.label,
-      ...(button.action === "OPEN_URL" ? { url: button.url } : { callback_data: `livepix_payment:${button.id}` })
-    }])
+    inline_keyboard: step.buttons.map((button) => {
+      if (applyDiscount && button.action === "LIVEPIX_PAYMENT" && button.price != null && button.price > 0) {
+        const discounted = Math.round(button.price * (1 - discountPercentage / 100) * 100) / 100;
+        const cents = Math.round(discounted * 100);
+        return [{
+          text: `${button.label} - R$${discounted.toFixed(2)} (${discountPercentage}% OFF)`,
+          callback_data: `livepix_payment:${button.id}:${cents}`
+        }];
+      }
+      return [{
+        text: button.label,
+        ...(button.action === "OPEN_URL" ? { url: button.url } : { callback_data: `livepix_payment:${button.id}` })
+      }];
+    })
   };
 }
