@@ -13,7 +13,6 @@ const defaultPaymentFlow: PaymentFlow = {
   steps: [],
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
-  includeQrCode: false,
 };
 
 export default function BotPaymentPage() {

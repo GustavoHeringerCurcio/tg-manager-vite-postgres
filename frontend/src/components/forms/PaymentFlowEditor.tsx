@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import MessageFlowEditor from "./MessageFlowEditor";
 import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { Settings, CreditCard } from "lucide-react";
@@ -16,7 +15,6 @@ const defaultPaymentFlow: PaymentFlow = {
   steps: [],
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
-  includeQrCode: false,
 };
 
 export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlowEditorProps) {
@@ -35,7 +33,7 @@ export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlow
     <div className="space-y-4">
       <CollapsibleSection
         title="Payment Settings"
-        summary={`${flow.verifyLabel} · ${flow.pixCopyLabel}${flow.includeQrCode ? " · QR Code" : ""}`}
+        summary={`${flow.verifyLabel} · ${flow.pixCopyLabel}`}
         icon={<Settings className="size-4 text-muted-foreground" />}
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
@@ -62,16 +60,6 @@ export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlow
                 placeholder="Copiar PIX"
               />
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="include-qr"
-              checked={flow.includeQrCode}
-              onCheckedChange={(v) => update({ includeQrCode: v })}
-            />
-            <Label htmlFor="include-qr" className="text-xs cursor-pointer">
-              Send QR Code PIX image after payment messages
-            </Label>
           </div>
         </div>
       </CollapsibleSection>

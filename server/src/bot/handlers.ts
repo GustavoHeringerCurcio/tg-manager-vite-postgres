@@ -140,9 +140,38 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
     const steps = paymentFlow.steps;
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
-        const resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
+        let resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
+
+        if (step.includePixCode && pixCode) {
+          resolvedText = resolvedText
+            ? `${resolvedText}\n\n<code>${pixCode}</code>`
+            : `<code>${pixCode}</code>`;
+        }
+        if (step.includeCheckoutUrl) {
+          resolvedText = resolvedText
+            ? `${resolvedText}\n\n${payment.checkoutUrl}`
+            : payment.checkoutUrl;
+        }
+
         const resolvedStep: MessageStep = { ...step, text: resolvedText };
-        await sendStep(ctx, botConfig, user, resolvedStep, services.env);
+
+        if (step.type === "TEXT" && resolvedText) {
+          const replyMarkup = keyboard(resolvedStep);
+          const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
+          await ctx.reply(resolvedText, options as object);
+        } else {
+          await sendStep(ctx, botConfig, user, resolvedStep, services.env);
+        }
+
+        if (step.includeQrCode && pixCode) {
+          try {
+            const qrBuffer = await services.livePix.generateQrCode(pixCode);
+            await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
+          } catch {
+            await ctx.reply("QR Code não disponível no momento.");
+          }
+        }
+
         if (step.delayMs > 0 && index < steps.length - 1) await delay(step.delayMs);
       }
     } else {
@@ -166,15 +195,6 @@ async function sendLivePixPayment(ctx: Context, botConfig: Bot, user: User, serv
     }
     const finalMarkup: Keyboard = { inline_keyboard: finalButtons };
     await ctx.reply(finalText, { reply_markup: finalMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
-
-    if (paymentFlow.includeQrCode && pixCode) {
-      try {
-        const qrBuffer = await services.livePix.generateQrCode(pixCode);
-        await ctx.replyWithPhoto({ source: qrBuffer }, { caption: `QR Code PIX - R$ ${amount.toFixed(2)}` });
-      } catch {
-        await ctx.reply("QR Code não disponível no momento.");
-      }
-    }
 
     logInteraction({ botId: botConfig.id, userId: user.id, type: "message", direction: "outgoing", content: "LivePix payment response sent", logPayloads: services.env.logPayloads });
   } catch (error) {

@@ -17,7 +17,6 @@ export type PaymentFlow = {
   steps: MessageStep[];
   verifyLabel: string;
   pixCopyLabel: string;
-  includeQrCode: boolean;
 };
 
 export type MessageButton = {
@@ -37,6 +36,9 @@ export type MessageStep = {
   mediaUrls: string[];
   delayMs: number;
   buttons: MessageButton[];
+  includeQrCode?: boolean;
+  includePixCode?: boolean;
+  includeCheckoutUrl?: boolean;
 };
 
 export type Bot = {

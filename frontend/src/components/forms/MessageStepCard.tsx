@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -304,6 +305,44 @@ function MessageStepCardInner({
                 </Button>
               </div>
             )}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px]">Payment Options</Label>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <Switch
+                    checked={step.includeQrCode ?? false}
+                    onCheckedChange={(v) => update({ includeQrCode: v || undefined })}
+                    className="scale-75"
+                  />
+                  <span className={step.includeQrCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                    {step.includeQrCode ? "QR Code ON" : "QR Code OFF"}
+                  </span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <Switch
+                    checked={step.includePixCode ?? false}
+                    onCheckedChange={(v) => update({ includePixCode: v || undefined })}
+                    className="scale-75"
+                  />
+                  <span className={step.includePixCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                    {step.includePixCode ? "PIX Code ON" : "PIX Code OFF"}
+                  </span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <Switch
+                    checked={step.includeCheckoutUrl ?? false}
+                    onCheckedChange={(v) => update({ includeCheckoutUrl: v || undefined })}
+                    className="scale-75"
+                  />
+                  <span className={step.includeCheckoutUrl ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                    {step.includeCheckoutUrl ? "LivePix Link ON" : "LivePix Link OFF"}
+                  </span>
+                </label>
+              </div>
+            </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">

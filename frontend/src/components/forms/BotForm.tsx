@@ -39,14 +39,14 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken }:
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
   );
-  const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", includeQrCode: false });
+  const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" });
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);
 
   const initial = useMemo(() => ({
     name: bot?.name ?? "",
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
-    paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", includeQrCode: false },
+    paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" },
     checkoutAmount: bot?.checkoutAmount ?? 0,
   }), [bot]);
 

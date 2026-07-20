@@ -35,6 +35,9 @@ export type MessageStep = {
   mediaUrls: string[];
   delayMs: number;
   buttons: MessageButton[];
+  includeQrCode?: boolean;
+  includePixCode?: boolean;
+  includeCheckoutUrl?: boolean;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -115,7 +118,10 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       text,
       mediaUrls,
       delayMs: Math.round(delayMs),
-      buttons: rawButtons.map((button, buttonIndex) => normalizeButton(button, index, buttonIndex))
+      buttons: rawButtons.map((button, buttonIndex) => normalizeButton(button, index, buttonIndex)),
+      ...(typeof item.includeQrCode === "boolean" ? { includeQrCode: item.includeQrCode } : {}),
+      ...(typeof item.includePixCode === "boolean" ? { includePixCode: item.includePixCode } : {}),
+      ...(typeof item.includeCheckoutUrl === "boolean" ? { includeCheckoutUrl: item.includeCheckoutUrl } : {})
     };
   });
 }
