@@ -3,9 +3,8 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MessageFlowEditor from "./MessageFlowEditor";
-import MessageFlowCsvDialog from "./MessageFlowCsvDialog";
 import type { RemarketingConfig } from "@/types";
-import { Timer, Upload } from "lucide-react";
+import { Timer } from "lucide-react";
 
 interface RemarketingEditorProps {
   config: RemarketingConfig;
@@ -128,28 +127,6 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
                 className="h-8 text-sm"
               />
             </div>
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-4">
-            <Label className="text-xs flex items-center gap-1.5">
-              <Upload className="size-3" />
-              Bulk Import
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Import or export your remarketing flow via CSV.
-            </p>
-            <MessageFlowCsvDialog
-              steps={config.messages}
-              onImport={(newMessages, mode) => {
-                if (mode === "replace") {
-                  update({ messages: newMessages });
-                } else {
-                  update({ messages: [...config.messages, ...newMessages] });
-                }
-              }}
-              botName="remarketing"
-              filenamePrefix="remarketing_flow"
-            />
           </div>
 
           <MessageFlowEditor
