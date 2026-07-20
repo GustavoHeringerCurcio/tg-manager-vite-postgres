@@ -106,7 +106,9 @@ function MessageStepCardInner({
   }
 
   function addMediaUrl() {
-    update({ mediaUrls: [...step.mediaUrls, ""] });
+    const newUrls = [...step.mediaUrls, ""];
+    const clearButtons = step.type === "VIDEO" && newUrls.length > 1 && step.buttons.length > 0;
+    update({ mediaUrls: newUrls, ...(clearButtons ? { buttons: [] } : {}) });
   }
 
   function updateMediaUrl(idx: number, val: string) {
@@ -121,6 +123,7 @@ function MessageStepCardInner({
 
   const type = typeConfig[step.type];
   const hasContent = step.text || step.mediaUrls.length > 0 || step.buttons.length > 0;
+  const isMultiVideo = step.type === "VIDEO" && step.mediaUrls.length > 1;
 
   return (
     <Card
@@ -230,7 +233,11 @@ function MessageStepCardInner({
                 <Label className="text-[11px]">Message Type</Label>
                 <Select
                   value={step.type}
-                  onValueChange={(v) => update({ type: v as MessageType })}
+                  onValueChange={(v) => {
+                    const newType = v as MessageType;
+                    const clearButtons = newType === "VIDEO" && step.mediaUrls.length > 1 && step.buttons.length > 0;
+                    update({ type: newType, ...(clearButtons ? { buttons: [] } : {}) });
+                  }}
                 >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue />
@@ -344,37 +351,45 @@ function MessageStepCardInner({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-[11px]">Inline Buttons</Label>
-                <span className="text-[10px] text-muted-foreground tabular-nums">
-                  {step.buttons.length}/3
-                </span>
-              </div>
-              {step.buttons.length === 0 && (
-                <p className="text-[10px] text-muted-foreground/50">
-                  Add buttons to let users open links or make payments directly from the message.
+            {isMultiVideo ? (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+                <p className="text-xs text-amber-300/80 leading-relaxed">
+                  Telegram media groups (multiple videos) don&apos;t support inline buttons. To add buttons, create a separate <strong className="text-amber-300">TEXT</strong> message step after this video group.
                 </p>
-              )}
-              {step.buttons.map((btn, i) => (
-                <InlineButtonEditor
-                  key={btn.id}
-                  button={btn}
-                  onChange={(fields) => updateButton(i, fields)}
-                  onRemove={() => removeButton(i)}
-                />
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addButton}
-                disabled={step.buttons.length >= 3}
-                className="h-7 text-xs"
-              >
-                <Plus className="mr-1 size-3" /> Add button
-                {step.buttons.length >= 3 && " (max 3)"}
-              </Button>
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px]">Inline Buttons</Label>
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    {step.buttons.length}/3
+                  </span>
+                </div>
+                {step.buttons.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground/50">
+                    Add buttons to let users open links or make payments directly from the message.
+                  </p>
+                )}
+                {step.buttons.map((btn, i) => (
+                  <InlineButtonEditor
+                    key={btn.id}
+                    button={btn}
+                    onChange={(fields) => updateButton(i, fields)}
+                    onRemove={() => removeButton(i)}
+                  />
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addButton}
+                  disabled={step.buttons.length >= 3}
+                  className="h-7 text-xs"
+                >
+                  <Plus className="mr-1 size-3" /> Add button
+                  {step.buttons.length >= 3 && " (max 3)"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </CollapsibleContent>
       </Collapsible>

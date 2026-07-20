@@ -73,7 +73,7 @@ export function MessagePreview({ steps, botName = "Bot", onClose }: MessagePrevi
                     </div>
                   )}
 
-                  {step.buttons.length > 0 && (
+                  {step.buttons.length > 0 && !(step.type === "VIDEO" && step.mediaUrls.length > 1) && (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {step.buttons.map((btn) => (
                         <span
