@@ -7,7 +7,7 @@ import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
-import { BUTTON_STYLE_MAP, normalizeMessageFlow } from "./messageFlow.js";
+import { BUTTON_STYLE_MAP, getAudioFileId, normalizeMessageFlow } from "./messageFlow.js";
 import type { MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizePaymentFlow } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
@@ -201,7 +201,7 @@ async function sendStep(
     return;
   }
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithVoice(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
+    await ctx.replyWithVoice(getAudioFileId(step)!, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `audio:${step.title}`, stepIndex, chatId, messageId,

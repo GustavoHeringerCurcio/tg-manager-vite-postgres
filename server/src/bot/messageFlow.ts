@@ -33,6 +33,12 @@ export type MessageButton = {
   price?: number;
 };
 
+export type DailyAudioConfig = {
+  enabled: boolean;
+  audios: Record<string, string>;
+  fallback?: string;
+};
+
 export type MessageStep = {
   id: string;
   title: string;
@@ -44,6 +50,7 @@ export type MessageStep = {
   includeQrCode?: boolean;
   includePixCode?: boolean;
   includeCheckoutUrl?: boolean;
+  dailyAudios?: DailyAudioConfig;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -117,6 +124,22 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
     const rawButtons = item.buttons ?? [];
     if (!Array.isArray(rawButtons)) throw new Error(`message ${index + 1} buttons must be an array`);
     if (rawButtons.length > 3) throw new Error(`message ${index + 1} can have at most 3 buttons`);
+    let dailyAudios: DailyAudioConfig | undefined = undefined;
+    if (isRecord(item.dailyAudios)) {
+      const enabled = !!item.dailyAudios.enabled;
+      const audios: Record<string, string> = {};
+      if (isRecord(item.dailyAudios.audios)) {
+        for (const [day, fid] of Object.entries(item.dailyAudios.audios)) {
+          const clean = cleanString(fid);
+          if (clean) audios[day] = clean;
+        }
+      }
+      const fallback = cleanString(item.dailyAudios.fallback as string | undefined);
+      if (enabled || Object.keys(audios).length > 0 || fallback) {
+        dailyAudios = { enabled, audios, ...(fallback ? { fallback } : {}) };
+      }
+    }
+
     return {
       id: idFrom(item.id),
       title: cleanString(item.title) ?? `Message ${index + 1}`,
@@ -127,9 +150,22 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       buttons: rawButtons.map((button, buttonIndex) => normalizeButton(button, index, buttonIndex)),
       ...(typeof item.includeQrCode === "boolean" ? { includeQrCode: item.includeQrCode } : {}),
       ...(typeof item.includePixCode === "boolean" ? { includePixCode: item.includePixCode } : {}),
-      ...(typeof item.includeCheckoutUrl === "boolean" ? { includeCheckoutUrl: item.includeCheckoutUrl } : {})
+      ...(typeof item.includeCheckoutUrl === "boolean" ? { includeCheckoutUrl: item.includeCheckoutUrl } : {}),
+      ...(dailyAudios ? { dailyAudios } : {})
     };
   });
+}
+
+const WEEK_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+
+export function getAudioFileId(step: MessageStep): string | null {
+  if (step.mediaUrls.length === 0) return null;
+  if (!step.dailyAudios?.enabled) return step.mediaUrls[0];
+  const today = WEEK_DAYS[new Date().getDay()];
+  const daily = step.dailyAudios.audios[today];
+  if (daily) return daily;
+  if (step.dailyAudios.fallback) return step.dailyAudios.fallback;
+  return step.mediaUrls[0];
 }
 
 export function defaultMessageFlow(): MessageStep[] {

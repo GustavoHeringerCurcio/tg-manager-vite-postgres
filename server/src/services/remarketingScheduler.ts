@@ -3,7 +3,7 @@ import { BotStatus } from "@prisma/client";
 import type { Telegram } from "telegraf";
 import type { InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
-import { BUTTON_STYLE_MAP } from "../bot/messageFlow.js";
+import { BUTTON_STYLE_MAP, getAudioFileId } from "../bot/messageFlow.js";
 import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
 import type { TimeComplimentConfig } from "../bot/remarketing.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
@@ -145,7 +145,7 @@ async function sendRemarketingStep(
   }
 
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await withTimeout(telegram.sendVoice(chatId, step.mediaUrls[0], { caption: resolvedText, ...options }), 10000);
+    await withTimeout(telegram.sendVoice(chatId, getAudioFileId(step)!, { caption: resolvedText, ...options }), 10000);
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }

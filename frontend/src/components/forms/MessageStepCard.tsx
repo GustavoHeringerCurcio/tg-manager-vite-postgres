@@ -320,6 +320,73 @@ function MessageStepCardInner({
               </div>
             )}
 
+            {step.type === "AUDIO" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Label className="text-[11px]">Daily Custom Audios</Label>
+                  <Switch
+                    size="sm"
+                    checked={step.dailyAudios?.enabled ?? false}
+                    onCheckedChange={(v) =>
+                      update({
+                        dailyAudios: v
+                          ? { enabled: true, audios: step.dailyAudios?.audios ?? {} }
+                          : { ...step.dailyAudios, enabled: false, audios: step.dailyAudios?.audios ?? {} },
+                      })
+                    }
+                  />
+                </div>
+                {step.dailyAudios?.enabled && (
+                  <div className="space-y-2 animate-fade-in pl-2 border-l-2 border-amber-500/20">
+                    {(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const).map(
+                      (day) => (
+                        <div key={day} className="flex items-center gap-2">
+                          <Label className="text-[11px] w-20 capitalize">{day}</Label>
+                          <Input
+                            value={step.dailyAudios?.audios[day] ?? ""}
+                            onChange={(e) =>
+                              update({
+                                dailyAudios: {
+                                  ...step.dailyAudios!,
+                                  audios: { ...step.dailyAudios!.audios, [day]: e.target.value },
+                                },
+                              })
+                            }
+                            placeholder="file_id"
+                            className="h-8 text-sm flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => {
+                              const { [day]: _, ...rest } = step.dailyAudios!.audios;
+                              update({ dailyAudios: { ...step.dailyAudios!, audios: rest } });
+                            }}
+                            title={`Remove ${day}`}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                      )
+                    )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Label className="text-[11px] w-20">Fallback</Label>
+                      <Input
+                        value={step.dailyAudios?.fallback ?? ""}
+                        onChange={(e) =>
+                          update({
+                            dailyAudios: { ...step.dailyAudios!, fallback: e.target.value || undefined },
+                          })
+                        }
+                        placeholder="file_id (used when a day is missing)"
+                        className="h-8 text-sm flex-1"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-[11px]">Payment Options</Label>

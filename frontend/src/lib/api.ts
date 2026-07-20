@@ -28,6 +28,12 @@ export type MessageButton = {
   price?: number;
 };
 
+export type DailyAudioConfig = {
+  enabled: boolean;
+  audios: Record<string, string>;
+  fallback?: string;
+};
+
 export type MessageStep = {
   id: string;
   title: string;
@@ -39,6 +45,7 @@ export type MessageStep = {
   includeQrCode?: boolean;
   includePixCode?: boolean;
   includeCheckoutUrl?: boolean;
+  dailyAudios?: DailyAudioConfig;
 };
 
 export type Bot = {
