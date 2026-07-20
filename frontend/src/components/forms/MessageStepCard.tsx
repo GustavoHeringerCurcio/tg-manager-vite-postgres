@@ -135,19 +135,19 @@ function MessageStepCardInner({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "shadow-sm ring-1 ring-border/40",
-        isDragging && "opacity-50 shadow-lg z-50 relative",
-        isExpanded && "ring-primary/30",
-        !isDragging && "transition-all"
+        "border-2 border-border/50 bg-card",
+        isDragging && "opacity-60 shadow-2xl z-50 relative scale-[1.02] border-primary/40",
+        isExpanded && "border-primary/30",
+        !isDragging && "transition-all duration-200"
       )}
     >
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
-        <div className="flex items-center gap-1 px-3 py-2.5">
+        <div className="flex items-center gap-1 px-3 py-2.5 border-l-2 border-l-transparent hover:border-l-foreground/30 hover:bg-muted/30 transition-colors duration-150">
           <button
             type="button"
             {...attributes}
             {...listeners}
-            className="flex shrink-0 cursor-grab touch-none active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors p-0.5"
+            className="flex shrink-0 cursor-grab touch-none active:cursor-grabbing text-muted-foreground/60 hover:text-foreground transition-colors rounded-md hover:bg-muted/50 p-1 -ml-1"
             aria-label="Drag to reorder"
           >
             <GripVertical className="size-4" />
@@ -165,7 +165,7 @@ function MessageStepCardInner({
                 <span
                   className={cn(
                     "flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums",
-                    isExpanded ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    isExpanded ? "bg-primary text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
                   )}
                 >
                   {index + 1}
@@ -182,12 +182,12 @@ function MessageStepCardInner({
                   {type.label}
                 </Badge>
                 {step.buttons.length > 0 && (
-                  <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums">
+                  <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
                     {step.buttons.length} btn{step.buttons.length > 1 ? "s" : ""}
                   </span>
                 )}
                 {step.delayMs > 0 && (
-                  <span className="text-[10px] text-muted-foreground/30 shrink-0 tabular-nums">
+                  <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
                     {Math.round(step.delayMs / 1000)}s
                   </span>
                 )}
