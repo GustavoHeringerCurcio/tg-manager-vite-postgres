@@ -3,6 +3,7 @@ import { BotStatus } from "@prisma/client";
 import type { Telegram } from "telegraf";
 import type { InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
+import { BUTTON_STYLE_MAP } from "../bot/messageFlow.js";
 import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
 import type { TimeComplimentConfig } from "../bot/remarketing.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
@@ -154,7 +155,7 @@ function buildInlineKeyboard(
   step: MessageStep,
   applyDiscount: boolean = false,
   discountPercentage: number = 0
-): { inline_keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> } | undefined {
+): { inline_keyboard: Array<Array<{ text: string; style?: string; callback_data?: string; url?: string }>> } | undefined {
   if (step.buttons.length === 0) return undefined;
   return {
     inline_keyboard: step.buttons.map((button) => {
@@ -163,11 +164,13 @@ function buildInlineKeyboard(
         const cents = Math.round(discounted * 100);
         return [{
           text: `${button.label} - R$${discounted.toFixed(2)} (${discountPercentage}% OFF)`,
+          style: BUTTON_STYLE_MAP[button.color],
           callback_data: `livepix_payment:${button.id}:${cents}`
         }];
       }
       return [{
         text: button.label,
+        style: BUTTON_STYLE_MAP[button.color],
         ...(button.action === "OPEN_URL" ? { url: button.url } : { callback_data: `livepix_payment:${button.id}` })
       }];
     })

@@ -8,6 +8,12 @@ export type MessageType = (typeof MESSAGE_TYPES)[number];
 export type ButtonColor = (typeof BUTTON_COLORS)[number];
 export type ButtonAction = (typeof BUTTON_ACTIONS)[number];
 
+export const BUTTON_STYLE_MAP: Record<ButtonColor, string> = {
+  BLUE: "primary",
+  GREEN: "success",
+  RED: "danger",
+};
+
 export type LivePixResponse = {
   text?: string;
   imageUrl?: string;

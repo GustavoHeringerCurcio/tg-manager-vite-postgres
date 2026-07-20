@@ -7,7 +7,7 @@ import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
-import { normalizeMessageFlow } from "./messageFlow.js";
+import { BUTTON_STYLE_MAP, normalizeMessageFlow } from "./messageFlow.js";
 import type { MessageButton, MessageStep } from "./messageFlow.js";
 import { normalizePaymentFlow } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
@@ -126,7 +126,7 @@ async function incrementUserStats(userId: string, field: "totalInteractions" | "
   await prisma.user.update({ where: { id: userId }, data }).catch(() => {});
 }
 
-type KeyboardButton = { text: string; callback_data?: string; url?: string; copy_text?: { text: string } };
+type KeyboardButton = { text: string; style?: string; callback_data?: string; url?: string; copy_text?: { text: string } };
 type Keyboard = { inline_keyboard: KeyboardButton[][] };
 
 function jsonPayload(value: object): object {
@@ -138,6 +138,7 @@ function keyboard(step: MessageStep): Keyboard | undefined {
   return {
     inline_keyboard: step.buttons.map((button) => [{
       text: button.label,
+      style: BUTTON_STYLE_MAP[button.color],
       ...(button.action === "OPEN_URL" ? { url: button.url } : { callback_data: `${LIVEPIX_CALLBACK_PREFIX}${button.id}` })
     }])
   };
