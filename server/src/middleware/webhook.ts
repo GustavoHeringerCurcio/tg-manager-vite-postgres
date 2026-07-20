@@ -9,5 +9,9 @@ export function webhookDispatcher(req: Request, res: Response, next: NextFunctio
     res.status(404).json({ error: "Bot not found" });
     return;
   }
-  manager.webhookMiddleware()(req, res, next);
+  try {
+    manager.webhookMiddleware()(req, res, next);
+  } catch (error) {
+    next(error);
+  }
 }

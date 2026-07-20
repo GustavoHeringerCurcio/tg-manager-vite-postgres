@@ -11,7 +11,12 @@ let pollerInterval: ReturnType<typeof setInterval> | null = null;
 export function startPaymentPoller(): void {
   if (pollerInterval) return;
   pollerInterval = setInterval(() => {
-    void processPendingPayments();
+    try {
+      void processPendingPayments();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "payment poller tick failed";
+      console.error(`[payment-poller] ${message}`);
+    }
   }, POLL_INTERVAL_MS);
 }
 
@@ -58,7 +63,14 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
   const manager = getBotManager(txn.botId);
   if (!manager) return;
 
-  const payment = await manager.livepix.checkPayment(txn.livepixReference!);
+  let payment: Awaited<ReturnType<typeof manager.livepix.checkPayment>> | null = null;
+  try {
+    payment = await manager.livepix.checkPayment(txn.livepixReference!);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "check payment failed";
+    console.error(`[payment-poller:${txn.botId}] ${message}`);
+    return;
+  }
   if (!payment || !payment.amount || payment.amount <= 0) return;
 
   await prisma.transaction.update({
@@ -70,10 +82,14 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
   const chatId = String(txn.user.telegramId);
 
   try {
-    await manager.telegram.sendMessage(
+    const sendPromise = manager.telegram.sendMessage(
       chatId,
       `✅ Pagamento confirmado!\n\nValor: R$ ${amountBrl}\n\nObrigado pela sua compra!`
     );
+    await Promise.race([
+      sendPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("telegram send timeout")), 10000))
+    ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "send confirmation failed";
     console.error(`[payment-poller:${txn.botId}] ${message}`);

@@ -100,24 +100,43 @@ export function getAuthToken(): string {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      ...options.headers
+  const controller = options.signal ? null : new AbortController();
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
+
+  try {
+    const response = await fetch(path, {
+      ...options,
+      signal: options.signal ?? controller?.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        ...options.headers
+      }
+    });
+
+    if (response.status === 401) {
+      setAuthToken("");
+      throw new Error("Unauthorized");
     }
-  });
-  if (response.status === 401) {
-    setAuthToken("");
-    throw new Error("Unauthorized");
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({ error: "Request failed" }))) as { error?: string };
+      throw new Error(body.error ?? "Request failed");
+    }
+
+    if (response.status === 204) return undefined as T;
+
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new Error("Invalid JSON response");
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Network error";
+    throw new Error(message);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({ error: "Request failed" }))) as { error?: string };
-    throw new Error(body.error ?? "Request failed");
-  }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
 }
 
 export const api = {
