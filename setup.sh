@@ -24,7 +24,7 @@ echo ""
 
 # ── 2. App port ────────────────────────────────────────────────────
 
-read -r -p "  Porta interna app  (padrão 3000): " APP_PORT
+read -r -p "  App port (default 3000): " APP_PORT
 APP_PORT=${APP_PORT:-3000}
 
 echo ""
@@ -47,7 +47,7 @@ echo ""
 
 # ── 4. Generate secrets ────────────────────────────────────────────
 
-echo "  ✓ Generating secure passwords..."
+echo "  ✓ Configuring default credentials..."
 
 ADMIN_PASSWORD="admin-botflix"
 POSTGRES_PASSWORD="botflix-pass"
@@ -65,8 +65,8 @@ fi
 
 OVERWRITE="y"
 if [ -f .env ]; then
-  echo "  ⚠  .env já existe!"
-  read -r -p "  Sobrescrever? Senha admin e chaves serão perdidas (y/N): " OVERWRITE
+  echo "  ⚠  .env already exists!"
+  read -r -p "  Overwrite? Admin password and keys will be lost (y/N): " OVERWRITE
   OVERWRITE=${OVERWRITE:-n}
 fi
 
@@ -93,7 +93,7 @@ LOG_PAYLOADS=false
 PAYMENT_POLL_WINDOW_MINUTES=30
 EOF
 else
-  echo "  ✓ Mantendo .env existente."
+  echo "  ✓ Keeping existing .env."
 fi
 
 echo ""
@@ -102,7 +102,7 @@ echo ""
 
 DOCKER_COMPOSE_CMD="sudo docker compose up -d --build"
 if sudo docker network ls --format '{{.Name}}' 2>/dev/null | grep -qx 'easypanel'; then
-  echo "  ✓ EasyPanel/Traefik detectado — usando HTTPS automático."
+  echo "  ✓ EasyPanel/Traefik detected — using automatic HTTPS."
   DOCKER_COMPOSE_CMD="sudo docker compose -f docker-compose.yml -f docker-compose.easypanel.yml up -d --build"
   USE_EASYPANEL="y"
 else
@@ -120,7 +120,7 @@ eval "$DOCKER_COMPOSE_CMD"
 
 echo ""
 echo "  ╔════════════════════════════════════╗"
-echo "  ║          Deploy concluído          ║"
+echo "  ║         Deploy complete           ║"
 echo "  ╠════════════════════════════════════╣"
 echo "  ║                                    ║"
 if [ "${USE_EASYPANEL,,}" = "y" ]; then
@@ -131,12 +131,12 @@ else
   printf "  ║  Dashboard:  http://%s:%-11s║\n" "${DOMAIN}" "${APP_PORT}"
 fi
 if [ "${OVERWRITE,,}" = "y" ]; then
-  printf "  ║  Senha:      %-21s║\n" "${ADMIN_PASSWORD}"
+  printf "  ║  Password:   %-21s║\n" "${ADMIN_PASSWORD}"
   echo "  ║                                    ║"
-  echo "  ║  Guarde a senha. Ela não será     ║"
-  echo "  ║  exibida novamente.               ║"
+  echo "  ║  Save the password. It will not   ║"
+  echo "  ║  be displayed again.              ║"
 else
-  echo "  ║  Senha:      (consulte .env)      ║"
+  echo "  ║  Password:   (check .env)         ║"
 fi
 echo "  ╚════════════════════════════════════╝"
 echo ""
