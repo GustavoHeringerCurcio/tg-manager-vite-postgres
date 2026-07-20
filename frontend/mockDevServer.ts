@@ -43,9 +43,37 @@ interface MockInteraction {
   userId: string | null;
 }
 
+interface MockSession {
+  id: string;
+  botId: string;
+  userId: string;
+  status: string;
+  currentStepIndex: number | null;
+  stepsCompleted: number[];
+  messageCount: number;
+  metadata: Record<string, unknown>;
+  startedAt: string;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface MockTimelineItem {
+  id: string;
+  direction: string;
+  type: string;
+  content: string | null;
+  stepIndex: number | null;
+  buttonId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 const bots = new Map<string, MockBot>();
 const transactions = new Map<string, MockTransaction[]>();
 const interactions = new Map<string, MockInteraction[]>();
+const sessions = new Map<string, MockSession[]>();
+const sessionTimelines = new Map<string, MockTimelineItem[]>();
 
 const mockUsers: MockUser[] = [
   { id: "user_001", telegramId: "123456789", username: "johndoe", firstName: "John", lastName: "Doe" },
@@ -142,6 +170,87 @@ function seedInteractions(botId: string, count: number): void {
     });
   }
   interactions.set(botId, ints);
+}
+
+function seedSessions(botId: string): void {
+  const botSessions: MockSession[] = [];
+  const now = Date.now();
+  const users = [mockUsers[0], mockUsers[1], mockUsers[2]];
+
+  const conversationFlows: Array<{ dir: string; type: string; content: string; stepIndex?: number; buttonId?: string }[]> = [
+    [
+      { dir: "incoming", type: "message", content: "/start", stepIndex: 0 },
+      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0 },
+      { dir: "outgoing", type: "message", content: "Here's a quick overview of our platform.", stepIndex: 1 },
+      { dir: "incoming", type: "message", content: "I want to know more" },
+      { dir: "outgoing", type: "message", content: "Don't miss out on this limited offer!", stepIndex: 2 },
+      { dir: "incoming", type: "callback_query", content: "livepix_payment:btn_demo_1", buttonId: "btn_demo_1" },
+      { dir: "outgoing", type: "message", content: "Pagamento PIX\n\nValor: R$ 29,90", stepIndex: -1 },
+      { dir: "outgoing", type: "message", content: "Pagamento PIX - R$ 29,90\n\n<code>00020126580014br...</code>", stepIndex: -1 },
+      { dir: "incoming", type: "message", content: "já paguei!" },
+      { dir: "outgoing", type: "message", content: "Pagamento confirmado!" },
+    ],
+    [
+      { dir: "incoming", type: "message", content: "/start", stepIndex: 0 },
+      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0 },
+      { dir: "outgoing", type: "video", content: "video:Video Content", stepIndex: 1 },
+      { dir: "incoming", type: "message", content: "quanto custa?" },
+      { dir: "outgoing", type: "message", content: "To unlock full access, complete your payment below.", stepIndex: 2 },
+    ],
+    [
+      { dir: "incoming", type: "message", content: "/start", stepIndex: 0 },
+      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0 },
+      { dir: "incoming", type: "callback_query", content: "livepix_payment:btn_promo", buttonId: "btn_promo" },
+      { dir: "outgoing", type: "message", content: "Pagamento PIX\n\nValor: R$ 49,90", stepIndex: -1 },
+      { dir: "outgoing", type: "message", content: "Pagamento PIX - R$ 49,90", stepIndex: -1 },
+      { dir: "incoming", type: "message", content: "não vou comprar" },
+    ],
+  ];
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+    const flow = conversationFlows[i];
+    const sessionId = `sess_${botId}_${i + 1}`;
+    const startedAt = new Date(now - (i + 1) * 3_600_000 - i * 86_400_000);
+    const status = i === 0 ? "ACTIVE" : "CLOSED";
+    const endedAt = status === "CLOSED" ? new Date(startedAt.getTime() + flow.length * 30_000) : null;
+
+    const steps = flow.filter((m) => m.stepIndex != null && m.stepIndex >= 0).map((m) => m.stepIndex!);
+    const uniqueSteps = [...new Set(steps)];
+
+    botSessions.push({
+      id: sessionId,
+      botId,
+      userId: user.id,
+      status,
+      currentStepIndex: flow[flow.length - 1].stepIndex ?? null,
+      stepsCompleted: uniqueSteps,
+      messageCount: flow.length,
+      metadata: { startCommand: true },
+      startedAt: startedAt.toISOString(),
+      endedAt: endedAt?.toISOString() ?? null,
+      createdAt: startedAt.toISOString(),
+      updatedAt: (endedAt ?? startedAt).toISOString(),
+    });
+
+    const timeline: MockTimelineItem[] = flow.map((msg, j) => {
+      const msgDate = new Date(startedAt.getTime() + j * 15_000);
+      return {
+        id: `tle_${sessionId}_${j + 1}`,
+        direction: msg.dir,
+        type: msg.type,
+        content: msg.content,
+        stepIndex: msg.stepIndex ?? null,
+        buttonId: msg.buttonId ?? null,
+        metadata: null,
+        createdAt: msgDate.toISOString(),
+      };
+    });
+
+    sessionTimelines.set(sessionId, timeline);
+  }
+
+  sessions.set(botId, botSessions);
 }
 
 function seedBots(): void {
@@ -253,6 +362,8 @@ function seedBots(): void {
   seedTransactions(demo2.id, [14.9, 24.9], 4);
   seedInteractions(demo1.id, 18);
   seedInteractions(demo2.id, 10);
+  seedSessions(demo1.id);
+  seedSessions(demo2.id);
 }
 
 seedBots();
@@ -445,6 +556,40 @@ export async function mockRequest(
       callbackCount: all.filter((i) => i.type === "callback_query").length,
       dailyActiveUsers: dailyActive,
     });
+    return true;
+  }
+
+  // GET /api/bots/:id/sessions
+  if (method === "GET" && path === `/api/bots/${botId}/sessions`) {
+    if (!bot) { notFound(res); return true; }
+    const page = parseInt(url.searchParams.get("page") ?? "1", 10);
+    const pageSize = parseInt(url.searchParams.get("pageSize") ?? "20", 10);
+    const all = sessions.get(botId) ?? [];
+    const start = (page - 1) * pageSize;
+    const items = all.slice(start, start + pageSize).map((s) => {
+      const user = mockUsers.find((u) => u.id === s.userId)!;
+      return {
+        id: s.id, botId: s.botId, userId: s.userId, status: s.status,
+        currentStepIndex: s.currentStepIndex, stepsCompleted: s.stepsCompleted,
+        messageCount: s.messageCount, metadata: s.metadata,
+        startedAt: s.startedAt, endedAt: s.endedAt,
+        createdAt: s.createdAt, updatedAt: s.updatedAt,
+        user,
+      };
+    });
+    json(res, { items, total: all.length, page, pageSize });
+    return true;
+  }
+
+  // GET /api/bots/:id/sessions/:sid/chat
+  const sessionMatch = path.match(/^\/api\/bots\/([^/]+)\/sessions\/([^/]+)\/chat$/);
+  if (method === "GET" && sessionMatch) {
+    const sessionBotId = sessionMatch[1];
+    const sessionId = sessionMatch[2];
+    if (!bots.has(sessionBotId)) { notFound(res); return true; }
+    const timeline = sessionTimelines.get(sessionId);
+    if (!timeline) { json(res, { error: "Session not found" }, 404); return true; }
+    json(res, timeline);
     return true;
   }
 

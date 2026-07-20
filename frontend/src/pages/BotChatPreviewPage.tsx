@@ -4,7 +4,6 @@ import { api } from "@/lib/api";
 import type { Paginated, UserSession, ChatTimelineItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import {
   MessageSquare,
   RefreshCw,
