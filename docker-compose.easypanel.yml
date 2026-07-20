@@ -1,5 +1,6 @@
 services:
   app:
+    ports: []
     networks:
       - default
       - easypanel
