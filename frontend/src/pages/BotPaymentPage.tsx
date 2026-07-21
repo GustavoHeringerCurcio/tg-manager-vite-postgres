@@ -88,6 +88,15 @@ export default function BotPaymentPage() {
           </div>
           <ChevronRight className="size-5 shrink-0 text-muted-foreground/50" />
         </button>
+
+        <button
+          type="button"
+          onClick={() => navigate(`/manager/${botId}/payment-settings/audio`)}
+          className="flex w-full items-center justify-between gap-2 rounded-xl border border-border/40 bg-card px-5 py-3 text-left shadow-sm hover:bg-muted/20 transition-colors"
+        >
+          <span className="text-sm font-medium">Gerenciar Áudios de Cobrança</span>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground/50" />
+        </button>
       </div>
     </div>
   );

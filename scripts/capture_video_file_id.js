@@ -4,10 +4,12 @@
 
   Supported media types:
     - video          (msg.video)
+    - animation      (msg.animation / GIF-like videos)
     - video_note     (msg.video_note / round videos)
     - audio          (msg.audio)
     - voice          (msg.voice / voice notes)
-    - document       (msg.document with video/* or audio/* mime type)
+    - photo          (msg.photo[]; picks the largest size)
+    - document       (msg.document for any mime type; logs mime and file_id)
 
   Usage:
     - Ensure BOT_TOKEN is set in your environment (e.g. export BOT_TOKEN=123:ABC)
@@ -51,6 +53,7 @@ function apiGet(path) {
         }
       });
     });
+    req.setTimeout(8000, () => req.destroy(new Error('Request timed out')));
     req.on('error', reject);
     req.end();
   });
@@ -79,6 +82,7 @@ function apiPost(path, body) {
       });
     });
 
+    req.setTimeout(8000, () => req.destroy(new Error('Request timed out')));
     req.on('error', reject);
     req.write(data);
     req.end();
@@ -86,6 +90,7 @@ function apiPost(path, body) {
 }
 
 let lastOffset = 0;
+let lastErrorLogAt = 0;
 console.log('Starting media file_id capture. Send a video or audio to your bot now.');
 
 async function sendInfoToChat(chatId, text) {
@@ -131,6 +136,29 @@ async function pollOnce() {
           `file_id: ${fileId}`,
           `file_unique_id: ${fileUniqueId}`,
           fileName ? `file_name: ${fileName}` : null,
+          fileSize ? `file_size: ${fileSize}` : null,
+          duration ? `duration: ${duration}s` : null,
+        ].filter(Boolean);
+
+        await sendInfoToChat(chatId, textLines.join('\n'));
+      }
+
+      if (msg.animation) {
+        const an = msg.animation;
+        const fileId = an.file_id;
+        const fileUniqueId = an.file_unique_id;
+        const fileSize = an.file_size;
+        const duration = an.duration;
+        const aName = an.file_name || fileName || null;
+        console.log('Found animation: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
+
+        const textLines = [
+          '🎞️ Found animation (GIF-like)',
+          `update_id: ${upd.update_id}`,
+          `chat_id: ${String(chatId)}`,
+          `file_id: ${fileId}`,
+          `file_unique_id: ${fileUniqueId}`,
+          aName ? `file_name: ${aName}` : null,
           fileSize ? `file_size: ${fileSize}` : null,
           duration ? `duration: ${duration}s` : null,
         ].filter(Boolean);
@@ -210,19 +238,46 @@ async function pollOnce() {
         await sendInfoToChat(chatId, textLines.join('\n'));
       }
 
-      if (msg.document && msg.document.mime_type) {
+      if (msg.photo) {
+        const photos = msg.photo;
+        const best = Array.isArray(photos) && photos.length > 0 ? photos[photos.length - 1] : null;
+        if (best) {
+          const fileId = best.file_id;
+          const fileUniqueId = best.file_unique_id;
+          const width = best.width;
+          const height = best.height;
+          const fileSize = best.file_size;
+          console.log('Found photo: update_id=%d chat_id=%s file_id=%s (%dx%d)', upd.update_id, String(chatId), fileId, width, height);
+
+          const textLines = [
+            '🖼️ Found photo',
+            `update_id: ${upd.update_id}`,
+            `chat_id: ${String(chatId)}`,
+            `file_id: ${fileId}`,
+            `file_unique_id: ${fileUniqueId}`,
+            (width && height) ? `size: ${width}x${height}` : null,
+            fileSize ? `file_size: ${fileSize}` : null,
+          ].filter(Boolean);
+
+          await sendInfoToChat(chatId, textLines.join('\n'));
+        }
+      }
+
+      if (msg.document) {
         const d = msg.document;
-        const mime = d.mime_type;
-        const isVideoDoc = mime.includes('video');
-        const isAudioDoc = mime.includes('audio');
-        if (!isVideoDoc && !isAudioDoc) continue;
+        const mime = d.mime_type || 'application/octet-stream';
 
         const fileId = d.file_id;
         const fileUniqueId = d.file_unique_id;
         const fileName = d.file_name || '<unknown>';
         const fileSize = d.file_size;
-        const kind = isVideoDoc ? 'video' : 'audio';
-        const emoji = isVideoDoc ? '📄' : '📁';
+
+        let kind = 'file';
+        let emoji = '📎';
+        if (mime.includes('image')) { kind = 'image'; emoji = '🖼️'; }
+        else if (mime.includes('video')) { kind = 'video'; emoji = '📄'; }
+        else if (mime.includes('audio')) { kind = 'audio'; emoji = '📁'; }
+
         console.log('Found %s document: update_id=%d chat_id=%s file_id=%s', kind, upd.update_id, String(chatId), fileId);
 
         const textLines = [
@@ -240,7 +295,11 @@ async function pollOnce() {
       }
     }
   } catch (err) {
-    console.error('Error while polling getUpdates:', err && err.message ? err.message : err);
+    const now = Date.now();
+    if (now - lastErrorLogAt > 5000) {
+      console.warn('Error while polling getUpdates:', err && err.message ? err.message : err);
+      lastErrorLogAt = now;
+    }
   }
 }
 
