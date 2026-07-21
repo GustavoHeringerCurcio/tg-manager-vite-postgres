@@ -262,17 +262,19 @@ async function pollOnce() {
 
       if (msg.document) {
         const d = msg.document;
-        const mime = d.mime_type;
-        const isVideoDoc = mime.includes('video');
-        const isAudioDoc = mime.includes('audio');
-        if (!isVideoDoc && !isAudioDoc) continue;
+        const mime = d.mime_type || 'application/octet-stream';
 
         const fileId = d.file_id;
         const fileUniqueId = d.file_unique_id;
         const fileName = d.file_name || '<unknown>';
         const fileSize = d.file_size;
-        const kind = isVideoDoc ? 'video' : 'audio';
-        const emoji = isVideoDoc ? '📄' : '📁';
+
+        let kind = 'file';
+        let emoji = '📎';
+        if (mime.includes('image')) { kind = 'image'; emoji = '🖼️'; }
+        else if (mime.includes('video')) { kind = 'video'; emoji = '📄'; }
+        else if (mime.includes('audio')) { kind = 'audio'; emoji = '📁'; }
+
         console.log('Found %s document: update_id=%d chat_id=%s file_id=%s', kind, upd.update_id, String(chatId), fileId);
 
         const textLines = [
