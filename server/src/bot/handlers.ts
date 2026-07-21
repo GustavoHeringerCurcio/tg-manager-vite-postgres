@@ -362,6 +362,22 @@ async function sendLivePixPayment(
       }
     );
 
+    const finalButtons: KeyboardButton[][] = [[
+      { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
+    ]];
+    if (pixCode) {
+      finalButtons.push([{ text: paymentFlow.pixCopyLabel, copy_text: { text: pixCode } }]);
+    }
+
+    function paymentKeyboard(step: MessageStep): Keyboard {
+      const stepButtons: KeyboardButton[][] = step.buttons.map((button) => [{
+        text: button.label,
+        style: BUTTON_STYLE_MAP[button.color],
+        ...(button.action === "OPEN_URL" ? { url: button.url } : { callback_data: `${LIVEPIX_CALLBACK_PREFIX}${button.id}` })
+      }]);
+      return { inline_keyboard: [...stepButtons, ...finalButtons] };
+    }
+
     const steps = paymentFlow.steps;
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
@@ -384,16 +400,29 @@ async function sendLivePixPayment(
         }
 
         const resolvedStep: MessageStep = { ...step, text: resolvedText };
+        const isLast = index === steps.length - 1;
 
         if (step.type === "TEXT" && resolvedText) {
-          const replyMarkup = keyboard(resolvedStep);
-          const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
+          const kb = isLast ? paymentKeyboard(resolvedStep) : keyboard(resolvedStep);
+          const options = kb ? { reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
           await ctx.reply(resolvedText, options as object);
           logInteraction({
             botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
             content: resolvedText, stepIndex: -1 - index, chatId, messageId,
             logPayloads: services.env.logPayloads
           });
+        } else if (isLast) {
+          const kb = paymentKeyboard(resolvedStep);
+          const kbParam = { reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" as const };
+          if (resolvedStep.type === "IMAGE" && resolvedStep.mediaUrls.length === 1) {
+            await ctx.replyWithPhoto(resolvedStep.mediaUrls[0], { caption: resolvedText ?? undefined, ...kbParam } as object);
+          } else if (resolvedStep.type === "VIDEO" && resolvedStep.mediaUrls.length === 1) {
+            await ctx.replyWithVideo(resolvedStep.mediaUrls[0], { caption: resolvedText ?? undefined, ...kbParam } as object);
+          } else if (resolvedStep.type === "AUDIO" && resolvedStep.mediaUrls.length > 0) {
+            await ctx.replyWithVoice(getAudioFileId(resolvedStep)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
+          } else {
+            await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, timeCompliments, "HTML");
+          }
         } else {
           await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, timeCompliments, "HTML");
         }
@@ -425,18 +454,6 @@ async function sendLivePixPayment(
         logPayloads: services.env.logPayloads
       });
     }
-
-    const pixCodeBlock = (steps.length > 0 && pixCode) ? `\n\n${formatPixCode(pixCode)}` : "";
-    const finalText = `Pagamento PIX - R$ ${amount.toFixed(2)}${pixCodeBlock}`;
-
-    const finalButtons: KeyboardButton[][] = [[
-      { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
-    ]];
-    if (pixCode) {
-      finalButtons.push([{ text: paymentFlow.pixCopyLabel, copy_text: { text: pixCode } }]);
-    }
-    const finalMarkup: Keyboard = { inline_keyboard: finalButtons };
-    await ctx.reply(finalText, { reply_markup: finalMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
 
     logInteraction({
       botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
