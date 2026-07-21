@@ -195,7 +195,7 @@ async function sendRemarketingStep(
 
   const remarketingAudioFileId = step.type === "AUDIO" ? getAudioFileId(step) : null;
   if (step.type === "AUDIO" && remarketingAudioFileId) {
-    await withTimeout(telegram.sendAudio(chatId, remarketingAudioFileId, { caption: resolvedText, ...options }), 10000);
+    await withTimeout(telegram.sendVoice(chatId, remarketingAudioFileId, { caption: resolvedText, ...options }), 10000);
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }

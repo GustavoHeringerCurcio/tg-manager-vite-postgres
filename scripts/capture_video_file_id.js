@@ -199,7 +199,7 @@ async function pollOnce() {
         console.log('Found audio message: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
 
         const textLines = [
-          '🎵 Found audio file (sendAudio, NOT used by bot)',
+          '🎵 Found audio file (sendAudio — deprecated, use voice message instead)',
           `update_id: ${upd.update_id}`,
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
@@ -224,7 +224,7 @@ async function pollOnce() {
         console.log('Found voice message: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
 
         const textLines = [
-          '🎤 Found voice message (use this file_id for bot voice notes)',
+          '🎤 Found voice message (✅ use this file_id for bot)',
           `update_id: ${upd.update_id}`,
           `chat_id: ${String(chatId)}`,
           `file_id: ${fileId}`,
