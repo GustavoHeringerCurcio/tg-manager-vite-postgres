@@ -28,6 +28,22 @@ import type { MessageStep, MessageType, MessageButton } from "@/types";
 import { newId } from "@/lib/helpers";
 import { InlineButtonEditor } from "./InlineButtonEditor";
 
+function isWebUrl(val: string): boolean {
+  try {
+    const url = new URL(val.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const mediaTypeLabel: Record<MessageType, string> = {
+  TEXT: "",
+  AUDIO: "voice",
+  VIDEO: "video",
+  IMAGE: "image",
+};
+
 interface MessageStepCardProps {
   step: MessageStep;
   index: number;
@@ -332,28 +348,65 @@ function MessageStepCardInner({
             {step.type !== "TEXT" && (
               <div className="space-y-1.5">
                 <Label className="text-[11px]">
-                  {step.type === "AUDIO" ? "Voice note (OGG)" : "Media"} URL or file_id
+                  {step.type === "AUDIO" ? "Voice note (OGG)" : step.type === "IMAGE" ? "Image" : "Video"} URL or file_id
                 </Label>
                 {step.mediaUrls.map((url, i) => (
-                  <div key={i} className="flex gap-1">
-                    <Input
-                      value={url}
-                      onChange={(e) => updateMediaUrl(i, e.target.value)}
-                      placeholder={step.type === "AUDIO" ? "Telegram voice file_id (OGG)" : "Telegram file_id or media URL"}
-                      className="h-8 text-sm"
-                    />
-                    <Button variant="ghost" size="icon-sm" onClick={() => removeMediaUrl(i)}>
-                      <Trash2 className="size-3" />
-                    </Button>
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      <div className="relative flex-1">
+                        <Input
+                          value={url}
+                          onChange={(e) => updateMediaUrl(i, e.target.value)}
+                          placeholder={
+                            step.type === "AUDIO"
+                              ? "Telegram voice file_id"
+                              : step.type === "IMAGE"
+                                ? "Image URL (https://...) or file_id"
+                                : "Video URL (https://...) or file_id"
+                          }
+                          className="h-8 text-sm pr-16"
+                        />
+                        {url.trim() && (
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] px-1.5 py-0 h-4 rounded",
+                                isWebUrl(url)
+                                  ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              )}
+                            >
+                              {isWebUrl(url) ? "Web URL" : "file_id"}
+                            </Badge>
+                          </span>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon-sm" onClick={() => removeMediaUrl(i)}>
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </div>
+                    {step.type === "IMAGE" && isWebUrl(url) && (
+                      <div className="relative w-20 h-20 ml-0.5 rounded-md overflow-hidden border border-border/50 bg-muted">
+                        <img
+                          src={url}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 {step.mediaUrls.length === 0 && (
                   <p className="text-[10px] text-muted-foreground/50">
-                    Add a Telegram {step.type === "AUDIO" ? "voice" : "media"} file_id or URL to send
+                    Add a {step.type === "AUDIO" ? "Telegram voice file_id" : `${step.type === "IMAGE" ? "image" : "video"} URL or file_id`}
                   </p>
                 )}
                 <Button variant="outline" size="sm" onClick={addMediaUrl} className="h-7 text-xs">
-                  <Plus className="mr-1 size-3" /> Add file_id
+                  <Plus className="mr-1 size-3" /> Add {mediaTypeLabel[step.type]} URL or file_id
                 </Button>
               </div>
             )}

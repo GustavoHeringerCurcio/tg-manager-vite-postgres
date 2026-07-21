@@ -8,6 +8,7 @@ import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments }
 import type { TimeComplimentConfig } from "../bot/remarketing.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
+import { resolveMediaUrl } from "../utils/media.js";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { prisma } from "./prisma.js";
@@ -160,11 +161,13 @@ async function sendRemarketingStep(
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await withTimeout(telegram.sendVideo(chatId, step.mediaUrls[0], { caption: resolvedText, ...options }), 10000);
+      const resolvedVideo = await resolveMediaUrl(step.mediaUrls[0]);
+      await withTimeout(telegram.sendVideo(chatId, resolvedVideo, { caption: resolvedText, ...options }), 10000);
     } else {
-      const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
+      const resolvedUrls = await Promise.all(step.mediaUrls.map(resolveMediaUrl));
+      const mediaGroup: InputMediaVideo[] = resolvedUrls.map((media, i) => ({
         type: "video" as const,
-        media: url,
+        media,
         ...(i === 0 && resolvedText ? { caption: resolvedText } : {})
       }));
       await withTimeout((telegram as any).sendMediaGroup(chatId, mediaGroup), 10000);
@@ -181,11 +184,13 @@ async function sendRemarketingStep(
 
   if (step.type === "IMAGE" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await withTimeout(telegram.sendPhoto(chatId, step.mediaUrls[0], { caption: resolvedText, ...options }), 10000);
+      const resolvedPhoto = await resolveMediaUrl(step.mediaUrls[0]);
+      await withTimeout(telegram.sendPhoto(chatId, resolvedPhoto, { caption: resolvedText, ...options }), 10000);
     } else {
-      const mediaGroup: InputMediaPhoto[] = step.mediaUrls.map((url, i) => ({
+      const resolvedUrls = await Promise.all(step.mediaUrls.map(resolveMediaUrl));
+      const mediaGroup: InputMediaPhoto[] = resolvedUrls.map((media, i) => ({
         type: "photo" as const,
-        media: url,
+        media,
         ...(i === 0 && resolvedText ? { caption: resolvedText } : {})
       }));
       await withTimeout((telegram as any).sendMediaGroup(chatId, mediaGroup), 10000);

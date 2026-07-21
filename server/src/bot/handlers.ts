@@ -15,6 +15,7 @@ import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js
 import type { TimeComplimentConfig } from "./remarketing.js";
 import { resolveAllPlaceholders } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
+import { resolveMediaUrl } from "../utils/media.js";
 import { sendPixelEvent } from "../services/facebookPixel.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
@@ -204,11 +205,13 @@ async function sendStep(
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await ctx.replyWithVideo(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
+      const resolvedVideo = await resolveMediaUrl(step.mediaUrls[0]);
+      await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     } else {
-      const mediaGroup: InputMediaVideo[] = step.mediaUrls.map((url, i) => ({
+      const resolvedUrls = await Promise.all(step.mediaUrls.map(resolveMediaUrl));
+      const mediaGroup: InputMediaVideo[] = resolvedUrls.map((media, i) => ({
         type: "video",
-        media: url,
+        media,
         ...(i === 0 && resolvedText ? { caption: resolvedText, ...parseOpt } : {})
       }));
       await ctx.replyWithMediaGroup(mediaGroup);
@@ -231,11 +234,13 @@ async function sendStep(
   }
   if (step.type === "IMAGE" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
-      await ctx.replyWithPhoto(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
+      const resolvedPhoto = await resolveMediaUrl(step.mediaUrls[0]);
+      await ctx.replyWithPhoto(resolvedPhoto, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     } else {
-      const mediaGroup: InputMediaPhoto[] = step.mediaUrls.map((url, i) => ({
+      const resolvedUrls = await Promise.all(step.mediaUrls.map(resolveMediaUrl));
+      const mediaGroup: InputMediaPhoto[] = resolvedUrls.map((media, i) => ({
         type: "photo",
-        media: url,
+        media,
         ...(i === 0 && resolvedText ? { caption: resolvedText, ...parseOpt } : {})
       }));
       await ctx.replyWithMediaGroup(mediaGroup);
@@ -415,9 +420,11 @@ async function sendLivePixPayment(
           const kb = paymentKeyboard(resolvedStep);
           const kbParam = { reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" as const };
           if (resolvedStep.type === "IMAGE" && resolvedStep.mediaUrls.length === 1) {
-            await ctx.replyWithPhoto(resolvedStep.mediaUrls[0], { caption: resolvedText ?? undefined, ...kbParam } as object);
+            const resolvedPhoto = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
+            await ctx.replyWithPhoto(resolvedPhoto, { caption: resolvedText ?? undefined, ...kbParam } as object);
           } else if (resolvedStep.type === "VIDEO" && resolvedStep.mediaUrls.length === 1) {
-            await ctx.replyWithVideo(resolvedStep.mediaUrls[0], { caption: resolvedText ?? undefined, ...kbParam } as object);
+            const resolvedVideo = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
+            await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText ?? undefined, ...kbParam } as object);
           } else if (resolvedStep.type === "AUDIO" && resolvedStep.mediaUrls.length > 0) {
             await ctx.replyWithVoice(getAudioFileId(resolvedStep)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
           } else {
