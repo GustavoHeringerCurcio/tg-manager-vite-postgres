@@ -303,7 +303,6 @@ function seedBots(): void {
     remarketing: {
       enabled: true,
       intervalMs: 86_400_000,
-      initialDelayMs: 3_600_000,
       maxSends: 3,
       messages: [
         {
@@ -345,7 +344,6 @@ function seedBots(): void {
     remarketing: {
       enabled: false,
       intervalMs: 0,
-      initialDelayMs: 0,
       maxSends: 0,
       messages: [],
       discountOffer: { enabled: false, tiers: [] },

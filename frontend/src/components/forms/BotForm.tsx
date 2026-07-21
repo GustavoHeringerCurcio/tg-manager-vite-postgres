@@ -20,7 +20,6 @@ function deepEqual(a: unknown, b: unknown): boolean {
 const defaultRemarketing: RemarketingConfig = {
   enabled: false,
   intervalMs: 86400000,
-  initialDelayMs: 0,
   maxSends: 0,
   messages: [],
   discountOffer: { enabled: false, tiers: [] },

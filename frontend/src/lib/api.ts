@@ -90,7 +90,6 @@ export type TimeComplimentConfig = {
 export type RemarketingConfig = {
   enabled: boolean;
   intervalMs: number;
-  initialDelayMs: number;
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;

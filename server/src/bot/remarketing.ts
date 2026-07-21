@@ -14,7 +14,6 @@ export type DiscountOfferConfig = {
 export type RemarketingConfig = {
   enabled: boolean;
   intervalMs: number;
-  initialDelayMs: number;
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;
@@ -34,10 +33,6 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
   if (enabled && intervalMs < 60000) {
     throw new Error("remarketing intervalMs must be at least 60000 (1 minute) when remarketing is enabled");
   }
-  const initialDelayMs = Number(value.initialDelayMs ?? 0);
-  if (!Number.isFinite(initialDelayMs) || initialDelayMs < 0) {
-    throw new Error("remarketing initialDelayMs must be zero or greater");
-  }
   const maxSends = Number(value.maxSends ?? 0);
   if (!Number.isFinite(maxSends) || maxSends < 0 || !Number.isInteger(maxSends)) {
     throw new Error("remarketing maxSends must be a non-negative integer");
@@ -47,7 +42,6 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
   return {
     enabled,
     intervalMs: Math.round(intervalMs),
-    initialDelayMs: Math.round(initialDelayMs),
     maxSends: Math.round(maxSends),
     messages,
     discountOffer
@@ -103,7 +97,6 @@ export function defaultRemarketing(): RemarketingConfig {
   return {
     enabled: false,
     intervalMs: 86400000,
-    initialDelayMs: 0,
     maxSends: 0,
     messages: [],
     discountOffer: defaultDiscountOffer()
