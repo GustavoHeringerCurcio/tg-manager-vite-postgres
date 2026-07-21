@@ -3,6 +3,7 @@ import { PaymentMethod } from "@prisma/client";
 import type { Context, Telegraf } from "telegraf";
 import type { InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ParseMode } from "telegraf/types";
 import { delay } from "../utils/async.js";
+import type { MessageType } from "./messageFlow.js";
 import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
 import type { AppEnv } from "../utils/env.js";
@@ -163,6 +164,22 @@ function findPaymentButtonAcross(steps: MessageStep[][], id: string): MessageBut
   return undefined;
 }
 
+async function sendChatActionRepeatedly(ctx: Context, type: MessageType, delayMs: number): Promise<void> {
+  const CHAT_ACTION_INTERVAL_MS = 4000;
+  const action = type === "TEXT" ? "typing" : type === "AUDIO" ? "record_voice" : type === "IMAGE" ? "upload_photo" : "upload_video";
+  await ctx.sendChatAction(action);
+  let elapsed = 0;
+  while (elapsed + CHAT_ACTION_INTERVAL_MS < delayMs) {
+    await delay(CHAT_ACTION_INTERVAL_MS);
+    elapsed += CHAT_ACTION_INTERVAL_MS;
+    await ctx.sendChatAction(action);
+  }
+  const remaining = delayMs - elapsed;
+  if (remaining > 0) {
+    await delay(remaining);
+  }
+}
+
 async function sendStep(
   ctx: Context,
   botConfig: Bot,
@@ -174,10 +191,6 @@ async function sendStep(
   timeCompliments: TimeComplimentConfig,
   parseMode?: ParseMode
 ): Promise<void> {
-  if (step.chatAction) {
-    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : step.type === "IMAGE" ? "upload_photo" : "upload_video";
-    await ctx.sendChatAction(action);
-  }
 
   let resolvedText = step.text
     ? resolveAllPlaceholders(step.text, { firstName: user?.firstName ?? null }, timeCompliments)
@@ -389,6 +402,11 @@ async function sendLivePixPayment(
     const steps = paymentFlow.steps;
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
+        if (step.chatAction && step.delayMs > 0) {
+          await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
+        } else if (step.delayMs > 0) {
+          await delay(step.delayMs);
+        }
         let resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
         resolvedText = resolvedText
           ? resolveAllPlaceholders(resolvedText, { firstName: user.firstName }, timeCompliments)
@@ -451,8 +469,6 @@ async function sendLivePixPayment(
             await ctx.reply("QR Code não disponível no momento.", { parse_mode: "HTML" });
           }
         }
-
-        if (step.delayMs > 0 && index < steps.length - 1) await delay(step.delayMs);
       }
     } else {
       const defaultText = `Pagamento PIX\n\nValor: R$ ${amount.toFixed(2)}`;
@@ -544,8 +560,12 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       }
 
       for (const [index, step] of messageFlow.entries()) {
+        if (step.chatAction && step.delayMs > 0) {
+          await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
+        } else if (step.delayMs > 0) {
+          await delay(step.delayMs);
+        }
         await sendStep(ctx, botConfig, user, sessionId, step, index, services.env, timeCompliments);
-        if (step.delayMs > 0 && index < messageFlow.length - 1) await delay(step.delayMs);
       }
 
       await prisma.userSession.update({
