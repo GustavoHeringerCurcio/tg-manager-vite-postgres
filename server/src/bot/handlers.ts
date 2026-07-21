@@ -15,6 +15,7 @@ import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js
 import type { TimeComplimentConfig } from "./remarketing.js";
 import { resolveAllPlaceholders } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
+import { sendPixelEventWithBotConfig } from "../services/facebookPixel.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -187,6 +188,20 @@ async function sendStep(
   const chatId = ctx.chat?.id;
   const messageId = ctx.message?.message_id;
 
+  if (step.title) {
+    sendPixelEventWithBotConfig(
+      env, botConfig.id, user?.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+      {
+        eventName: "ViewContent",
+        eventTime: Math.floor(Date.now() / 1000),
+        userData: { externalId: ctx.from?.id?.toString() ?? "anonymous" },
+        customData: { content_name: step.title, content_type: step.type },
+        eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
+      }
+    );
+  }
+
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
     if (step.mediaUrls.length === 1) {
       await ctx.replyWithVideo(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
@@ -335,6 +350,18 @@ async function sendLivePixPayment(
 
     await incrementUserStats(user.id, "totalPayments", amount);
 
+    sendPixelEventWithBotConfig(
+      services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+      {
+        eventName: "AddPaymentInfo",
+        eventTime: Math.floor(Date.now() / 1000),
+        userData: { externalId: ctx.from?.id?.toString() ?? "anonymous" },
+        customData: { currency: "BRL", value: amount, payment_method: "pix" },
+        eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
+      }
+    );
+
     const steps = paymentFlow.steps;
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
@@ -449,6 +476,20 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         return;
       }
 
+      const isNewUser = user.totalInteractions === 0;
+      const pixelEventName = isNewUser ? "CompleteRegistration" : "StartTrial";
+      sendPixelEventWithBotConfig(
+        services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+        ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+        {
+          eventName: pixelEventName,
+          eventTime: Math.floor(Date.now() / 1000),
+          userData: { externalId: ctx.from?.id?.toString() ?? "anonymous" },
+          customData: { status: isNewUser ? "new" : "returning" },
+          eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
+        }
+      );
+
       const message = ctx.message ? textFromMessage(ctx.message) : "/start";
       const sessionId = await createOrResumeSession(botConfig.id, user.id, 0);
       await incrementUserStats(user.id, "totalInteractions");
@@ -518,6 +559,18 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
     if (user.isBlocked) return;
 
+    sendPixelEventWithBotConfig(
+      services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+      {
+        eventName: "Lead",
+        eventTime: Math.floor(Date.now() / 1000),
+        userData: { externalId: ctx.from?.id?.toString() ?? "anonymous" },
+        customData: { content_type: "text" },
+        eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
+      }
+    );
+
     const sessionId = await createOrResumeSession(botConfig.id, user.id);
     await incrementUserStats(user.id, "totalInteractions");
 
@@ -551,6 +604,17 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               content: "Payment confirmed", chatId,
               logPayloads: services.env.logPayloads
             });
+            sendPixelEventWithBotConfig(
+              services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+              ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+              {
+                eventName: "Purchase",
+                eventTime: Math.floor(Date.now() / 1000),
+                userData: { externalId: ctx.from?.id?.toString() ?? "anonymous" },
+                customData: { currency: "BRL", value: payment.amount / 100, transaction_id: reference },
+                eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
+              }
+            );
           }
         } else {
           await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
@@ -601,6 +665,18 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       content: data, buttonId, chatId, messageId: ctx.callbackQuery.message?.message_id,
       payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
     });
+
+    sendPixelEventWithBotConfig(
+      services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+      {
+        eventName: "InitiateCheckout",
+        eventTime: Math.floor(Date.now() / 1000),
+        userData: { externalId: ctx.from?.id?.toString() ?? "anonymous" },
+        customData: { currency: "BRL", value: button.price, content_name: button.label },
+        eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
+      }
+    );
 
     await sendLivePixPayment(ctx, botConfig, user, sessionId, services, button, paymentFlow, timeCompliments);
   });

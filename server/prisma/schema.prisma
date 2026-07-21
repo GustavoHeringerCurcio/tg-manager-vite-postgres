@@ -19,23 +19,26 @@ enum PaymentMethod {
 }
 
 model Bot {
-  id             String    @id @default(cuid())
-  name           String
-  token          String
-  messageFlow    Json      @default("[]")
-  remarketing    Json      @default("{}")
-  paymentFlow    Json      @default("{}")
-  timeCompliments Json     @default("{}")
-  photoUrl       String?
-  status         BotStatus @default(ACTIVE)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  token           String
+  messageFlow     Json      @default("[]")
+  remarketing     Json      @default("{}")
+  paymentFlow     Json      @default("{}")
+  timeCompliments Json      @default("{}")
+  photoUrl        String?
+  status          BotStatus @default(ACTIVE)
+  fbPixelId       String?
+  fbAccessToken   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   users              User[]
   transactions       Transaction[]
   interactions       Interaction[]
   userSessions       UserSession[]
   remarketingStates  RemarketingState[]
+  pixelEvents        PixelEvent[]
 
   @@index([status])
   @@map("bots")
@@ -66,6 +69,7 @@ model User {
   transactions      Transaction[]
   interactions      Interaction[]
   remarketingStates RemarketingState[]
+  pixelEvents       PixelEvent[]
   sessions          UserSession[]
 
   @@unique([botId, telegramId])
@@ -162,4 +166,24 @@ model RemarketingState {
   @@unique([userId, botId])
   @@index([botId, nextSendAt])
   @@map("remarketing_states")
+}
+
+model PixelEvent {
+  id         String   @id @default(cuid())
+  botId      String
+  userId     String?
+  eventName  String
+  eventId    String
+  customData Json?
+  success    Boolean
+  statusCode Int?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  bot  Bot   @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([botId, createdAt])
+  @@index([botId, eventName, createdAt])
+  @@map("pixel_events")
 }

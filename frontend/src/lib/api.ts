@@ -58,6 +58,7 @@ export type Bot = {
   paymentFlow: PaymentFlow;
   timeCompliments?: TimeComplimentConfig;
   livepixConfigured?: boolean;
+  fbPixelId?: string | null;
   status: BotStatus;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +94,17 @@ export type RemarketingConfig = {
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;
+};
+
+export type FacebookPixelConfig = {
+  pixelId: string | null;
+  hasToken: boolean;
+};
+
+export type FacebookPixelTestResult = {
+  sent: boolean;
+  eventId: string;
+  error?: string;
 };
 
 export type RemarketingStateItem = {
@@ -187,4 +199,8 @@ export const api = {
   remarketingStates: (botId: string, page: number) => request<Paginated<RemarketingStateItem>>(`/api/bots/${botId}/remarketing-states?page=${page}&pageSize=10`),
   cancelAllRemarketing: (botId: string) => request<{ count: number }>(`/api/bots/${botId}/remarketing-states/cancel-all`, { method: "POST" }),
   toggleRemarketing: (botId: string, userId: string, active: boolean) => request<{ ok: boolean }>(`/api/bots/${botId}/remarketing-states/${userId}`, { method: "PATCH", body: JSON.stringify({ active }) }),
+  getPixelConfig: (botId: string) => request<FacebookPixelConfig>(`/api/bots/${botId}/pixel`),
+  updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string }) => request<{ pixelId: string; hasToken: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
+  deletePixelConfig: (botId: string) => request<void>(`/api/bots/${botId}/pixel`, { method: "DELETE" }),
+  testPixelEvent: (botId: string) => request<FacebookPixelTestResult>(`/api/bots/${botId}/pixel/test`, { method: "POST" }),
 };
