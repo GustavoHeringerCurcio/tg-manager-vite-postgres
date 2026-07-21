@@ -319,8 +319,8 @@ function MessageStepCardInner({
                 />
                 <span className={step.chatAction ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
                   {step.chatAction
-                    ? step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."
-                    : step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."}
+                    ? step.type === "TEXT" ? "Typing..." : step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."
+                    : step.type === "TEXT" ? "Typing..." : step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."}
                 </span>
               </label>
             </div>
