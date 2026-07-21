@@ -233,6 +233,40 @@ function resolvePlaceholders(text: string, amount: number, pixCode: string | und
     .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function classifyLivePixError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const name = error instanceof Error ? error.name : "";
+
+  if (name === "TypeError" && /fetch|network|ENOTFOUND|ECONNREFUSED|ECONNRESET/i.test(message)) {
+    return `❌ Erro de conexão com o serviço de pagamento.\nVerifique sua internet e tente novamente.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  if (name === "AbortError" || name === "TimeoutError" || /abort|timeout/i.test(message)) {
+    return `❌ O serviço de pagamento demorou muito para responder.\nTente novamente em alguns instantes.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  if (message.includes("authentication failed")) {
+    return `❌ Falha na autenticação com o LivePix.\nErro interno — tente novamente mais tarde.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  if (message.includes("authentication response missing")) {
+    return `❌ Resposta inválida na autenticação do LivePix.\nErro interno — tente novamente.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  if (message.includes("payment creation failed")) {
+    const statusMatch = message.match(/status (\d+)/);
+    const statusStr = statusMatch ? ` (HTTP ${statusMatch[1]})` : "";
+    return `❌ O LivePix recusou a solicitação${statusStr}.\nTente novamente em instantes.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  if (message.includes("missing checkout URL")) {
+    return `❌ Resposta inválida do LivePix.\nTente novamente.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  if (/prisma/i.test(name) || /prisma/i.test(message)) {
+    return `❌ Erro ao salvar o pagamento no banco de dados.\nTente novamente.\n\n<code>${escapeHtml(message)}</code>`;
+  }
+  return `❌ Não foi possível gerar o pagamento.\nTente novamente em instantes.\n\n<code>${escapeHtml(message)}</code>`;
+}
+
 async function sendLivePixPayment(
   ctx: Context,
   botConfig: Bot,
@@ -371,10 +405,11 @@ async function sendLivePixPayment(
   } catch (error) {
     const message = error instanceof Error ? error.message : "payment flow failed";
     console.error(`[bot:${botConfig.id}] ${message}`);
-    await ctx.reply("Não foi possível gerar o pagamento agora. Tente novamente em instantes.", { parse_mode: "HTML" });
+    const userMessage = classifyLivePixError(error);
+    await ctx.reply(userMessage, { parse_mode: "HTML" });
     logInteraction({
       botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
-      content: "payment error shown", chatId, messageId,
+      content: `payment error: ${message}`, chatId, messageId,
       logPayloads: services.env.logPayloads
     });
   }
