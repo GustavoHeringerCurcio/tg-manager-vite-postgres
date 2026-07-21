@@ -23,6 +23,9 @@
 */
 
 const https = require('https');
+const dns = require('dns');
+// Force IPv4 DNS lookups to avoid IPv6 ENETUNREACH on some VPS setups
+const LOOKUP4 = (hostname, options, callback) => dns.lookup(hostname, { family: 4, all: false }, callback);
 
 const TOKEN = process.env.BOT_TOKEN;
 if (!TOKEN) {
@@ -38,6 +41,7 @@ function apiGet(path) {
     hostname: API_HOST,
     path: `${BASE_PATH}${path}`,
     method: 'GET',
+    lookup: LOOKUP4,
   };
 
   return new Promise((resolve, reject) => {
@@ -53,6 +57,7 @@ function apiGet(path) {
         }
       });
     });
+    req.setTimeout(8000, () => req.destroy(new Error('Request timed out')));
     req.on('error', reject);
     req.end();
   });
@@ -66,6 +71,7 @@ function apiPost(path, body) {
       path: `${BASE_PATH}${path}`,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      lookup: LOOKUP4,
     };
 
     const req = https.request(opts, (res) => {
@@ -81,6 +87,7 @@ function apiPost(path, body) {
       });
     });
 
+    req.setTimeout(8000, () => req.destroy(new Error('Request timed out')));
     req.on('error', reject);
     req.write(data);
     req.end();
@@ -88,6 +95,7 @@ function apiPost(path, body) {
 }
 
 let lastOffset = 0;
+let lastErrorLogAt = 0;
 console.log('Starting media file_id capture. Send a video or audio to your bot now.');
 
 async function sendInfoToChat(chatId, text) {
@@ -292,7 +300,11 @@ async function pollOnce() {
       }
     }
   } catch (err) {
-    console.error('Error while polling getUpdates:', err && err.message ? err.message : err);
+    const now = Date.now();
+    if (now - lastErrorLogAt > 5000) {
+      console.warn('Error while polling getUpdates:', err && err.message ? err.message : err);
+      lastErrorLogAt = now;
+    }
   }
 }
 
