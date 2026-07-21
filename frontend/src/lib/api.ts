@@ -95,6 +95,14 @@ export type RemarketingConfig = {
   discountOffer: DiscountOfferConfig;
 };
 
+export type RemarketingStateItem = {
+  id: string;
+  userId: string;
+  totalSent: number;
+  nextSendAt: string | null;
+  user: UserSummary;
+};
+
 export type BotPayload = {
   name: string;
   token?: string;
@@ -175,5 +183,8 @@ export const api = {
   interactions: (id: string, page: number, filters: URLSearchParams) => request<Paginated<Interaction>>(`/api/bots/${id}/interactions?page=${page}&pageSize=10&${filters}`),
   stats: (id: string) => request<Stats>(`/api/bots/${id}/interactions/stats`),
   sessions: (botId: string, page: number, filters?: URLSearchParams) => request<Paginated<UserSession>>(`/api/bots/${botId}/sessions?page=${page}&pageSize=20${filters ? `&${filters}` : ""}`),
-  chatTimeline: (botId: string, sessionId: string) => request<ChatTimelineItem[]>(`/api/bots/${botId}/sessions/${sessionId}/chat`)
+  chatTimeline: (botId: string, sessionId: string) => request<ChatTimelineItem[]>(`/api/bots/${botId}/sessions/${sessionId}/chat`),
+  remarketingStates: (botId: string, page: number) => request<Paginated<RemarketingStateItem>>(`/api/bots/${botId}/remarketing-states?page=${page}&pageSize=10`),
+  cancelAllRemarketing: (botId: string) => request<{ count: number }>(`/api/bots/${botId}/remarketing-states/cancel-all`, { method: "POST" }),
+  toggleRemarketing: (botId: string, userId: string, active: boolean) => request<{ ok: boolean }>(`/api/bots/${botId}/remarketing-states/${userId}`, { method: "PATCH", body: JSON.stringify({ active }) }),
 };

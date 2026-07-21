@@ -40,6 +40,7 @@ export default function AppSidebar() {
   const [bots, setBots] = useState<BotType[]>([]);
   const [loading, setLoading] = useState(true);
   const [botsOpen, setBotsOpen] = useState(true);
+  const [remarketingOpen, setRemarketingOpen] = useState(true);
 
   useEffect(() => {
     api.bots().then(setBots).catch(() => {}).finally(() => setLoading(false));
@@ -106,16 +107,38 @@ export default function AppSidebar() {
                   <span>Message Flow</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip="Remarketing"
-                  isActive={isActive(`/manager/${botId}/remarketing`)}
-                  render={<Link to={`/manager/${botId}/remarketing`} />}
-                >
-                  <Timer className="size-4 text-amber-400" />
-                  <span>Remarketing</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible open={remarketingOpen} onOpenChange={setRemarketingOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger render={<button className="w-full" />}>
+                    <SidebarMenuButton
+                      tooltip="Remarketing"
+                      isActive={isActive(`/manager/${botId}/remarketing`)}
+                    >
+                      <Timer className="size-4 text-amber-400" />
+                      <span>Remarketing</span>
+                      <ChevronDown className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 space-y-0.5 animate-fade-in">
+                      <SidebarMenuButton
+                        isActive={location.pathname === `/manager/${botId}/remarketing`}
+                        size="sm"
+                        render={<Link to={`/manager/${botId}/remarketing`} />}
+                      >
+                        <span>Settings</span>
+                      </SidebarMenuButton>
+                      <SidebarMenuButton
+                        isActive={location.pathname === `/manager/${botId}/remarketing-status`}
+                        size="sm"
+                        render={<Link to={`/manager/${botId}/remarketing-status`} />}
+                      >
+                        <span>Status</span>
+                      </SidebarMenuButton>
+                    </div>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Transactions"

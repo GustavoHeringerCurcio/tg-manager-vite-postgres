@@ -254,5 +254,65 @@ export function apiRouter(env: AppEnv): Router {
     res.json({ totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers });
   }));
 
+  router.get("/bots/:id/remarketing-states", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    const pagination = parsePagination(req.query as Record<string, string | undefined>);
+    const [items, total] = await Promise.all([
+      prisma.remarketingState.findMany({
+        where: { botId },
+        orderBy: { updatedAt: "desc" },
+        skip: pagination.skip,
+        take: pagination.take,
+        include: { user: true }
+      }),
+      prisma.remarketingState.count({ where: { botId } })
+    ]);
+    res.json(serializeJson({ items, total, page: pagination.page, pageSize: pagination.pageSize }));
+  }));
+
+  router.post("/bots/:id/remarketing-states/cancel-all", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    const result = await prisma.remarketingState.updateMany({
+      where: { botId, nextSendAt: { not: null } },
+      data: { nextSendAt: null }
+    });
+    res.json({ count: result.count });
+  }));
+
+  router.patch("/bots/:id/remarketing-states/:userId", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    const userId = routeParam(req, "userId");
+    const body = req.body as { active?: boolean };
+    if (typeof body.active !== "boolean") {
+      throw new HttpError(400, "active must be a boolean");
+    }
+    if (body.active) {
+      const bot = await prisma.bot.findUnique({ where: { id: botId } });
+      if (!bot) throw new HttpError(404, "Bot not found");
+      const config = normalizeRemarketing(bot.remarketing);
+      await prisma.remarketingState.upsert({
+        where: { userId_botId: { userId, botId } },
+        create: {
+          botId,
+          userId,
+          nextIndex: 0,
+          totalSent: 0,
+          nextSendAt: new Date(Date.now() + config.intervalMs)
+        },
+        update: {
+          nextSendAt: new Date(Date.now() + config.intervalMs)
+        }
+      });
+    } else {
+      const existing = await prisma.remarketingState.findUnique({ where: { userId_botId: { userId, botId } } });
+      if (!existing) throw new HttpError(404, "Remarketing state not found");
+      await prisma.remarketingState.update({
+        where: { userId_botId: { userId, botId } },
+        data: { nextSendAt: null }
+      });
+    }
+    res.json({ ok: true });
+  }));
+
   return router;
 }
