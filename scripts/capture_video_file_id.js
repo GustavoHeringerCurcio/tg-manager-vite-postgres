@@ -4,10 +4,12 @@
 
   Supported media types:
     - video          (msg.video)
+    - animation      (msg.animation / GIF-like videos)
     - video_note     (msg.video_note / round videos)
     - audio          (msg.audio)
     - voice          (msg.voice / voice notes)
-    - document       (msg.document with video/* or audio/* mime type)
+    - photo          (msg.photo[]; picks the largest size)
+    - document       (msg.document for any mime type; logs mime and file_id)
 
   Usage:
     - Ensure BOT_TOKEN is set in your environment (e.g. export BOT_TOKEN=123:ABC)
@@ -138,6 +140,29 @@ async function pollOnce() {
         await sendInfoToChat(chatId, textLines.join('\n'));
       }
 
+      if (msg.animation) {
+        const an = msg.animation;
+        const fileId = an.file_id;
+        const fileUniqueId = an.file_unique_id;
+        const fileSize = an.file_size;
+        const duration = an.duration;
+        const aName = an.file_name || fileName || null;
+        console.log('Found animation: update_id=%d chat_id=%s file_id=%s', upd.update_id, String(chatId), fileId);
+
+        const textLines = [
+          '🎞️ Found animation (GIF-like)',
+          `update_id: ${upd.update_id}`,
+          `chat_id: ${String(chatId)}`,
+          `file_id: ${fileId}`,
+          `file_unique_id: ${fileUniqueId}`,
+          aName ? `file_name: ${aName}` : null,
+          fileSize ? `file_size: ${fileSize}` : null,
+          duration ? `duration: ${duration}s` : null,
+        ].filter(Boolean);
+
+        await sendInfoToChat(chatId, textLines.join('\n'));
+      }
+
       if (msg.video_note) {
         const vn = msg.video_note;
         const fileId = vn.file_id;
@@ -210,7 +235,32 @@ async function pollOnce() {
         await sendInfoToChat(chatId, textLines.join('\n'));
       }
 
-      if (msg.document && msg.document.mime_type) {
+      if (msg.photo) {
+        const photos = msg.photo;
+        const best = Array.isArray(photos) && photos.length > 0 ? photos[photos.length - 1] : null;
+        if (best) {
+          const fileId = best.file_id;
+          const fileUniqueId = best.file_unique_id;
+          const width = best.width;
+          const height = best.height;
+          const fileSize = best.file_size;
+          console.log('Found photo: update_id=%d chat_id=%s file_id=%s (%dx%d)', upd.update_id, String(chatId), fileId, width, height);
+
+          const textLines = [
+            '🖼️ Found photo',
+            `update_id: ${upd.update_id}`,
+            `chat_id: ${String(chatId)}`,
+            `file_id: ${fileId}`,
+            `file_unique_id: ${fileUniqueId}`,
+            (width && height) ? `size: ${width}x${height}` : null,
+            fileSize ? `file_size: ${fileSize}` : null,
+          ].filter(Boolean);
+
+          await sendInfoToChat(chatId, textLines.join('\n'));
+        }
+      }
+
+      if (msg.document) {
         const d = msg.document;
         const mime = d.mime_type;
         const isVideoDoc = mime.includes('video');
