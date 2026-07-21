@@ -52,6 +52,12 @@ pnpm --filter @botflix/server prisma:deploy
 docker compose up --build
 ```
 
+## Updates
+```bash
+git pull 
+sudo docker compose --file docker-compose.yml --file docker-compose.easypanel.yml up --detach --build
+```
+
 Services:
 
 - `db`: PostgreSQL 16 with persistent `pgdata` volume.
