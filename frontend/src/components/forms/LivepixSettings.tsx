@@ -14,6 +14,7 @@ const defaultPaymentFlow: PaymentFlow = {
   steps: [],
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
+  unpaidAudioFileIds: [],
 };
 
 export function isLivepixConfigured(paymentFlow: PaymentFlow): boolean {

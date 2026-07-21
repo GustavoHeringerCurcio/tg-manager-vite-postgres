@@ -18,6 +18,7 @@ const defaultPaymentFlow: PaymentFlow = {
   steps: [],
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
+  unpaidAudioFileIds: [],
 };
 
 export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlowEditorProps) {
