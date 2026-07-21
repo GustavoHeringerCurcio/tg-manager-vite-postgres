@@ -27,9 +27,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function normalizeRemarketing(value: unknown): RemarketingConfig {
   if (!isRecord(value)) return defaultRemarketing();
   const enabled = typeof value.enabled === "boolean" ? value.enabled : false;
-  const intervalMs = Number(value.intervalMs ?? 3600000);
+  const intervalMs = Number(value.intervalMs ?? 86400000);
   if (!Number.isFinite(intervalMs) || intervalMs < 0) {
     throw new Error("remarketing intervalMs must be zero or greater");
+  }
+  if (enabled && intervalMs < 60000) {
+    throw new Error("remarketing intervalMs must be at least 60000 (1 minute) when remarketing is enabled");
   }
   const initialDelayMs = Number(value.initialDelayMs ?? 0);
   if (!Number.isFinite(initialDelayMs) || initialDelayMs < 0) {
@@ -99,7 +102,7 @@ export function getDiscountPercentage(config: DiscountOfferConfig, totalSent: nu
 export function defaultRemarketing(): RemarketingConfig {
   return {
     enabled: false,
-    intervalMs: 3600000,
+    intervalMs: 86400000,
     initialDelayMs: 0,
     maxSends: 0,
     messages: [],

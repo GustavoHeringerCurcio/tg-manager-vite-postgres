@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -26,12 +27,42 @@ function bestUnit(ms: number): number {
   return 1;
 }
 
+function secondsPerUnit(unit: number): number {
+  const found = intervalUnits.find((u) => u.value === unit);
+  return found ? found.value : 1;
+}
+
 export default function RemarketingEditor({ config, onChange }: RemarketingEditorProps) {
-  const intervalUnit = bestUnit(config.intervalMs);
-  const initialDelayUnit = bestUnit(config.initialDelayMs);
+  const [intervalUnit, setIntervalUnit] = useState(() => bestUnit(config.intervalMs));
+  const [initialDelayUnit, setInitialDelayUnit] = useState(() => bestUnit(config.initialDelayMs));
+  const unitSwitchRef = useRef<"interval" | "delay" | null>(null);
+
+  useEffect(() => {
+    if (unitSwitchRef.current === "interval") {
+      unitSwitchRef.current = null;
+      return;
+    }
+    setIntervalUnit(bestUnit(config.intervalMs));
+  }, [config.intervalMs]);
+
+  useEffect(() => {
+    if (unitSwitchRef.current === "delay") {
+      unitSwitchRef.current = null;
+      return;
+    }
+    setInitialDelayUnit(bestUnit(config.initialDelayMs));
+  }, [config.initialDelayMs]);
 
   function update(fields: Partial<RemarketingConfig>) {
     onChange({ ...config, ...fields });
+  }
+
+  function toDisplayValue(ms: number, unit: number): number {
+    return ms / 1000 / secondsPerUnit(unit);
+  }
+
+  function fromDisplayValue(displayVal: number, unit: number): number {
+    return displayVal * secondsPerUnit(unit) * 1000;
   }
 
   return (
@@ -63,16 +94,23 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
                 <Input
                   type="number"
                   min={1}
-                  value={Math.max(1, config.intervalMs / 1000 / intervalUnit)}
-                  onChange={(e) => update({ intervalMs: Number(e.target.value) * intervalUnit * 1000 })}
+                  value={Math.max(1, Math.round(toDisplayValue(config.intervalMs, intervalUnit)))}
+                  onChange={(e) => {
+                    const displayVal = Number(e.target.value);
+                    if (Number.isFinite(displayVal) && displayVal >= 1) {
+                      update({ intervalMs: Math.round(fromDisplayValue(displayVal, intervalUnit)) });
+                    }
+                  }}
                   className="h-8 text-sm"
                 />
                 <Select
                   value={String(intervalUnit)}
                   onValueChange={(v) => {
                     const unit = Number(v);
+                    unitSwitchRef.current = "interval";
+                    setIntervalUnit(unit);
                     const seconds = config.intervalMs / 1000;
-                    update({ intervalMs: Math.max(1, Math.round(seconds / unit)) * unit * 1000 });
+                    update({ intervalMs: Math.max(1, Math.round(seconds / secondsPerUnit(unit))) * secondsPerUnit(unit) * 1000 });
                   }}
                 >
                   <SelectTrigger className="h-8 w-28 text-sm">
@@ -93,16 +131,23 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
                 <Input
                   type="number"
                   min={0}
-                  value={config.initialDelayMs / 1000 / initialDelayUnit}
-                  onChange={(e) => update({ initialDelayMs: Number(e.target.value) * initialDelayUnit * 1000 })}
+                  value={Math.round(toDisplayValue(config.initialDelayMs, initialDelayUnit))}
+                  onChange={(e) => {
+                    const displayVal = Number(e.target.value);
+                    if (Number.isFinite(displayVal) && displayVal >= 0) {
+                      update({ initialDelayMs: Math.round(fromDisplayValue(displayVal, initialDelayUnit)) });
+                    }
+                  }}
                   className="h-8 text-sm"
                 />
                 <Select
                   value={String(initialDelayUnit)}
                   onValueChange={(v) => {
                     const unit = Number(v);
+                    unitSwitchRef.current = "delay";
+                    setInitialDelayUnit(unit);
                     const seconds = config.initialDelayMs / 1000;
-                    update({ initialDelayMs: Math.max(0, Math.round(seconds / unit)) * unit * 1000 });
+                    update({ initialDelayMs: Math.max(0, Math.round(seconds / secondsPerUnit(unit))) * secondsPerUnit(unit) * 1000 });
                   }}
                 >
                   <SelectTrigger className="h-8 w-28 text-sm">
