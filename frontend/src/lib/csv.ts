@@ -4,6 +4,7 @@ import type {
   MessageButton,
   ButtonAction,
   ButtonColor,
+  DailyAudioConfig,
 } from "@/types";
 import { newId } from "@/lib/helpers";
 
@@ -19,6 +20,10 @@ export const MESSAGE_FLOW_HEADERS = [
   "button_url",
   "button_price",
   "button_color",
+  "daily_audios",
+  "include_qr_code",
+  "include_pix_code",
+  "include_checkout_url",
 ] as const;
 
 export const BUTTON_PRESET_HEADERS = [
@@ -104,6 +109,10 @@ export type ParsedFlowStep = {
   delayMs: string;
   buttonRows: ParsedFlowButton[];
   errors: CsvParseError[];
+  dailyAudiosStr: string;
+  includeQrCodeStr: string;
+  includePixCodeStr: string;
+  includeCheckoutUrlStr: string;
 };
 
 function colSafe(row: string[], idx: number): string {
@@ -140,6 +149,10 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
     const text = colSafe(first, 3);
     const mediaUrlsStr = colSafe(first, 4);
     const delayMsVal = colSafe(first, 5);
+    const dailyAudiosStr = colSafe(first, 11);
+    const includeQrCodeStr = colSafe(first, 12);
+    const includePixCodeStr = colSafe(first, 13);
+    const includeCheckoutUrlStr = colSafe(first, 14);
 
     const stepErrors: CsvParseError[] = [];
     const rowNum = rows.indexOf(first) + 2;
@@ -261,6 +274,10 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
       delayMs: parsedDelayMs,
       buttonRows: buttonRows.slice(0, 3),
       errors: stepErrors,
+      dailyAudiosStr,
+      includeQrCodeStr,
+      includePixCodeStr,
+      includeCheckoutUrlStr,
     });
   }
 
@@ -299,7 +316,7 @@ export function buildMessageSteps(parsed: ParsedFlowStep[]): MessageStep[] {
     const delayMs = parseInt(p.delayMs, 10);
     const validType = VALID_TYPES.has(p.type) ? p.type as MessageStep["type"] : "TEXT";
 
-    return {
+    const step: MessageStep = {
       id: p.step_id,
       title: p.title || "Untitled",
       type: validType,
@@ -308,6 +325,18 @@ export function buildMessageSteps(parsed: ParsedFlowStep[]): MessageStep[] {
       delayMs: Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : 0,
       buttons,
     };
+
+    if (p.dailyAudiosStr) {
+      try {
+        const parsed = JSON.parse(p.dailyAudiosStr);
+        if (parsed && typeof parsed === "object") step.dailyAudios = parsed as DailyAudioConfig;
+      } catch { /* ignore invalid JSON */ }
+    }
+    if (p.includeQrCodeStr) step.includeQrCode = p.includeQrCodeStr.toLowerCase() === "true";
+    if (p.includePixCodeStr) step.includePixCode = p.includePixCodeStr.toLowerCase() === "true";
+    if (p.includeCheckoutUrlStr) step.includeCheckoutUrl = p.includeCheckoutUrlStr.toLowerCase() === "true";
+
+    return step;
   });
 }
 
@@ -324,8 +353,15 @@ export function stepsToFlowCsvRows(steps: MessageStep[]): string[][] {
       String(step.delayMs),
     ];
 
+    const stepExtras = [
+      step.dailyAudios ? JSON.stringify(step.dailyAudios) : "",
+      step.includeQrCode ? "true" : "",
+      step.includePixCode ? "true" : "",
+      step.includeCheckoutUrl ? "true" : "",
+    ];
+
     if (step.buttons.length === 0) {
-      rows.push([...base, "", "", "", "", ""]);
+      rows.push([...base, "", "", "", "", "", ...stepExtras]);
     } else {
       for (let i = 0; i < step.buttons.length; i++) {
         const btn = step.buttons[i];
@@ -336,6 +372,7 @@ export function stepsToFlowCsvRows(steps: MessageStep[]): string[][] {
           btn.action === "OPEN_URL" ? (btn.url ?? "") : "",
           btn.action === "LIVEPIX_PAYMENT" ? String(btn.price ?? "") : "",
           btn.color,
+          ...(i === 0 ? stepExtras : ["", "", "", ""]),
         ]);
       }
     }

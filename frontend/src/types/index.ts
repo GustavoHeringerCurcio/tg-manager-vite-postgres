@@ -6,6 +6,7 @@ export type {
   LivePixResponse,
   MessageButton,
   PaymentFlow,
+  DailyAudioConfig,
   MessageStep,
   Bot,
   RemarketingConfig,
