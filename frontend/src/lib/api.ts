@@ -17,6 +17,7 @@ export type PaymentFlow = {
   steps: MessageStep[];
   verifyLabel: string;
   pixCopyLabel: string;
+  unpaidAudioFileIds: string[];
 };
 
 export type MessageButton = {
