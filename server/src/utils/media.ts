@@ -29,6 +29,12 @@ export async function resolveMediaUrl(url: string): Promise<{ source: Buffer } |
       return url;
     }
 
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) {
+      console.warn(`[media] Unexpected content type for ${url}: "${contentType}"`);
+      return url;
+    }
+
     const contentLength = response.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > MAX_DOWNLOAD_BYTES) {
       console.warn(`[media] Skipping download of ${url}: exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
