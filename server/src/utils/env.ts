@@ -9,10 +9,6 @@ export type AppEnv = {
   maxPixGenerations: number;
   interactionRetentionDays: number;
   logPayloads: boolean;
-  fbPixelId: string | undefined;
-  fbAccessToken: string | undefined;
-  fbTestEventCode: string | undefined;
-  fbEventsEnabled: boolean;
 };
 
 type EnvSource = Record<string, string | undefined>;
@@ -66,10 +62,6 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     livepixRedirectUrl: source.LIVEPIX_REDIRECT_URL ?? `https://t.me/${domain}`,
     maxPixGenerations: numberValue(source, "MAX_PIX_GENERATIONS", 5),
     interactionRetentionDays: numberValue(source, "INTERACTION_RETENTION_DAYS", 90),
-    logPayloads: booleanValue(source, "LOG_PAYLOADS", false),
-    fbPixelId: source.FB_PIXEL_ID?.trim() || undefined,
-    fbAccessToken: source.FB_ACCESS_TOKEN?.trim() || undefined,
-    fbTestEventCode: source.FB_TEST_EVENT_CODE?.trim() || undefined,
-    fbEventsEnabled: booleanValue(source, "FB_EVENTS_ENABLED", true)
+    logPayloads: booleanValue(source, "LOG_PAYLOADS", false)
   };
 }

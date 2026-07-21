@@ -99,6 +99,7 @@ export type RemarketingConfig = {
 export type FacebookPixelConfig = {
   pixelId: string | null;
   hasToken: boolean;
+  enabled: boolean;
 };
 
 export type FacebookPixelTestResult = {
@@ -200,7 +201,7 @@ export const api = {
   cancelAllRemarketing: (botId: string) => request<{ count: number }>(`/api/bots/${botId}/remarketing-states/cancel-all`, { method: "POST" }),
   toggleRemarketing: (botId: string, userId: string, active: boolean) => request<{ ok: boolean }>(`/api/bots/${botId}/remarketing-states/${userId}`, { method: "PATCH", body: JSON.stringify({ active }) }),
   getPixelConfig: (botId: string) => request<FacebookPixelConfig>(`/api/bots/${botId}/pixel`),
-  updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string }) => request<{ pixelId: string; hasToken: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
+  updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string; enabled?: boolean }) => request<{ pixelId: string; hasToken: boolean; enabled: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
   deletePixelConfig: (botId: string) => request<void>(`/api/bots/${botId}/pixel`, { method: "DELETE" }),
   testPixelEvent: (botId: string) => request<FacebookPixelTestResult>(`/api/bots/${botId}/pixel/test`, { method: "POST" }),
 };

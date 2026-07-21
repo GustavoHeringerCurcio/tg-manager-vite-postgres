@@ -30,6 +30,7 @@ model Bot {
   status          BotStatus @default(ACTIVE)
   fbPixelId       String?
   fbAccessToken   String?
+  fbEnabled       Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

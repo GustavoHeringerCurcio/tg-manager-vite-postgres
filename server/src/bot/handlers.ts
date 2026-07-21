@@ -15,7 +15,7 @@ import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js
 import type { TimeComplimentConfig } from "./remarketing.js";
 import { resolveAllPlaceholders } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
-import { sendPixelEventWithBotConfig } from "../services/facebookPixel.js";
+import { sendPixelEvent } from "../services/facebookPixel.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -189,9 +189,9 @@ async function sendStep(
   const messageId = ctx.message?.message_id;
 
   if (step.title) {
-    sendPixelEventWithBotConfig(
-      env, botConfig.id, user?.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
-      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+    sendPixelEvent(
+      botConfig.id, user?.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken, botConfig.fbEnabled,
       {
         eventName: "ViewContent",
         eventTime: Math.floor(Date.now() / 1000),
@@ -350,9 +350,9 @@ async function sendLivePixPayment(
 
     await incrementUserStats(user.id, "totalPayments", amount);
 
-    sendPixelEventWithBotConfig(
-      services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
-      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+    sendPixelEvent(
+      botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken, botConfig.fbEnabled,
       {
         eventName: "AddPaymentInfo",
         eventTime: Math.floor(Date.now() / 1000),
@@ -478,9 +478,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
       const isNewUser = user.totalInteractions === 0;
       const pixelEventName = isNewUser ? "CompleteRegistration" : "StartTrial";
-      sendPixelEventWithBotConfig(
-        services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
-        ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+      sendPixelEvent(
+        botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+        ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken, botConfig.fbEnabled,
         {
           eventName: pixelEventName,
           eventTime: Math.floor(Date.now() / 1000),
@@ -559,9 +559,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
     if (user.isBlocked) return;
 
-    sendPixelEventWithBotConfig(
-      services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
-      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+    sendPixelEvent(
+      botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken, botConfig.fbEnabled,
       {
         eventName: "Lead",
         eventTime: Math.floor(Date.now() / 1000),
@@ -604,9 +604,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               content: "Payment confirmed", chatId,
               logPayloads: services.env.logPayloads
             });
-            sendPixelEventWithBotConfig(
-              services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
-              ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+            sendPixelEvent(
+              botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+              ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken, botConfig.fbEnabled,
               {
                 eventName: "Purchase",
                 eventTime: Math.floor(Date.now() / 1000),
@@ -666,9 +666,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
     });
 
-    sendPixelEventWithBotConfig(
-      services.env, botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
-      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken,
+    sendPixelEvent(
+      botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
+      ctx.botInfo?.username, botConfig.fbPixelId, botConfig.fbAccessToken, botConfig.fbEnabled,
       {
         eventName: "InitiateCheckout",
         eventTime: Math.floor(Date.now() / 1000),

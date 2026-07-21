@@ -1,0 +1,1 @@
+ALTER TABLE "bots" ADD COLUMN "fbEnabled" BOOLEAN NOT NULL DEFAULT false;

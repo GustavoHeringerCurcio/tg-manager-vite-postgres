@@ -1,6 +1,5 @@
 import { Router } from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import type { AppEnv } from "../utils/env.js";
 import { HttpError } from "../utils/errors.js";
 import { prisma } from "../services/prisma.js";
 import { serializeJson } from "../utils/serialize.js";
@@ -23,10 +22,10 @@ function routeParam(req: Request, name: string): string {
 type PixelConfigBody = {
   pixelId?: string;
   accessToken?: string;
-  testEventCode?: string;
+  enabled?: boolean;
 };
 
-export function facebookPixelRouter(env: AppEnv): Router {
+export function facebookPixelRouter(): Router {
   const router = Router();
 
   router.get("/bots/:id/pixel", route(async (req, res) => {
@@ -34,7 +33,8 @@ export function facebookPixelRouter(env: AppEnv): Router {
     if (!bot) throw new HttpError(404, "Bot not found");
     res.json(serializeJson({
       pixelId: bot.fbPixelId ?? null,
-      hasToken: Boolean(bot.fbAccessToken?.trim())
+      hasToken: Boolean(bot.fbAccessToken?.trim()),
+      enabled: bot.fbEnabled
     }));
   }));
 
@@ -48,14 +48,16 @@ export function facebookPixelRouter(env: AppEnv): Router {
     if (!body.accessToken || !body.accessToken.trim()) {
       throw new HttpError(400, "accessToken is required");
     }
+    const enabled = typeof body.enabled === "boolean" ? body.enabled : true;
     await prisma.bot.update({
       where: { id: bot.id },
       data: {
         fbPixelId: body.pixelId.trim(),
-        fbAccessToken: body.accessToken.trim()
+        fbAccessToken: body.accessToken.trim(),
+        fbEnabled: enabled
       }
     });
-    res.json(serializeJson({ pixelId: body.pixelId.trim(), hasToken: true }));
+    res.json(serializeJson({ pixelId: body.pixelId.trim(), hasToken: true, enabled }));
   }));
 
   router.delete("/bots/:id/pixel", route(async (req, res) => {
@@ -63,7 +65,7 @@ export function facebookPixelRouter(env: AppEnv): Router {
     if (!bot) throw new HttpError(404, "Bot not found");
     await prisma.bot.update({
       where: { id: bot.id },
-      data: { fbPixelId: null, fbAccessToken: null }
+      data: { fbPixelId: null, fbAccessToken: null, fbEnabled: false }
     });
     res.status(204).send();
   }));
@@ -71,7 +73,7 @@ export function facebookPixelRouter(env: AppEnv): Router {
   router.post("/bots/:id/pixel/test", route(async (req, res) => {
     const bot = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!bot) throw new HttpError(404, "Bot not found");
-    const result = await testPixelEvent(env, bot.id, bot.fbPixelId, bot.fbAccessToken, undefined);
+    const result = await testPixelEvent(bot.id, bot.fbPixelId, bot.fbAccessToken, bot.fbEnabled, undefined);
     res.json(serializeJson(result));
   }));
 
