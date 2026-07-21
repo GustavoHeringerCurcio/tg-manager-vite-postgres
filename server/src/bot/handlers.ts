@@ -372,12 +372,8 @@ async function sendLivePixPayment(
       }
     } else {
       const defaultText = `Pagamento PIX\n\nValor: R$ ${amount.toFixed(2)}`;
-      if (pixCode) {
-        await ctx.reply(`${defaultText}\n\nCódigo PIX copia e cola:\n${formatPixCode(pixCode)}`, { parse_mode: "HTML" });
-      } else {
-        const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
-        await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
-      }
+      const paymentReplyMarkup: Keyboard = { inline_keyboard: [[{ text: "Pagar via LivePix", url: payment.checkoutUrl }]] };
+      await ctx.reply(`${defaultText}\n\nClique no botão abaixo para pagar.`, { reply_markup: paymentReplyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" });
       logInteraction({
         botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
         content: "LivePix payment default", chatId, messageId,
@@ -385,7 +381,7 @@ async function sendLivePixPayment(
       });
     }
 
-    const pixCodeBlock = pixCode ? `\n\n${formatPixCode(pixCode)}` : "";
+    const pixCodeBlock = (steps.length > 0 && pixCode) ? `\n\n${formatPixCode(pixCode)}` : "";
     const finalText = `Pagamento PIX - R$ ${amount.toFixed(2)}${pixCodeBlock}`;
 
     const finalButtons: KeyboardButton[][] = [[

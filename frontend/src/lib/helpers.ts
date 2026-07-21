@@ -26,7 +26,7 @@ export function newStep(index = 0): MessageStep {
     text: index === 0 ? "Olá! Bem-vindo." : "",
     mediaUrls: [],
     delayMs: 0,
-    buttons: index === 0 ? [newButton("LIVEPIX_PAYMENT")] : [],
+    buttons: index === 0 ? [newButton("OPEN_URL")] : [],
     chatAction: false,
   };
 }

@@ -37,3 +37,7 @@ export function defaultPaymentFlow(): PaymentFlow {
     pixCopyLabel: "Copiar PIX"
   };
 }
+
+export function isPaymentFlowConfigured(flow: PaymentFlow): boolean {
+  return flow.steps.length > 0;
+}

@@ -9,6 +9,7 @@ import TimeComplimentsEditor from "./TimeComplimentsEditor";
 import ButtonPresetsManager from "./ButtonPresetsManager";
 import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { isLivepixConfigured } from "@/components/forms/LivepixSettings";
 import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep, PaymentFlow, TimeComplimentConfig } from "@/types";
 import { Settings, Save, Workflow, Timer, Percent, Plus, X, Clock, Image } from "lucide-react";
 
@@ -63,6 +64,8 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
   const [remarketingOpen, setRemarketingOpen] = useState(true);
   const [discountOffersOpen, setDiscountOffersOpen] = useState(true);
   const [timeComplimentsOpen, setTimeComplimentsOpen] = useState(true);
+
+  const livepixConfigured = bot?.livepixConfigured ?? isLivepixConfigured(paymentFlow);
 
   const initial = useMemo(() => ({
     name: bot?.name ?? "",
@@ -170,9 +173,9 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
         >
           <div className="pt-4 space-y-3">
             <div className="flex items-center justify-end">
-              <ButtonPresetsManager />
+              <ButtonPresetsManager livepixConfigured={livepixConfigured} />
             </div>
-            <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} />
+            <MessageFlowEditor steps={messageFlow} onChange={setMessageFlow} livepixConfigured={livepixConfigured} />
           </div>
         </CollapsibleSection>
       )}
@@ -190,7 +193,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
           onOpenChange={setRemarketingOpen}
         >
           <div className="pt-4">
-            <RemarketingEditor config={remarketing} onChange={setRemarketing} />
+            <RemarketingEditor config={remarketing} onChange={setRemarketing} livepixConfigured={livepixConfigured} />
           </div>
         </CollapsibleSection>
       )}

@@ -178,6 +178,6 @@ export function defaultMessageFlow(): MessageStep[] {
     text: "Olá! Bem-vindo.",
     mediaUrls: [],
     delayMs: 0,
-    buttons: [{ id: randomUUID(), label: "Pagar agora", color: "GREEN", action: "LIVEPIX_PAYMENT", price: 29.9 }]
+    buttons: [{ id: randomUUID(), label: "Abrir link", color: "BLUE", action: "OPEN_URL", url: "" }]
   }];
 }

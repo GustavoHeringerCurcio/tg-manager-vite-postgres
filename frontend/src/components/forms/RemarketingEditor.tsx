@@ -10,6 +10,7 @@ import { Timer } from "lucide-react";
 interface RemarketingEditorProps {
   config: RemarketingConfig;
   onChange: (config: RemarketingConfig) => void;
+  livepixConfigured?: boolean;
 }
 
 const intervalUnits: { value: number; label: string }[] = [
@@ -35,7 +36,7 @@ function toMs(number: number, unit: number): number {
   return number * unit * 1000;
 }
 
-export default function RemarketingEditor({ config, onChange }: RemarketingEditorProps) {
+export default function RemarketingEditor({ config, onChange, livepixConfigured = true }: RemarketingEditorProps) {
   const [intervalNumber, setIntervalNumber] = useState(() => deriveDisplay(config.intervalMs).number);
   const [intervalUnit, setIntervalUnit] = useState(() => deriveDisplay(config.intervalMs).unit);
   const [delayNumber, setDelayNumber] = useState(() => deriveDisplay(config.initialDelayMs).number);
@@ -169,6 +170,7 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
           <MessageFlowEditor
             steps={config.messages}
             onChange={(messages) => update({ messages })}
+            livepixConfigured={livepixConfigured}
           />
         </div>
       )}

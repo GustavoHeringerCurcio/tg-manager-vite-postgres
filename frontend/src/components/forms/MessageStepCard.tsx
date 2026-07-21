@@ -37,6 +37,7 @@ interface MessageStepCardProps {
   onRemove: () => void;
   onDuplicate: () => void;
   showPaymentOptions?: boolean;
+  livepixConfigured?: boolean;
 }
 
 const typeConfig: Record<MessageType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -67,6 +68,7 @@ function MessageStepCardInner({
   onRemove,
   onDuplicate,
   showPaymentOptions = false,
+  livepixConfigured = true,
 }: MessageStepCardProps) {
   const {
     attributes,
@@ -481,6 +483,7 @@ function MessageStepCardInner({
                     button={btn}
                     onChange={(fields) => updateButton(i, fields)}
                     onRemove={() => removeButton(i)}
+                    livepixConfigured={livepixConfigured}
                   />
                 ))}
                 <Button

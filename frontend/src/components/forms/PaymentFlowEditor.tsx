@@ -6,6 +6,7 @@ import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { Settings, CreditCard, Info, ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { isLivepixConfigured } from "./LivepixSettings";
 import type { PaymentFlow, MessageStep } from "@/types";
 
 interface PaymentFlowEditorProps {
@@ -154,7 +155,7 @@ export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlow
         onOpenChange={() => {}}
       >
         <div className="pt-4">
-          <MessageFlowEditor steps={flow.steps} onChange={handleStepsChange} showPaymentOptions />
+          <MessageFlowEditor steps={flow.steps} onChange={handleStepsChange} showPaymentOptions livepixConfigured={isLivepixConfigured(flow)} />
         </div>
       </CollapsibleSection>
     </div>

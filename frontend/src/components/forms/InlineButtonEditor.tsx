@@ -2,15 +2,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, ExternalLink, CreditCard } from "lucide-react";
+import { Trash2, ExternalLink, CreditCard, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ButtonAction, ButtonColor, MessageButton } from "@/types";
 import { useButtonPresets } from "@/hooks/useButtonPresets";
+import { useNavigate } from "react-router-dom";
 
 interface InlineButtonEditorProps {
   button: MessageButton;
   onChange: (fields: Partial<MessageButton>) => void;
   onRemove: () => void;
+  livepixConfigured?: boolean;
 }
 
 const colorSwatches: { value: ButtonColor; bg: string; ring: string }[] = [
@@ -34,8 +36,9 @@ const actionCards: { value: ButtonAction; icon: React.ReactNode; title: string; 
   },
 ];
 
-export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonEditorProps) {
+export function InlineButtonEditor({ button, onChange, onRemove, livepixConfigured = true }: InlineButtonEditorProps) {
   const { presets } = useButtonPresets();
+  const navigate = useNavigate();
 
   function handlePresetSelect(presetId: string | null) {
     if (!presetId) return;
@@ -83,39 +86,48 @@ export function InlineButtonEditor({ button, onChange, onRemove }: InlineButtonE
       <div className="space-y-1.5">
         <Label className="text-[11px]">Action</Label>
         <div className="grid grid-cols-2 gap-2">
-          {actionCards.map((card) => (
-            <button
-              key={card.value}
-              type="button"
-              onClick={() => {
-                onChange({
-                  action: card.value,
-                  label: card.value === "LIVEPIX_PAYMENT" ? "Pagar agora" : button.label || "Abrir link",
-                  color: card.value === "LIVEPIX_PAYMENT" ? "GREEN" : "BLUE",
-                  ...(card.value === "LIVEPIX_PAYMENT" ? { price: button.price ?? 29.9 } : {}),
-                });
-              }}
-              className={cn(
-                "flex items-start gap-2 rounded-lg border p-2.5 text-left transition-all",
-                button.action === card.value
-                  ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-                  : "border-border/50 hover:border-border hover:bg-muted/30"
-              )}
-            >
-              <div
+          {actionCards.map((card) => {
+            const isLivepix = card.value === "LIVEPIX_PAYMENT";
+            const locked = isLivepix && !livepixConfigured;
+            return (
+              <button
+                key={card.value}
+                type="button"
+                onClick={() => {
+                  if (locked) return;
+                  onChange({
+                    action: card.value,
+                    label: card.value === "LIVEPIX_PAYMENT" ? "Pagar agora" : button.label || "Abrir link",
+                    color: card.value === "LIVEPIX_PAYMENT" ? "GREEN" : "BLUE",
+                    ...(card.value === "LIVEPIX_PAYMENT" ? { price: button.price ?? 29.9 } : {}),
+                  });
+                }}
+                disabled={locked}
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-md",
-                  button.action === card.value ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  "flex items-start gap-2 rounded-lg border p-2.5 text-left transition-all",
+                  locked && "opacity-40 cursor-not-allowed",
+                  !locked && button.action === card.value
+                    ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                    : !locked && "border-border/50 hover:border-border hover:bg-muted/30"
                 )}
               >
-                {card.icon}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium">{card.title}</p>
-                <p className="text-[10px] text-muted-foreground">{card.desc}</p>
-              </div>
-            </button>
-          ))}
+                <div
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-md",
+                    !locked && button.action === card.value ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {locked ? <Lock className="size-3.5" /> : card.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium">{card.title}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {locked ? "Configure payment settings first" : card.desc}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 

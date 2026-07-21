@@ -4,11 +4,11 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { Telegraf } from "telegraf";
 import type { AppEnv } from "../utils/env.js";
 import { HttpError } from "../utils/errors.js";
-import { parsePagination, sanitizeBot, sanitizeBots, serializeJson } from "../utils/serialize.js";
+import { parsePagination, sanitizeBot, sanitizeBots, serializeJson, type SafeBot } from "../utils/serialize.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
-import { defaultMessageFlow, normalizeMessageFlow } from "../bot/messageFlow.js";
-import { defaultPaymentFlow, normalizePaymentFlow } from "../bot/paymentFlow.js";
+import { defaultMessageFlow, normalizeMessageFlow, type MessageButton, type MessageStep } from "../bot/messageFlow.js";
+import { defaultPaymentFlow, isPaymentFlowConfigured, normalizePaymentFlow } from "../bot/paymentFlow.js";
 import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments } from "../bot/remarketing.js";
 
 type BotBody = {
@@ -37,6 +37,19 @@ function readBody<T>(req: Request): T {
 function cleanString(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function hasLivepixButtons(steps: MessageStep[]): boolean {
+  return steps.some(step => step.buttons.some(button => button.action === "LIVEPIX_PAYMENT"));
+}
+
+function checkLivepixConfiguredForFlow(steps: unknown, paymentFlow: unknown, existingBot: { paymentFlow: unknown } | null): void {
+  const normalized = normalizeMessageFlow(steps);
+  if (!hasLivepixButtons(normalized)) return;
+  const flow = existingBot && paymentFlow === undefined ? normalizePaymentFlow(existingBot.paymentFlow) : normalizePaymentFlow(paymentFlow);
+  if (!isPaymentFlowConfigured(flow)) {
+    throw new HttpError(400, "Configure os passos de pagamento no LivePix antes de usar botões de pagamento.");
+  }
 }
 
 function routeParam(req: Request, name: string): string {
@@ -111,14 +124,18 @@ export function apiRouter(env: AppEnv): Router {
 
   router.get("/bots", route(async (_req, res) => {
     const bots = await prisma.bot.findMany({ orderBy: { createdAt: "desc" } });
-    const normalized = bots.map(b => ({ ...b, timeCompliments: normalizeTimeCompliments(b.timeCompliments) }));
+    const normalized = bots.map(b => {
+      const flow = normalizePaymentFlow(b.paymentFlow);
+      return { ...b, timeCompliments: normalizeTimeCompliments(b.timeCompliments), livepixConfigured: isPaymentFlowConfigured(flow) };
+    });
     res.json(serializeJson(sanitizeBots(normalized)));
   }));
 
   router.get("/bots/:id", route(async (req, res) => {
     const bot = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!bot) throw new HttpError(404, "Bot not found");
-    const normalized = { ...bot, timeCompliments: normalizeTimeCompliments(bot.timeCompliments) };
+    const flow = normalizePaymentFlow(bot.paymentFlow);
+    const normalized = { ...bot, timeCompliments: normalizeTimeCompliments(bot.timeCompliments), livepixConfigured: isPaymentFlowConfigured(flow) };
     res.json(serializeJson(sanitizeBot(normalized)));
   }));
 
@@ -136,7 +153,8 @@ export function apiRouter(env: AppEnv): Router {
         const isLocalhost = env.domain === "localhost" || env.domain === "127.0.0.1" || env.domain.startsWith("localhost:");
         if (isLocalhost) {
           console.warn(`[api] Bot "${created.name}" created but webhook skipped: DOMAIN is set to localhost. Use a public domain for Telegram webhooks.`);
-          res.status(201).json(serializeJson(sanitizeBot(created)));
+          const cFlow = normalizePaymentFlow(created.paymentFlow);
+          res.status(201).json(serializeJson(sanitizeBot({ ...created, livepixConfigured: isPaymentFlowConfigured(cFlow) })));
           return;
         }
         await prisma.bot.delete({ where: { id: created.id } }).catch(() => {});
@@ -145,7 +163,8 @@ export function apiRouter(env: AppEnv): Router {
       const status = error instanceof HttpError ? error.status : 500;
       throw new HttpError(status, message);
     }
-    res.status(201).json(serializeJson(sanitizeBot(created)));
+    const cFlow = normalizePaymentFlow(created.paymentFlow);
+    res.status(201).json(serializeJson(sanitizeBot({ ...created, livepixConfigured: isPaymentFlowConfigured(cFlow) })));
   }));
 
   router.put("/bots/:id", route(async (req, res) => {
@@ -154,12 +173,22 @@ export function apiRouter(env: AppEnv): Router {
     const body = readBody<BotBody>(req);
     const token = cleanString(body.token);
     if (token) await validateTelegramToken(token);
+    if (body.messageFlow !== undefined) {
+      checkLivepixConfiguredForFlow(body.messageFlow, body.paymentFlow, existing as unknown as { paymentFlow: unknown });
+    }
+    if (body.remarketing !== undefined && typeof body.remarketing === "object" && body.remarketing !== null) {
+      const rm = body.remarketing as Record<string, unknown>;
+      if (rm.messages !== undefined) {
+        checkLivepixConfiguredForFlow(rm.messages, body.paymentFlow, existing as unknown as { paymentFlow: unknown });
+      }
+    }
     const updated = await prisma.bot.update({ where: { id: existing.id }, data: botData(body, env, false) as Prisma.BotUpdateInput });
     if (updated.status === BotStatus.ACTIVE) {
       await stopBot(updated.id);
       await startBot(updated, env);
     }
-    res.json(serializeJson(sanitizeBot(updated)));
+    const uFlow = normalizePaymentFlow(updated.paymentFlow);
+    res.json(serializeJson(sanitizeBot({ ...updated, livepixConfigured: isPaymentFlowConfigured(uFlow) })));
   }));
 
   router.patch("/bots/:id/status", route(async (req, res) => {

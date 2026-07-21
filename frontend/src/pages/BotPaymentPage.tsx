@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useBotDetail } from "@/hooks/useBotDetail";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Settings, ChevronRight } from "lucide-react";
+import { Settings, ChevronRight, AlertTriangle } from "lucide-react";
 import { LIVEPIX_LOGO, isLivepixConfigured } from "@/components/forms/LivepixSettings";
 
 export default function BotPaymentPage() {
@@ -30,6 +30,18 @@ export default function BotPaymentPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {!configured && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-300">LivePix not configured</p>
+            <p className="text-xs text-amber-300/70 mt-0.5">
+              Payment buttons are disabled across your message flows until you set up at least one payment step.
+              Click the LivePix card below to configure your payment flow.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
           <Settings className="size-5 text-emerald-400" />

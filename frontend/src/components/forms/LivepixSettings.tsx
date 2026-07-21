@@ -147,7 +147,7 @@ export default function LivepixSettings({ paymentFlow, onChange }: LivepixSettin
         onOpenChange={() => {}}
       >
         <div className="pt-4">
-          <MessageFlowEditor steps={flow.steps} onChange={(steps) => update({ steps })} showPaymentOptions />
+          <MessageFlowEditor steps={flow.steps} onChange={(steps) => update({ steps })} showPaymentOptions livepixConfigured={isLivepixConfigured(flow)} />
         </div>
       </CollapsibleSection>
     </div>

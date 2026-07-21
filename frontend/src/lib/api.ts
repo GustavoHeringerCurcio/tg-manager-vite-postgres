@@ -57,6 +57,7 @@ export type Bot = {
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
   timeCompliments?: TimeComplimentConfig;
+  livepixConfigured?: boolean;
   status: BotStatus;
   createdAt: string;
   updatedAt: string;

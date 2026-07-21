@@ -24,6 +24,7 @@ import {
   X,
   ExternalLink,
   CreditCard,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -37,13 +38,17 @@ import {
   BUTTON_PRESET_HEADERS,
 } from "@/lib/csv";
 
+interface ButtonPresetsManagerProps {
+  livepixConfigured?: boolean;
+}
+
 const colorSwatches: { value: ButtonColor; class: string }[] = [
   { value: "BLUE", class: "bg-blue-500" },
   { value: "GREEN", class: "bg-emerald-500" },
   { value: "RED", class: "bg-red-500" },
 ];
 
-export default function ButtonPresetsManager() {
+export default function ButtonPresetsManager({ livepixConfigured = true }: ButtonPresetsManagerProps) {
   const { presets, addPreset, updatePreset, deletePreset, importPresets } = useButtonPresets();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -208,7 +213,9 @@ export default function ButtonPresetsManager() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="OPEN_URL">Open URL</SelectItem>
-                    <SelectItem value="LIVEPIX_PAYMENT">LivePix Payment</SelectItem>
+                    <SelectItem value="LIVEPIX_PAYMENT" disabled={!livepixConfigured}>
+                      LivePix Payment{!livepixConfigured ? " (configure payment first)" : ""}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -348,7 +355,7 @@ export default function ButtonPresetsManager() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="OPEN_URL">Open URL</SelectItem>
-                                <SelectItem value="LIVEPIX_PAYMENT">LivePix</SelectItem>
+                                <SelectItem value="LIVEPIX_PAYMENT" disabled={!livepixConfigured}>LivePix</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
