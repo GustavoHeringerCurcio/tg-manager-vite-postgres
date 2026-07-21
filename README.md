@@ -55,8 +55,6 @@ docker compose up --build
 ## Updates
 ```bash
 git pull 
-```
-```bash
 sudo docker compose --file docker-compose.yml --file docker-compose.easypanel.yml up --detach --build
 ```
 
