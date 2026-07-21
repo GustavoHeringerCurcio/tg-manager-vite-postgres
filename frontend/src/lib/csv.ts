@@ -21,9 +21,7 @@ export const MESSAGE_FLOW_HEADERS = [
   "button_price",
   "button_color",
   "daily_audios",
-  "include_qr_code",
-  "include_pix_code",
-  "include_checkout_url",
+  "chat_action",
 ] as const;
 
 export const BUTTON_PRESET_HEADERS = [
@@ -110,9 +108,7 @@ export type ParsedFlowStep = {
   buttonRows: ParsedFlowButton[];
   errors: CsvParseError[];
   dailyAudiosStr: string;
-  includeQrCodeStr: string;
-  includePixCodeStr: string;
-  includeCheckoutUrlStr: string;
+  chatActionStr: string;
 };
 
 function colSafe(row: string[], idx: number): string {
@@ -150,9 +146,7 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
     const mediaUrlsStr = colSafe(first, 4);
     const delayMsVal = colSafe(first, 5);
     const dailyAudiosStr = colSafe(first, 11);
-    const includeQrCodeStr = colSafe(first, 12);
-    const includePixCodeStr = colSafe(first, 13);
-    const includeCheckoutUrlStr = colSafe(first, 14);
+    const chatActionStr = colSafe(first, 12);
 
     const stepErrors: CsvParseError[] = [];
     const rowNum = rows.indexOf(first) + 2;
@@ -275,9 +269,7 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
       buttonRows: buttonRows.slice(0, 3),
       errors: stepErrors,
       dailyAudiosStr,
-      includeQrCodeStr,
-      includePixCodeStr,
-      includeCheckoutUrlStr,
+      chatActionStr,
     });
   }
 
@@ -332,9 +324,7 @@ export function buildMessageSteps(parsed: ParsedFlowStep[]): MessageStep[] {
         if (parsed && typeof parsed === "object") step.dailyAudios = parsed as DailyAudioConfig;
       } catch { /* ignore invalid JSON */ }
     }
-    if (p.includeQrCodeStr) step.includeQrCode = p.includeQrCodeStr.toLowerCase() === "true";
-    if (p.includePixCodeStr) step.includePixCode = p.includePixCodeStr.toLowerCase() === "true";
-    if (p.includeCheckoutUrlStr) step.includeCheckoutUrl = p.includeCheckoutUrlStr.toLowerCase() === "true";
+    if (p.chatActionStr) step.chatAction = p.chatActionStr.toLowerCase() === "true";
 
     return step;
   });
@@ -355,9 +345,7 @@ export function stepsToFlowCsvRows(steps: MessageStep[]): string[][] {
 
     const stepExtras = [
       step.dailyAudios ? JSON.stringify(step.dailyAudios) : "",
-      step.includeQrCode ? "true" : "",
-      step.includePixCode ? "true" : "",
-      step.includeCheckoutUrl ? "true" : "",
+      step.chatAction ? "true" : "",
     ];
 
     if (step.buttons.length === 0) {
@@ -372,7 +360,7 @@ export function stepsToFlowCsvRows(steps: MessageStep[]): string[][] {
           btn.action === "OPEN_URL" ? (btn.url ?? "") : "",
           btn.action === "LIVEPIX_PAYMENT" ? String(btn.price ?? "") : "",
           btn.color,
-          ...(i === 0 ? stepExtras : ["", "", "", ""]),
+          ...(i === 0 ? stepExtras : ["", ""]),
         ]);
       }
     }
