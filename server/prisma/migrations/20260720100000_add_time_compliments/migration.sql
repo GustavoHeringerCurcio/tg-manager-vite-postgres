@@ -1,0 +1,1 @@
+ALTER TABLE "bots" ADD COLUMN "timeCompliments" JSONB NOT NULL DEFAULT '{}';
