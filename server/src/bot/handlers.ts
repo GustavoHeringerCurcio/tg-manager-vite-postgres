@@ -267,7 +267,7 @@ function formatPixCode(pixCode: string): string {
 function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
   return text
     .replace(/\{amount\}/g, `R$ ${amount.toFixed(2)}`)
-    .replace(/\{pix_code\}/g, pixCode ? formatPixCode(pixCode) : "")
+    .replace(/\{pix_code\}/g, pixCode ? formatPixCode(pixCode) : checkoutUrl)
     .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
@@ -333,6 +333,8 @@ async function sendLivePixPayment(
           data: { pixGenerations: { increment: 1 } }
         });
       }
+    } else {
+      console.warn(`[bot:${botConfig.id}] user ${user.id} pix limit reached (${currentCount}/${services.env.maxPixGenerations})`);
     }
 
     await prisma.user.update({
@@ -499,6 +501,11 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         await ctx.reply("Você está bloqueado.", { parse_mode: "HTML" });
         return;
       }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { pixGenerations: 0 }
+      });
 
       const isNewUser = user.totalInteractions === 0;
       const pixelEventName = isNewUser ? "CompleteRegistration" : "StartTrial";
