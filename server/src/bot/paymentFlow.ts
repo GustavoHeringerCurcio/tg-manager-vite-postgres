@@ -5,6 +5,7 @@ export type PaymentFlow = {
   steps: MessageStep[];
   verifyLabel: string;
   pixCopyLabel: string;
+  unpaidAudioFileIds: string[];
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -17,6 +18,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v): v is string => Boolean(v));
+}
+
 export function normalizePaymentFlow(value: unknown): PaymentFlow {
   if (value === undefined || value === null) return defaultPaymentFlow();
   if (Array.isArray(value)) throw new Error("paymentFlow must be an object, got an array");
@@ -26,15 +34,17 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
 
   const verifyLabel = cleanString(value.verifyLabel) ?? "Verificar pagamento";
   const pixCopyLabel = cleanString(value.pixCopyLabel) ?? "Copiar PIX";
+  const unpaidAudioFileIds = normalizeStringArray(value.unpaidAudioFileIds);
 
-  return { steps, verifyLabel, pixCopyLabel };
+  return { steps, verifyLabel, pixCopyLabel, unpaidAudioFileIds };
 }
 
 export function defaultPaymentFlow(): PaymentFlow {
   return {
     steps: [],
     verifyLabel: "Verificar pagamento",
-    pixCopyLabel: "Copiar PIX"
+    pixCopyLabel: "Copiar PIX",
+    unpaidAudioFileIds: []
   };
 }
 
