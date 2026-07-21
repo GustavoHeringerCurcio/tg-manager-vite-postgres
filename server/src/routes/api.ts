@@ -111,13 +111,15 @@ export function apiRouter(env: AppEnv): Router {
 
   router.get("/bots", route(async (_req, res) => {
     const bots = await prisma.bot.findMany({ orderBy: { createdAt: "desc" } });
-    res.json(serializeJson(sanitizeBots(bots)));
+    const normalized = bots.map(b => ({ ...b, timeCompliments: normalizeTimeCompliments(b.timeCompliments) }));
+    res.json(serializeJson(sanitizeBots(normalized)));
   }));
 
   router.get("/bots/:id", route(async (req, res) => {
     const bot = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!bot) throw new HttpError(404, "Bot not found");
-    res.json(serializeJson(sanitizeBot(bot)));
+    const normalized = { ...bot, timeCompliments: normalizeTimeCompliments(bot.timeCompliments) };
+    res.json(serializeJson(sanitizeBot(normalized)));
   }));
 
   router.post("/bots", route(async (req, res) => {

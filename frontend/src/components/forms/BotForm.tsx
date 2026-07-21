@@ -25,6 +25,19 @@ const defaultRemarketing: RemarketingConfig = {
   discountOffer: { enabled: false, tiers: [] },
 };
 
+const defaultTimeCompliments: TimeComplimentConfig = {
+  timezone: "America/Sao_Paulo",
+  presets: [],
+};
+
+function normalizeTimeCompliments(raw: unknown): TimeComplimentConfig {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return defaultTimeCompliments;
+  const record = raw as Record<string, unknown>;
+  const presets = Array.isArray(record.presets) ? record.presets as TimeComplimentConfig["presets"] : [];
+  const timezone = typeof record.timezone === "string" && record.timezone ? record.timezone : "America/Sao_Paulo";
+  return { timezone, presets };
+}
+
 interface BotFormProps {
   bot?: BotType | null;
   saving: boolean;
@@ -44,7 +57,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     bot?.remarketing ?? defaultRemarketing
   );
   const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" });
-  const [timeCompliments, setTimeCompliments] = useState<TimeComplimentConfig>(bot?.timeCompliments ?? { timezone: "America/Sao_Paulo", presets: [] });
+  const [timeCompliments, setTimeCompliments] = useState<TimeComplimentConfig>(normalizeTimeCompliments(bot?.timeCompliments));
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);
   const [messageFlowOpen, setMessageFlowOpen] = useState(true);
   const [remarketingOpen, setRemarketingOpen] = useState(true);
@@ -57,7 +70,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
     paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" },
-    timeCompliments: bot?.timeCompliments ?? { timezone: "America/Sao_Paulo", presets: [] },
+    timeCompliments: normalizeTimeCompliments(bot?.timeCompliments),
   }), [bot]);
 
   const current = {
@@ -300,7 +313,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
       <CollapsibleSection
         title="Time Compliments"
         summary={
-          timeCompliments.presets.length > 0
+          timeCompliments.presets?.length > 0
             ? `${timeCompliments.presets.length} preset${timeCompliments.presets.length !== 1 ? "s" : ""} · ${timeCompliments.timezone}`
             : "No presets configured"
         }
