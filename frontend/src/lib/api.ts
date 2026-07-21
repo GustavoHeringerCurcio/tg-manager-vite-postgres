@@ -190,8 +190,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   bots: () => request<Bot[]>("/api/bots"),
+  getBot: (id: string) => request<Bot>(`/api/bots/${id}`),
   createBot: (payload: BotPayload) => request<Bot>("/api/bots", { method: "POST", body: JSON.stringify(payload) }),
   updateBot: (id: string, payload: BotPayload) => request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  updatePaymentFlow: (id: string, paymentFlow: PaymentFlow) =>
+    request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify({ paymentFlow }) }),
   setStatus: (id: string, status: BotStatus) => request<Bot>(`/api/bots/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteBot: (id: string) => request<void>(`/api/bots/${id}`, { method: "DELETE" }),
   transactions: (id: string, page: number) => request<Paginated<Transaction>>(`/api/bots/${id}/transactions?page=${page}&pageSize=10`),
