@@ -54,7 +54,7 @@ export function CollapsibleSection({
             </button>
           }
         />
-        <CollapsibleContent>
+        <CollapsibleContent keepMounted>
           <div className="px-5 pb-5 pt-0 border-t border-border/40">{children}</div>
         </CollapsibleContent>
       </div>

@@ -46,6 +46,10 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
   const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" });
   const [timeCompliments, setTimeCompliments] = useState<TimeComplimentConfig>(bot?.timeCompliments ?? { timezone: "America/Sao_Paulo", presets: [] });
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);
+  const [messageFlowOpen, setMessageFlowOpen] = useState(true);
+  const [remarketingOpen, setRemarketingOpen] = useState(true);
+  const [discountOffersOpen, setDiscountOffersOpen] = useState(true);
+  const [timeComplimentsOpen, setTimeComplimentsOpen] = useState(true);
 
   const initial = useMemo(() => ({
     name: bot?.name ?? "",
@@ -147,8 +151,8 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
           title="Message Flow"
           summary={`${messageFlow.length} step${messageFlow.length !== 1 ? "s" : ""}`}
           icon={<Workflow className="size-4 text-emerald-400" />}
-          open={true}
-          onOpenChange={() => {}}
+          open={messageFlowOpen}
+          onOpenChange={setMessageFlowOpen}
           dirty={isDirty && !deepEqual(initial.messageFlow, messageFlow)}
         >
           <div className="pt-4 space-y-3">
@@ -169,8 +173,8 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
               : "Disabled"
           }
           icon={<Timer className="size-4 text-amber-400" />}
-          open={true}
-          onOpenChange={() => {}}
+          open={remarketingOpen}
+          onOpenChange={setRemarketingOpen}
         >
           <div className="pt-4">
             <RemarketingEditor config={remarketing} onChange={setRemarketing} />
@@ -189,8 +193,8 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
               : "Disabled"
           }
           icon={<Percent className="size-4 text-violet-400" />}
-          open={true}
-          onOpenChange={() => {}}
+          open={discountOffersOpen}
+          onOpenChange={setDiscountOffersOpen}
         >
           <div className="pt-4 space-y-4">
             <div className="flex items-start justify-between gap-4">
@@ -301,8 +305,8 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
             : "No presets configured"
         }
         icon={<Clock className="size-4 text-sky-400" />}
-        open={true}
-        onOpenChange={() => {}}
+        open={timeComplimentsOpen}
+        onOpenChange={setTimeComplimentsOpen}
       >
         <div className="pt-4">
           <TimeComplimentsEditor config={timeCompliments} onChange={setTimeCompliments} />
