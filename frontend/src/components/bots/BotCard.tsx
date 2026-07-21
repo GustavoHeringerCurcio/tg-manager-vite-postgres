@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,9 +45,25 @@ interface BotCardProps {
   onDelete: (id: string) => void;
 }
 
+const DELETE_PHRASE = "delete my bot ";
+
 export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [statusChanging, setStatusChanging] = useState(false);
   const navigate = useNavigate();
+
+  const requiredText = DELETE_PHRASE + bot.name;
+
+  async function handleStatusToggle() {
+    setStatusChanging(true);
+    try {
+      const newStatus = bot.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      onStatusChange(bot.id, newStatus);
+    } finally {
+      setStatusChanging(false);
+    }
+  }
 
   return (
     <Card className="group relative flex flex-col shadow-sm transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
@@ -56,6 +73,9 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <Avatar className="size-11 rounded-xl ring-2 ring-border/50 group-hover:ring-primary/30 transition-all" size="lg">
+              {bot.photoUrl ? (
+                <AvatarImage src={bot.photoUrl} className="rounded-xl object-cover" />
+              ) : null}
               <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-semibold text-sm">
                 {bot.name.charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -90,7 +110,21 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
         </div>
       </Link>
 
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 flex items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          disabled={statusChanging}
+          onClick={handleStatusToggle}
+          title={bot.status === "ACTIVE" ? "Deactivate" : "Activate"}
+        >
+          {bot.status === "ACTIVE" ? (
+            <PowerOff className="size-3.5 text-amber-400" />
+          ) : (
+            <Power className="size-3.5 text-emerald-400" />
+          )}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -108,11 +142,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               <Pencil className="mr-2 size-4" />
               Edit Messages
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                onStatusChange(bot.id, bot.status === "ACTIVE" ? "INACTIVE" : "ACTIVE")
-              }
-            >
+            <DropdownMenuItem onSelect={handleStatusToggle}>
               {bot.status === "ACTIVE" ? (
                 <>
                   <PowerOff className="mr-2 size-4" /> Deactivate
@@ -124,7 +154,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteConfirmText(""); }}>
               <DialogTrigger
                 render={
                   <DropdownMenuItem
@@ -139,17 +169,31 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Delete Bot</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete <strong>{bot.name}</strong>? This action cannot be undone.
+                  <DialogDescription className="space-y-3 pt-2">
+                    <p>
+                      This action <strong>cannot be undone</strong>. All data including users, messages, transactions, and sessions will be permanently deleted.
+                    </p>
+                    <p className="text-destructive font-medium">
+                      Type <code className="px-1 py-0.5 rounded bg-muted text-destructive text-xs font-mono">{requiredText}</code> to confirm:
+                    </p>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder={requiredText}
+                      className="h-9 font-mono text-sm"
+                      autoFocus
+                    />
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => { setDeleteOpen(false); setDeleteConfirmText(""); }}>Cancel</Button>
                   <Button
                     variant="destructive"
+                    disabled={deleteConfirmText !== requiredText}
                     onClick={() => {
                       onDelete(bot.id);
                       setDeleteOpen(false);
+                      setDeleteConfirmText("");
                     }}
                   >
                     Delete

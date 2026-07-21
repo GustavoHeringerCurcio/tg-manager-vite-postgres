@@ -25,6 +25,7 @@ import {
   CreditCard,
   MessageSquare,
 } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -191,6 +192,12 @@ export default function AppSidebar() {
                           tooltip={bot.name}
                           render={<Link to={`/manager/${bot.id}/dashboard`} />}
                         >
+                          <Avatar className="size-4 rounded-sm" size="sm">
+                            {bot.photoUrl ? (
+                              <AvatarImage src={bot.photoUrl} className="rounded-sm object-cover" />
+                            ) : null}
+                            <AvatarFallback className="rounded-sm text-[9px]">{bot.name.charAt(0).toUpperCase()}</AvatarFallback>
+                          </Avatar>
                           <span className="truncate">{bot.name}</span>
                         </SidebarMenuButton>
                       ))

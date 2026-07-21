@@ -10,7 +10,7 @@ import ButtonPresetsManager from "./ButtonPresetsManager";
 import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep, PaymentFlow, TimeComplimentConfig } from "@/types";
-import { Settings, Save, Workflow, Timer, Percent, Plus, X, Clock } from "lucide-react";
+import { Settings, Save, Workflow, Timer, Percent, Plus, X, Clock, Image } from "lucide-react";
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -38,6 +38,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
   const isEditing = Boolean(bot);
   const [name, setName] = useState(bot?.name ?? "");
   const [token, setToken] = useState("");
+  const [photoUrl, setPhotoUrl] = useState(bot?.photoUrl ?? "");
   const [messageFlow, setMessageFlow] = useState<MessageStep[]>(bot?.messageFlow ?? []);
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
@@ -48,6 +49,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
 
   const initial = useMemo(() => ({
     name: bot?.name ?? "",
+    photoUrl: bot?.photoUrl ?? "",
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
     paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX" },
@@ -56,6 +58,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
 
   const current = {
     name,
+    photoUrl,
     messageFlow,
     remarketing,
     paymentFlow,
@@ -69,6 +72,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     e.preventDefault();
     const payload: BotPayload = {
       name,
+      photoUrl: photoUrl || null,
       messageFlow,
       remarketing,
       paymentFlow,
@@ -80,6 +84,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
 
   const settingsSummary = [
     name && `"${name}"`,
+    photoUrl && "Photo set",
     token && "Token set",
     !name && "No name set",
   ]
@@ -102,6 +107,21 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
               <Label htmlFor="bot-name" className="text-xs">Bot Name</Label>
               <Input id="bot-name" value={name} onChange={(e) => setName(e.target.value)} required className="h-8" />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="bot-photo" className="text-xs">Photo / GIF URL</Label>
+              <div className="relative">
+                <Image className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                <Input
+                  id="bot-photo"
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="https://example.com/bot-photo.gif"
+                  className="h-8 pl-8"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             {(requireToken || isEditing) && (
               <div className="space-y-2">
                 <Label htmlFor="bot-token" className="text-xs">

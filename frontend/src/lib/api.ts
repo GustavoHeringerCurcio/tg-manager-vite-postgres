@@ -51,6 +51,7 @@ export type MessageStep = {
 export type Bot = {
   id: string;
   name: string;
+  photoUrl?: string | null;
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
@@ -96,6 +97,7 @@ export type RemarketingConfig = {
 export type BotPayload = {
   name: string;
   token?: string;
+  photoUrl?: string | null;
   messageFlow: MessageStep[];
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;

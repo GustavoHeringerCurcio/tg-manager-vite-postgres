@@ -18,6 +18,7 @@ type BotBody = {
   remarketing?: unknown;
   paymentFlow?: unknown;
   timeCompliments?: unknown;
+  photoUrl?: string | null;
 };
 
 type StatusBody = { status?: string };
@@ -99,6 +100,9 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
   }
   const token = cleanString(body.token);
   if (token) data.token = token;
+  if (body.photoUrl !== undefined) {
+    data.photoUrl = cleanString(body.photoUrl ?? undefined) ?? null;
+  }
   return data;
 }
 
