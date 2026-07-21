@@ -9,6 +9,7 @@ import type { TimeComplimentConfig } from "../bot/remarketing.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
+import { delay } from "../utils/async.js";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { prisma } from "./prisma.js";
@@ -150,8 +151,23 @@ async function sendRemarketingStep(
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
 
   if (step.chatAction) {
-    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : step.type === "IMAGE" ? "upload_photo" : "upload_video";
-    await withTimeout(telegram.sendChatAction(chatId, action), 10000);
+    const CHAT_ACTION_INTERVAL_MS = 4000;
+    const action = step.type === "TEXT" ? "typing" as const : step.type === "AUDIO" ? "record_voice" as const : step.type === "IMAGE" ? "upload_photo" as const : "upload_video" as const;
+    if (step.delayMs > 0) {
+      await withTimeout(telegram.sendChatAction(chatId, action), 10000);
+      let elapsed = 0;
+      while (elapsed + CHAT_ACTION_INTERVAL_MS < step.delayMs) {
+        await delay(CHAT_ACTION_INTERVAL_MS);
+        elapsed += CHAT_ACTION_INTERVAL_MS;
+        await withTimeout(telegram.sendChatAction(chatId, action), 10000);
+      }
+      const remaining = step.delayMs - elapsed;
+      if (remaining > 0) {
+        await delay(remaining);
+      }
+    } else {
+      await withTimeout(telegram.sendChatAction(chatId, action), 10000);
+    }
   }
 
   const resolvedText = step.text
