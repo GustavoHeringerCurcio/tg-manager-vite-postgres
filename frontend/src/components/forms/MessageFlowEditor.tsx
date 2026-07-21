@@ -31,9 +31,10 @@ import { toast } from "sonner";
 interface MessageFlowEditorProps {
   steps: MessageStep[];
   onChange: (steps: MessageStep[]) => void;
+  showPaymentOptions?: boolean;
 }
 
-export default function MessageFlowEditor({ steps: initialSteps, onChange }: MessageFlowEditorProps) {
+export default function MessageFlowEditor({ steps: initialSteps, onChange, showPaymentOptions = false }: MessageFlowEditorProps) {
   const { steps, push, undo, canUndo } = useUndo(initialSteps);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -188,6 +189,7 @@ export default function MessageFlowEditor({ steps: initialSteps, onChange }: Mes
                     onChange={(s) => updateStep(i, s)}
                     onRemove={() => removeStep(i)}
                     onDuplicate={() => duplicateStep(i)}
+                    showPaymentOptions={showPaymentOptions}
                   />
                 ))}
               </div>

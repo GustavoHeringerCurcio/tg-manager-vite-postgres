@@ -154,7 +154,7 @@ export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlow
         onOpenChange={() => {}}
       >
         <div className="pt-4">
-          <MessageFlowEditor steps={flow.steps} onChange={handleStepsChange} />
+          <MessageFlowEditor steps={flow.steps} onChange={handleStepsChange} showPaymentOptions />
         </div>
       </CollapsibleSection>
     </div>

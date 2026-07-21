@@ -35,6 +35,7 @@ interface MessageStepCardProps {
   onChange: (step: MessageStep) => void;
   onRemove: () => void;
   onDuplicate: () => void;
+  showPaymentOptions?: boolean;
 }
 
 const typeConfig: Record<MessageType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -64,6 +65,7 @@ function MessageStepCardInner({
   onChange,
   onRemove,
   onDuplicate,
+  showPaymentOptions = false,
 }: MessageStepCardProps) {
   const {
     attributes,
@@ -387,43 +389,45 @@ function MessageStepCardInner({
               </div>
             )}
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-[11px]">Payment Options</Label>
+            {showPaymentOptions && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px]">Payment Options</Label>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer" title="Sends a QR code image right after this step">
+                    <Switch
+                      size="sm"
+                      checked={step.includeQrCode ?? false}
+                      onCheckedChange={(v) => update({ includeQrCode: v || undefined })}
+                    />
+                    <span className={step.includeQrCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                      {step.includeQrCode ? "QR Code ON" : "QR Code OFF"}
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the PIX copy-paste code at the end of this message">
+                    <Switch
+                      size="sm"
+                      checked={step.includePixCode ?? false}
+                      onCheckedChange={(v) => update({ includePixCode: v || undefined })}
+                    />
+                    <span className={step.includePixCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                      {step.includePixCode ? "PIX Code ON" : "PIX Code OFF"}
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the LivePix checkout URL at the end of this message">
+                    <Switch
+                      size="sm"
+                      checked={step.includeCheckoutUrl ?? false}
+                      onCheckedChange={(v) => update({ includeCheckoutUrl: v || undefined })}
+                    />
+                    <span className={step.includeCheckoutUrl ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                      {step.includeCheckoutUrl ? "LivePix Link ON" : "LivePix Link OFF"}
+                    </span>
+                  </label>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <label className="flex items-center gap-1.5 cursor-pointer" title="Sends a QR code image right after this step">
-                  <Switch
-                    size="sm"
-                    checked={step.includeQrCode ?? false}
-                    onCheckedChange={(v) => update({ includeQrCode: v || undefined })}
-                  />
-                  <span className={step.includeQrCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
-                    {step.includeQrCode ? "QR Code ON" : "QR Code OFF"}
-                  </span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the PIX copy-paste code at the end of this message">
-                  <Switch
-                    size="sm"
-                    checked={step.includePixCode ?? false}
-                    onCheckedChange={(v) => update({ includePixCode: v || undefined })}
-                  />
-                  <span className={step.includePixCode ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
-                    {step.includePixCode ? "PIX Code ON" : "PIX Code OFF"}
-                  </span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer" title="Appends the LivePix checkout URL at the end of this message">
-                  <Switch
-                    size="sm"
-                    checked={step.includeCheckoutUrl ?? false}
-                    onCheckedChange={(v) => update({ includeCheckoutUrl: v || undefined })}
-                  />
-                  <span className={step.includeCheckoutUrl ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
-                    {step.includeCheckoutUrl ? "LivePix Link ON" : "LivePix Link OFF"}
-                  </span>
-                </label>
-              </div>
-            </div>
+            )}
 
             {isMultiVideo ? (
               <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
