@@ -25,7 +25,20 @@
 const https = require('https');
 const dns = require('dns');
 // Force IPv4 DNS lookups to avoid IPv6 ENETUNREACH on some VPS setups
-const LOOKUP4 = (hostname, options, callback) => dns.lookup(hostname, { family: 4, all: false }, callback);
+function LOOKUP4(hostname, options, callback) {
+  // Support both (hostname, callback) and (hostname, options, callback)
+  const cb = typeof options === 'function' ? options : callback;
+  try {
+    if (typeof hostname !== 'string' || hostname.length === 0) {
+      // Fail fast if hostname is missing to avoid "Invalid IP address: undefined"
+      return process.nextTick(() => cb(new Error('lookup: invalid hostname')));
+    }
+    dns.lookup(hostname, { family: 4, all: false }, cb);
+  } catch (err) {
+    // Surface synchronous errors to the callback
+    process.nextTick(() => cb(err));
+  }
+}
 
 const TOKEN = process.env.BOT_TOKEN;
 if (!TOKEN) {
