@@ -26,9 +26,9 @@ export function UserPlaceholdersInfo() {
               <span className="text-foreground/80">user&apos;s first name</span>
             </div>
             <div className="flex items-baseline gap-2 text-xs">
-              <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{name:Friend}`}</code>
+              <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{name:custom}`}</code>
               <span className="text-muted-foreground">Resolves to</span>
-              <span className="text-foreground/80">user&apos;s first name or &quot;Friend&quot; if unavailable</span>
+              <span className="text-foreground/80">user&apos;s first name, or your custom fallback (e.g., &quot;colega&quot;, &quot;amigo&quot;)</span>
             </div>
           </div>
           <p className="text-[10px] text-muted-foreground/60 italic">
