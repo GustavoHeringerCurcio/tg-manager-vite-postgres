@@ -18,7 +18,7 @@ const BROWSER_HEADERS: Record<string, string> = {
 };
 
 type TokenResponse = { access_token: string; expires_in: number };
-type PaymentResponse = { reference?: string; id?: string; redirectUrl?: string; checkoutUrl?: string };
+type PaymentResponse = { data?: { reference?: string; id?: string; redirectUrl?: string; checkoutUrl?: string }; reference?: string; id?: string; redirectUrl?: string; checkoutUrl?: string };
 type PixResponse = { code?: string; pixCode?: string };
 
 export type LivePixPayment = {
@@ -68,7 +68,8 @@ export class LivePixService {
       signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) throw new Error(`LivePix payment creation failed with status ${response.status}`);
-    const data = (await response.json()) as PaymentResponse;
+    const raw = (await response.json()) as PaymentResponse;
+    const data = raw.data ?? raw;
     const checkoutUrl = data.redirectUrl ?? data.checkoutUrl;
     const reference = data.reference ?? data.id;
     if (!checkoutUrl || !reference) throw new Error("LivePix payment response missing checkout URL or reference");
