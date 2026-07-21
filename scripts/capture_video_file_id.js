@@ -165,7 +165,7 @@ function uploadVoiceFile(chatId, filePath) {
   });
 }
 
-async function convertOggToVoice(chatId, fileId) {
+async function convertOggToVoice(chatId, fileId, originalFileName) {
   console.log('Downloading .ogg, re-encoding to OPUS...');
   await sendInfoToChat(chatId, 'Converting .ogg to OPUS voice format...');
   const { file_path: tgPath } = await getFileInfo(fileId);
@@ -182,6 +182,7 @@ async function convertOggToVoice(chatId, fileId) {
     console.log('Voice file_id:', v.file_id);
     await sendInfoToChat(chatId, [
       'Voice file_id ready for sendVoice:',
+      originalFileName ? `file_name: ${originalFileName}` : null,
       `file_id: ${v.file_id}`,
       `file_unique_id: ${v.file_unique_id}`,
       v.mime_type ? `mime_type: ${v.mime_type}` : null,
@@ -298,18 +299,15 @@ async function pollOnce() {
       if (msg.audio) {
         const a = msg.audio;
         const fileId = a.file_id;
-        const fileUniqueId = a.file_unique_id;
-        const fileSize = a.file_size;
-        const duration = a.duration;
         const mime = a.mime_type || '';
         const audioFileName = a.file_name || fileName || '';
-        console.log('Found audio: update_id=%d chat_id=%s file_id=%s mime=%s', upd.update_id, String(chatId), fileId, mime);
+        console.log('Found audio: update_id=%d chat_id=%s file_id=%s mime=%s name=%s', upd.update_id, String(chatId), fileId, mime, audioFileName);
 
         const isOgg = mime.includes('ogg') || audioFileName.endsWith('.ogg') || audioFileName.endsWith('.oga');
 
         if (isOgg && chatId) {
           try {
-            await convertOggToVoice(chatId, fileId);
+            await convertOggToVoice(chatId, fileId, audioFileName);
           } catch (err) {
             console.error('OGG conversion failed:', err && err.message ? err.message : err);
             await sendInfoToChat(chatId, `OGG conversion failed: ${err && err.message ? err.message : err}`);
@@ -319,7 +317,6 @@ async function pollOnce() {
             'Audio file detected (not .ogg — ignored)',
             `file_name: ${audioFileName || '<none>'}`,
             `mime_type: ${mime}`,
-            `file_size: ${fileSize || '?'}`,
           ].join('\n'));
         }
       }
@@ -405,7 +402,7 @@ async function pollOnce() {
 
         if (kind === 'audio' && (mime.includes('ogg') || mime.includes('oga')) && chatId) {
           try {
-            await convertOggToVoice(chatId, fileId);
+            await convertOggToVoice(chatId, fileId, fileName);
           } catch (err) {
             console.error('OGG document conversion failed:', err && err.message ? err.message : err);
           }
