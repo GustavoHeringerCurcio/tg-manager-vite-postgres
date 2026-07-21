@@ -119,7 +119,20 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       mediaUrls = [item.mediaUrl.trim()];
     }
     if (type === "TEXT" && !text) throw new Error(`message ${index + 1} text is required`);
-    if ((type === "AUDIO" || type === "VIDEO" || type === "IMAGE") && mediaUrls.length === 0) throw new Error(`message ${index + 1} needs at least one media URL/file_id`);
+    if (mediaUrls.length === 0) {
+      if (type === "AUDIO") {
+        const rawDaily = isRecord(item.dailyAudios) ? item.dailyAudios : null;
+        const hasDailyAudio = rawDaily?.enabled && (
+          (isRecord(rawDaily.audios) && Object.values(rawDaily.audios).some((v: unknown) => typeof v === "string" && (v as string).trim())) ||
+          (typeof rawDaily.fallback === "string" && (rawDaily.fallback as string).trim())
+        );
+        if (!hasDailyAudio) {
+          throw new Error(`message ${index + 1} needs at least one media URL/file_id or custom daily audio`);
+        }
+      } else if (type === "VIDEO" || type === "IMAGE") {
+        throw new Error(`message ${index + 1} needs at least one media URL/file_id`);
+      }
+    }
     const delayMs = Number(item.delayMs ?? 0);
     if (!Number.isFinite(delayMs) || delayMs < 0) throw new Error(`message ${index + 1} delay must be zero or greater`);
     const rawButtons = item.buttons ?? [];
@@ -161,13 +174,13 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
 const WEEK_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 
 export function getAudioFileId(step: MessageStep): string | null {
-  if (step.mediaUrls.length === 0) return null;
-  if (!step.dailyAudios?.enabled) return step.mediaUrls[0];
-  const today = WEEK_DAYS[new Date().getDay()];
-  const daily = step.dailyAudios.audios[today];
-  if (daily) return daily;
-  if (step.dailyAudios.fallback) return step.dailyAudios.fallback;
-  return step.mediaUrls[0];
+  if (step.dailyAudios?.enabled) {
+    const today = WEEK_DAYS[new Date().getDay()];
+    const daily = step.dailyAudios.audios[today];
+    if (daily) return daily;
+    if (step.dailyAudios.fallback) return step.dailyAudios.fallback;
+  }
+  return step.mediaUrls[0] ?? null;
 }
 
 export function defaultMessageFlow(): MessageStep[] {

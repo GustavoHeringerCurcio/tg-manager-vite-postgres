@@ -223,8 +223,9 @@ async function sendStep(
     });
     return;
   }
-  if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
-    await ctx.replyWithVoice(getAudioFileId(step)!, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
+  const audioFileId = step.type === "AUDIO" ? getAudioFileId(step) : null;
+  if (step.type === "AUDIO" && audioFileId) {
+    await ctx.replyWithAudio(audioFileId, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `audio:${step.title}`, stepIndex, chatId, messageId,
@@ -427,8 +428,8 @@ async function sendLivePixPayment(
           } else if (resolvedStep.type === "VIDEO" && resolvedStep.mediaUrls.length === 1) {
             const resolvedVideo = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
             await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText ?? undefined, ...kbParam } as object);
-          } else if (resolvedStep.type === "AUDIO" && resolvedStep.mediaUrls.length > 0) {
-            await ctx.replyWithVoice(getAudioFileId(resolvedStep)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
+          } else if (resolvedStep.type === "AUDIO" && getAudioFileId(resolvedStep)) {
+            await ctx.replyWithAudio(getAudioFileId(resolvedStep)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
           } else {
             await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, timeCompliments, "HTML");
           }
