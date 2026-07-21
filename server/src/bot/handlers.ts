@@ -172,6 +172,11 @@ async function sendStep(
   timeCompliments: TimeComplimentConfig,
   parseMode?: ParseMode
 ): Promise<void> {
+  if (step.chatAction) {
+    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : "upload_video";
+    await ctx.sendChatAction(action);
+  }
+
   let resolvedText = step.text
     ? resolveAllPlaceholders(step.text, { firstName: user?.firstName ?? null }, timeCompliments)
     : step.text;

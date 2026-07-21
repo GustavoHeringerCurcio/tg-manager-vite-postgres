@@ -123,6 +123,12 @@ async function sendRemarketingStep(
 ): Promise<void> {
   const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
+
+  if (step.chatAction) {
+    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : "upload_video";
+    await withTimeout(telegram.sendChatAction(chatId, action), 10000);
+  }
+
   const resolvedText = step.text
     ? markdownToHtml(resolveAllPlaceholders(step.text, { firstName }, timeCompliments))
     : step.text;

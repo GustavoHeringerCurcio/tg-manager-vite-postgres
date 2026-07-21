@@ -27,5 +27,6 @@ export function newStep(index = 0): MessageStep {
     mediaUrls: [],
     delayMs: 0,
     buttons: index === 0 ? [newButton("LIVEPIX_PAYMENT")] : [],
+    chatAction: false,
   };
 }

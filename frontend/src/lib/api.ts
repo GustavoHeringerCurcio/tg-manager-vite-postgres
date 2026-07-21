@@ -42,6 +42,7 @@ export type MessageStep = {
   mediaUrls: string[];
   delayMs: number;
   buttons: MessageButton[];
+  chatAction?: boolean;
   includeQrCode?: boolean;
   includePixCode?: boolean;
   includeCheckoutUrl?: boolean;

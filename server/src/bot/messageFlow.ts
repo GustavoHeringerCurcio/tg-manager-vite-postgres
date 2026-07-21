@@ -47,6 +47,7 @@ export type MessageStep = {
   mediaUrls: string[];
   delayMs: number;
   buttons: MessageButton[];
+  chatAction?: boolean;
   includeQrCode?: boolean;
   includePixCode?: boolean;
   includeCheckoutUrl?: boolean;
@@ -148,6 +149,7 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       mediaUrls,
       delayMs: Math.round(delayMs),
       buttons: rawButtons.map((button, buttonIndex) => normalizeButton(button, index, buttonIndex)),
+      ...(typeof item.chatAction === "boolean" ? { chatAction: item.chatAction } : {}),
       ...(typeof item.includeQrCode === "boolean" ? { includeQrCode: item.includeQrCode } : {}),
       ...(typeof item.includePixCode === "boolean" ? { includePixCode: item.includePixCode } : {}),
       ...(typeof item.includeCheckoutUrl === "boolean" ? { includeCheckoutUrl: item.includeCheckoutUrl } : {}),

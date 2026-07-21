@@ -19,6 +19,7 @@ import {
   Music,
   Video,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
@@ -183,6 +184,11 @@ function MessageStepCardInner({
                   {type.icon}
                   {type.label}
                 </Badge>
+                {step.chatAction && (
+                  <span className="text-[10px] text-muted-foreground/70 shrink-0" title={step.type === "TEXT" ? "Typing..." : step.type === "AUDIO" ? "Recording..." : "Uploading..."}>
+                    <Activity className="size-3 inline" />
+                  </span>
+                )}
                 {step.buttons.length > 0 && (
                   <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
                     {step.buttons.length} btn{step.buttons.length > 1 ? "s" : ""}
@@ -271,6 +277,27 @@ function MessageStepCardInner({
                   className="h-8 text-sm"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  size="sm"
+                  checked={step.chatAction ?? false}
+                  onCheckedChange={(v) => {
+                    const updates: Partial<MessageStep> = { chatAction: v || undefined };
+                    if (v && step.delayMs === 0) {
+                      updates.delayMs = 5000;
+                    }
+                    update(updates);
+                  }}
+                />
+                <span className={step.chatAction ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
+                  {step.chatAction
+                    ? step.type === "AUDIO" ? "Recording..." : step.type === "VIDEO" ? "Uploading..." : "Typing..."
+                    : step.type === "AUDIO" ? "Recording..." : step.type === "VIDEO" ? "Uploading..." : "Typing..."}
+                </span>
+              </label>
             </div>
 
             {(step.type === "TEXT" || step.type === "VIDEO" || step.type === "AUDIO") && (
