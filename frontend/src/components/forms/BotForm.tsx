@@ -95,7 +95,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
       paymentFlow,
       timeCompliments,
     };
-    if (requireToken || token) payload.token = token;
+    if (requireToken) payload.token = token;
     onSave(payload);
   }
 
