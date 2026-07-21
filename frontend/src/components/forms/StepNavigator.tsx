@@ -5,12 +5,14 @@ const typeIcons: Record<MessageType, string> = {
   TEXT: "T",
   AUDIO: "A",
   VIDEO: "V",
+  IMAGE: "I",
 };
 
 const typeColors: Record<MessageType, string> = {
   TEXT: "bg-secondary text-muted-foreground",
   AUDIO: "bg-amber-500/20 text-amber-400",
   VIDEO: "bg-violet-500/20 text-violet-400",
+  IMAGE: "bg-emerald-500/20 text-emerald-400",
 };
 
 interface StepNavigatorProps {

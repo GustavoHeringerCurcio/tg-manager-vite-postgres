@@ -1,7 +1,7 @@
 import type { Bot, RemarketingState } from "@prisma/client";
 import { BotStatus } from "@prisma/client";
 import type { Telegram } from "telegraf";
-import type { InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
+import type { InputMediaPhoto, InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
 import { BUTTON_STYLE_MAP, getAudioFileId } from "../bot/messageFlow.js";
 import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
@@ -148,7 +148,7 @@ async function sendRemarketingStep(
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
 
   if (step.chatAction) {
-    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : "upload_video";
+    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : step.type === "IMAGE" ? "upload_photo" : "upload_video";
     await withTimeout(telegram.sendChatAction(chatId, action), 10000);
   }
 
@@ -175,6 +175,21 @@ async function sendRemarketingStep(
 
   if (step.type === "AUDIO" && step.mediaUrls.length > 0) {
     await withTimeout(telegram.sendVoice(chatId, getAudioFileId(step)!, { caption: resolvedText, ...options }), 10000);
+    logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
+    return;
+  }
+
+  if (step.type === "IMAGE" && step.mediaUrls.length > 0) {
+    if (step.mediaUrls.length === 1) {
+      await withTimeout(telegram.sendPhoto(chatId, step.mediaUrls[0], { caption: resolvedText, ...options }), 10000);
+    } else {
+      const mediaGroup: InputMediaPhoto[] = step.mediaUrls.map((url, i) => ({
+        type: "photo" as const,
+        media: url,
+        ...(i === 0 && resolvedText ? { caption: resolvedText } : {})
+      }));
+      await withTimeout((telegram as any).sendMediaGroup(chatId, mediaGroup), 10000);
+    }
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
     return;
   }

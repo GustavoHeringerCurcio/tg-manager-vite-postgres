@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-export const MESSAGE_TYPES = ["TEXT", "AUDIO", "VIDEO"] as const;
+export const MESSAGE_TYPES = ["TEXT", "AUDIO", "VIDEO", "IMAGE"] as const;
 export const BUTTON_COLORS = ["BLUE", "GREEN", "RED"] as const;
 export const BUTTON_ACTIONS = ["OPEN_URL", "LIVEPIX_PAYMENT"] as const;
 
@@ -110,7 +110,7 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
   return value.map((item, index) => {
     if (!isRecord(item)) throw new Error(`message ${index + 1} must be an object`);
     const type = cleanString(item.type) ?? "TEXT";
-    if (!MESSAGE_TYPES.includes(type as MessageType)) throw new Error(`message ${index + 1} type must be TEXT, AUDIO, or VIDEO`);
+    if (!MESSAGE_TYPES.includes(type as MessageType)) throw new Error(`message ${index + 1} type must be TEXT, AUDIO, VIDEO, or IMAGE`);
     const text = cleanString(item.text);
     let mediaUrls: string[] = [];
     if (Array.isArray(item.mediaUrls)) {
@@ -119,7 +119,7 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       mediaUrls = [item.mediaUrl.trim()];
     }
     if (type === "TEXT" && !text) throw new Error(`message ${index + 1} text is required`);
-    if ((type === "AUDIO" || type === "VIDEO") && mediaUrls.length === 0) throw new Error(`message ${index + 1} needs at least one media URL/file_id`);
+    if ((type === "AUDIO" || type === "VIDEO" || type === "IMAGE") && mediaUrls.length === 0) throw new Error(`message ${index + 1} needs at least one media URL/file_id`);
     const delayMs = Number(item.delayMs ?? 0);
     if (!Number.isFinite(delayMs) || delayMs < 0) throw new Error(`message ${index + 1} delay must be zero or greater`);
     const rawButtons = item.buttons ?? [];

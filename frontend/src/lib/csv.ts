@@ -33,7 +33,7 @@ export const BUTTON_PRESET_HEADERS = [
   "color",
 ] as const;
 
-const VALID_TYPES = new Set(["TEXT", "AUDIO", "VIDEO"]);
+const VALID_TYPES = new Set(["TEXT", "AUDIO", "VIDEO", "IMAGE"]);
 const VALID_COLORS = new Set(["BLUE", "GREEN", "RED"]);
 const VALID_ACTIONS = new Set(["OPEN_URL", "LIVEPIX_PAYMENT"]);
 
@@ -158,7 +158,7 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
       stepErrors.push({
         row: rowNum,
         field: "type",
-        message: `Invalid type "${type}". Must be TEXT, AUDIO, or VIDEO`,
+        message: `Invalid type "${type}". Must be TEXT, AUDIO, VIDEO, or IMAGE`,
       });
     }
     if (type === "TEXT" && !text) {
@@ -169,7 +169,7 @@ export function parseFlowCsv(data: string[][]): ParsedFlowStep[] {
       });
     }
     if (
-      (type === "AUDIO" || type === "VIDEO") &&
+      (type === "AUDIO" || type === "VIDEO" || type === "IMAGE") &&
       !mediaUrlsStr
     ) {
       stepErrors.push({

@@ -1,7 +1,7 @@
 import type { Bot, User } from "@prisma/client";
 import { PaymentMethod } from "@prisma/client";
 import type { Context, Telegraf } from "telegraf";
-import type { InlineKeyboardMarkup, InputMediaVideo, Message, ParseMode } from "telegraf/types";
+import type { InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message, ParseMode } from "telegraf/types";
 import { delay } from "../utils/async.js";
 import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
@@ -173,7 +173,7 @@ async function sendStep(
   parseMode?: ParseMode
 ): Promise<void> {
   if (step.chatAction) {
-    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : "upload_video";
+    const action = step.type === "TEXT" ? "typing" : step.type === "AUDIO" ? "record_voice" : step.type === "IMAGE" ? "upload_photo" : "upload_video";
     await ctx.sendChatAction(action);
   }
 
@@ -210,6 +210,24 @@ async function sendStep(
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `audio:${step.title}`, stepIndex, chatId, messageId,
+      logPayloads: env.logPayloads
+    });
+    return;
+  }
+  if (step.type === "IMAGE" && step.mediaUrls.length > 0) {
+    if (step.mediaUrls.length === 1) {
+      await ctx.replyWithPhoto(step.mediaUrls[0], { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
+    } else {
+      const mediaGroup: InputMediaPhoto[] = step.mediaUrls.map((url, i) => ({
+        type: "photo",
+        media: url,
+        ...(i === 0 && resolvedText ? { caption: resolvedText, ...parseOpt } : {})
+      }));
+      await ctx.replyWithMediaGroup(mediaGroup);
+    }
+    logInteraction({
+      botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
+      content: `image:${step.title}`, stepIndex, chatId, messageId,
       logPayloads: env.logPayloads
     });
     return;

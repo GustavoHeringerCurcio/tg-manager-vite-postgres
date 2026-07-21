@@ -165,7 +165,9 @@ export default function MessageFlowCsvDialog({
                           ? ""
                           : step.type === "VIDEO"
                             ? "border-violet-500/20 bg-violet-500/10 text-violet-400"
-                            : "border-amber-500/20 bg-amber-500/10 text-amber-400",
+                            : step.type === "IMAGE"
+                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                              : "border-amber-500/20 bg-amber-500/10 text-amber-400",
                       )}
                     >
                       {step.type || "?"}

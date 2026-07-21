@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Music,
   Video,
+  Image,
   ChevronRight,
   Activity,
 } from "lucide-react";
@@ -55,6 +56,11 @@ const typeConfig: Record<MessageType, { label: string; icon: React.ReactNode; co
     label: "Video",
     icon: <Video className="size-3" />,
     color: "border-violet-500/20 bg-violet-500/10 text-violet-400",
+  },
+  IMAGE: {
+    label: "Image",
+    icon: <Image className="size-3" />,
+    color: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
   },
 };
 
@@ -117,7 +123,7 @@ function MessageStepCardInner({
 
   function addMediaUrl() {
     const newUrls = [...step.mediaUrls, ""];
-    const clearButtons = step.type === "VIDEO" && newUrls.length > 1 && step.buttons.length > 0;
+    const clearButtons = (step.type === "VIDEO" || step.type === "IMAGE") && newUrls.length > 1 && step.buttons.length > 0;
     update({ mediaUrls: newUrls, ...(clearButtons ? { buttons: [] } : {}) });
   }
 
@@ -133,7 +139,7 @@ function MessageStepCardInner({
 
   const type = typeConfig[step.type];
   const hasContent = step.text || step.mediaUrls.length > 0 || step.buttons.length > 0;
-  const isMultiVideo = step.type === "VIDEO" && step.mediaUrls.length > 1;
+  const isMediaGroup = (step.type === "VIDEO" || step.type === "IMAGE") && step.mediaUrls.length > 1;
 
   return (
     <Card
@@ -187,7 +193,7 @@ function MessageStepCardInner({
                   {type.label}
                 </Badge>
                 {step.chatAction && (
-                  <span className="text-[10px] text-muted-foreground/70 shrink-0" title={step.type === "TEXT" ? "Typing..." : step.type === "AUDIO" ? "Recording..." : "Uploading..."}>
+                  <span className="text-[10px] text-muted-foreground/70 shrink-0" title={step.type === "TEXT" ? "Typing..." : step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."}>
                     <Activity className="size-3 inline" />
                   </span>
                 )}
@@ -252,7 +258,7 @@ function MessageStepCardInner({
                   value={step.type}
                   onValueChange={(v) => {
                     const newType = v as MessageType;
-                    const clearButtons = newType === "VIDEO" && step.mediaUrls.length > 1 && step.buttons.length > 0;
+                    const clearButtons = (newType === "VIDEO" || newType === "IMAGE") && step.mediaUrls.length > 1 && step.buttons.length > 0;
                     update({ type: newType, ...(clearButtons ? { buttons: [] } : {}) });
                   }}
                 >
@@ -263,6 +269,7 @@ function MessageStepCardInner({
                     <SelectItem value="TEXT">Text</SelectItem>
                     <SelectItem value="AUDIO">Audio</SelectItem>
                     <SelectItem value="VIDEO">Video</SelectItem>
+                    <SelectItem value="IMAGE">Image</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -296,13 +303,13 @@ function MessageStepCardInner({
                 />
                 <span className={step.chatAction ? "text-[10px] font-medium text-emerald-400" : "text-[10px] text-muted-foreground"}>
                   {step.chatAction
-                    ? step.type === "AUDIO" ? "Recording..." : step.type === "VIDEO" ? "Uploading..." : "Typing..."
-                    : step.type === "AUDIO" ? "Recording..." : step.type === "VIDEO" ? "Uploading..." : "Typing..."}
+                    ? step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."
+                    : step.type === "AUDIO" ? "Recording..." : step.type === "IMAGE" ? "Uploading photo..." : "Uploading video..."}
                 </span>
               </label>
             </div>
 
-            {(step.type === "TEXT" || step.type === "VIDEO" || step.type === "AUDIO") && (
+            {(step.type === "TEXT" || step.type === "VIDEO" || step.type === "IMAGE" || step.type === "AUDIO") && (
               <div className="space-y-1.5">
                 <Label htmlFor={`step-${step.id}-text`} className="text-[11px]">
                   {step.type === "TEXT" ? "Message Text" : "Caption"}
@@ -325,14 +332,14 @@ function MessageStepCardInner({
             {step.type !== "TEXT" && (
               <div className="space-y-1.5">
                 <Label className="text-[11px]">
-                  {step.type === "AUDIO" ? "Voice note (OGG)" : "Video"} file_id
+                  {step.type === "AUDIO" ? "Voice note (OGG)" : "Media"} URL or file_id
                 </Label>
                 {step.mediaUrls.map((url, i) => (
                   <div key={i} className="flex gap-1">
                     <Input
                       value={url}
                       onChange={(e) => updateMediaUrl(i, e.target.value)}
-                      placeholder="Telegram voice file_id (OGG)"
+                      placeholder={step.type === "AUDIO" ? "Telegram voice file_id (OGG)" : "Telegram file_id or media URL"}
                       className="h-8 text-sm"
                     />
                     <Button variant="ghost" size="icon-sm" onClick={() => removeMediaUrl(i)}>
@@ -342,7 +349,7 @@ function MessageStepCardInner({
                 ))}
                 {step.mediaUrls.length === 0 && (
                   <p className="text-[10px] text-muted-foreground/50">
-                    Add a Telegram voice file_id (OGG) to send as voice note
+                    Add a Telegram {step.type === "AUDIO" ? "voice" : "media"} file_id or URL to send
                   </p>
                 )}
                 <Button variant="outline" size="sm" onClick={addMediaUrl} className="h-7 text-xs">
@@ -458,10 +465,10 @@ function MessageStepCardInner({
               </div>
             )}
 
-            {isMultiVideo ? (
+            {isMediaGroup ? (
               <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
                 <p className="text-xs text-amber-300/80 leading-relaxed">
-                  Telegram media groups (multiple videos) don&apos;t support inline buttons. To add buttons, create a separate <strong className="text-amber-300">TEXT</strong> message step after this video group.
+                  Telegram media groups (multiple {step.type === "IMAGE" ? "images" : "videos"}) don&apos;t support inline buttons. To add buttons, create a separate <strong className="text-amber-300">TEXT</strong> message step after this media group.
                 </p>
               </div>
             ) : (

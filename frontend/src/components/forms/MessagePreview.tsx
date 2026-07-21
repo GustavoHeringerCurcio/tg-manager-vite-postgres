@@ -14,6 +14,7 @@ const typeLabel: Record<MessageType, string> = {
   TEXT: "Text",
   AUDIO: "Audio",
   VIDEO: "Video",
+  IMAGE: "Image",
 };
 
 const colorMap: Record<string, string> = {
@@ -50,7 +51,7 @@ export function MessagePreview({ steps, botName = "Bot", onClose }: MessagePrevi
               </div>
               <div className="flex-1 max-w-[85%]">
                 <div className="rounded-2xl rounded-tl-md bg-card border border-border/30 px-4 py-2.5 shadow-sm">
-                  {(step.type === "TEXT" || step.type === "VIDEO" || step.type === "AUDIO") && step.text && (
+                  {(step.type === "TEXT" || step.type === "VIDEO" || step.type === "IMAGE" || step.type === "AUDIO") && step.text && (
                     <p className="text-sm whitespace-pre-wrap">{step.text}</p>
                   )}
 
@@ -59,10 +60,10 @@ export function MessagePreview({ steps, botName = "Bot", onClose }: MessagePrevi
                       <div
                         className={cn(
                           "flex size-8 items-center justify-center rounded-md",
-                          step.type === "AUDIO" ? "bg-amber-500/20 text-amber-400" : "bg-violet-500/20 text-violet-400"
+                          step.type === "AUDIO" ? "bg-amber-500/20 text-amber-400" : step.type === "IMAGE" ? "bg-emerald-500/20 text-emerald-400" : "bg-violet-500/20 text-violet-400"
                         )}
                       >
-                        {step.type === "AUDIO" ? "🎵" : "🎬"}
+                        {step.type === "AUDIO" ? "🎵" : step.type === "IMAGE" ? "🖼" : "🎬"}
                       </div>
                       <div>
                         <p className="font-medium">{typeLabel[step.type]}</p>
@@ -73,7 +74,7 @@ export function MessagePreview({ steps, botName = "Bot", onClose }: MessagePrevi
                     </div>
                   )}
 
-                  {step.buttons.length > 0 && !(step.type === "VIDEO" && step.mediaUrls.length > 1) && (
+                  {step.buttons.length > 0 && !((step.type === "VIDEO" || step.type === "IMAGE") && step.mediaUrls.length > 1) && (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {step.buttons.map((btn) => (
                         <span

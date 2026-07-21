@@ -1,5 +1,5 @@
 export type BotStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
-export type MessageType = "TEXT" | "AUDIO" | "VIDEO";
+export type MessageType = "TEXT" | "AUDIO" | "VIDEO" | "IMAGE";
 export type ButtonColor = "BLUE" | "GREEN" | "RED";
 export type ButtonAction = "OPEN_URL" | "LIVEPIX_PAYMENT";
 
