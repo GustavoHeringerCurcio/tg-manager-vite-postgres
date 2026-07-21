@@ -75,7 +75,12 @@ export default function BotPaymentAudioPage() {
         // Update audio IDs
         unpaidAudioFileIds: audioIds,
       };
-      const updated = await api.updatePaymentFlow(botId, flow);
+      const updated = await api.updateBot(botId, {
+        name: bot.name,
+        messageFlow: bot.messageFlow,
+        remarketing: bot.remarketing,
+        paymentFlow: flow,
+      });
       setBot(updated);
       navigate(`/manager/${botId}/payment-settings`);
     } catch (e) {
