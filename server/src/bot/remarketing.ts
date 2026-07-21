@@ -9,7 +9,10 @@ export type DiscountTier = {
 export type DiscountOfferConfig = {
   enabled: boolean;
   tiers: DiscountTier[];
+  labelTemplate: string;
 };
+
+export const DEFAULT_LABEL_TEMPLATE = "{label} - R${discount_price} ({discount_percentage}% OFF)";
 
 export type RemarketingConfig = {
   enabled: boolean;
@@ -52,7 +55,8 @@ function normalizeDiscountOffer(value: unknown): DiscountOfferConfig {
   if (!isRecord(value)) return defaultDiscountOffer();
   const enabled = typeof value.enabled === "boolean" ? value.enabled : false;
   const tiers = normalizeDiscountTiers(value.tiers);
-  return { enabled, tiers };
+  const labelTemplate = typeof value.labelTemplate === "string" && value.labelTemplate.trim() ? value.labelTemplate.trim() : DEFAULT_LABEL_TEMPLATE;
+  return { enabled, tiers, labelTemplate };
 }
 
 function normalizeDiscountTiers(value: unknown): DiscountTier[] {
@@ -76,7 +80,8 @@ function normalizeDiscountTiers(value: unknown): DiscountTier[] {
 export function defaultDiscountOffer(): DiscountOfferConfig {
   return {
     enabled: false,
-    tiers: []
+    tiers: [],
+    labelTemplate: DEFAULT_LABEL_TEMPLATE
   };
 }
 
@@ -91,6 +96,36 @@ export function getDiscountPercentage(config: DiscountOfferConfig, totalSent: nu
     }
   }
   return best ? best.percentage : 0;
+}
+
+export type DiscountLabelParams = {
+  label: string;
+  originalPrice: number;
+  discountedPrice: number;
+  discountPercentage: number;
+  firstName: string | null;
+  timezone: string;
+};
+
+export function resolveDiscountLabel(template: string, params: DiscountLabelParams): string {
+  const now = new Date();
+  const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: params.timezone,
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: params.timezone
+  });
+
+  return template
+    .replace(/\{label\}/g, params.label)
+    .replace(/\{original_price\}/g, params.originalPrice.toFixed(2))
+    .replace(/\{discount_price\}/g, params.discountedPrice.toFixed(2))
+    .replace(/\{discount_percentage\}/g, String(params.discountPercentage))
+    .replace(/\{name\}/g, params.firstName ?? "")
+    .replace(/\{time\}/g, timeFormatter.format(now))
+    .replace(/\{data\}/g, dateFormatter.format(now));
 }
 
 export function defaultRemarketing(): RemarketingConfig {

@@ -4,7 +4,7 @@ import type { Telegram } from "telegraf";
 import type { InputMediaPhoto, InputMediaVideo, InlineKeyboardMarkup } from "telegraf/types";
 import type { MessageStep } from "../bot/messageFlow.js";
 import { BUTTON_STYLE_MAP, getAudioFileId } from "../bot/messageFlow.js";
-import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
+import { normalizeRemarketing, getDiscountPercentage, resolveDiscountLabel, normalizeTimeCompliments } from "../bot/remarketing.js";
 import type { TimeComplimentConfig } from "../bot/remarketing.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
@@ -109,7 +109,7 @@ async function processOne(
 
   const chatId = String(telegramId);
   try {
-    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage);
+    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage, config.discountOffer.labelTemplate);
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
     console.error(`[remarketing:${state.botId}] ${message}`);
@@ -143,7 +143,8 @@ async function sendRemarketingStep(
   firstName: string | null,
   timeCompliments: TimeComplimentConfig,
   applyDiscount: boolean = false,
-  discountPercentage: number = 0
+  discountPercentage: number = 0,
+  labelTemplate: string = ""
 ): Promise<void> {
   const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
@@ -156,7 +157,7 @@ async function sendRemarketingStep(
   const resolvedText = step.text
     ? markdownToHtml(resolveAllPlaceholders(step.text, { firstName }, timeCompliments))
     : step.text;
-  const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage);
+  const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage, labelTemplate, firstName, timeCompliments.timezone);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
@@ -206,7 +207,10 @@ async function sendRemarketingStep(
 function buildInlineKeyboard(
   step: MessageStep,
   applyDiscount: boolean = false,
-  discountPercentage: number = 0
+  discountPercentage: number = 0,
+  labelTemplate: string = "",
+  firstName: string | null = null,
+  timezone: string = "America/Sao_Paulo"
 ): { inline_keyboard: Array<Array<{ text: string; style?: string; callback_data?: string; url?: string }>> } | undefined {
   if (step.buttons.length === 0) return undefined;
   return {
@@ -214,8 +218,16 @@ function buildInlineKeyboard(
       if (applyDiscount && button.action === "LIVEPIX_PAYMENT" && button.price != null && button.price > 0) {
         const discounted = Math.round(button.price * (1 - discountPercentage / 100) * 100) / 100;
         const cents = Math.round(discounted * 100);
+        const labelText = resolveDiscountLabel(labelTemplate || "{label} - R${discount_price} ({discount_percentage}% OFF)", {
+          label: button.label,
+          originalPrice: button.price,
+          discountedPrice: discounted,
+          discountPercentage,
+          firstName,
+          timezone
+        });
         return [{
-          text: `${button.label} - R$${discounted.toFixed(2)} (${discountPercentage}% OFF)`,
+          text: labelText,
           style: BUTTON_STYLE_MAP[button.color],
           callback_data: `livepix_payment:${button.id}:${cents}`
         }];

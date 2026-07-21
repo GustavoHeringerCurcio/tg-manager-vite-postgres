@@ -72,6 +72,7 @@ export type DiscountTier = {
 export type DiscountOfferConfig = {
   enabled: boolean;
   tiers: DiscountTier[];
+  labelTemplate?: string;
 };
 
 export type TimeComplimentPreset = {

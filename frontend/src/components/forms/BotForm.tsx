@@ -17,12 +17,14 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+const DEFAULT_LABEL_TEMPLATE = "{label} - R${discount_price} ({discount_percentage}% OFF)";
+
 const defaultRemarketing: RemarketingConfig = {
   enabled: false,
   intervalMs: 86400000,
   maxSends: 0,
   messages: [],
-  discountOffer: { enabled: false, tiers: [] },
+  discountOffer: { enabled: false, tiers: [], labelTemplate: DEFAULT_LABEL_TEMPLATE },
 };
 
 const defaultTimeCompliments: TimeComplimentConfig = {
@@ -306,6 +308,24 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
                       .join(" · ")}
                   </p>
                 )}
+
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-[11px] text-muted-foreground">Button Label Template</Label>
+                  <Input
+                    value={remarketing.discountOffer.labelTemplate ?? DEFAULT_LABEL_TEMPLATE}
+                    onChange={(e) =>
+                      setRemarketing({
+                        ...remarketing,
+                        discountOffer: { ...remarketing.discountOffer, labelTemplate: e.target.value },
+                      })
+                    }
+                    placeholder={DEFAULT_LABEL_TEMPLATE}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Placeholders: {"{label}"} {"{original_price}"} {"{discount_price}"} {"{discount_percentage}"} {"{name}"} {"{time}"} {"{data}"}
+                  </p>
+                </div>
               </div>
             )}
           </div>
