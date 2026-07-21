@@ -113,9 +113,25 @@ export type FacebookPixelTestResult = {
 export type RemarketingStateItem = {
   id: string;
   userId: string;
+  nextIndex: number;
   totalSent: number;
   nextSendAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   user: UserSummary;
+};
+
+export type RemarketingStatusConfig = {
+  intervalMs: number;
+  maxSends: number;
+  messageCount: number;
+  messageTitles: string[];
+  discountOffer: DiscountOfferConfig;
+};
+
+export type RemarketingStatusResponse = Paginated<RemarketingStateItem> & {
+  config: RemarketingStatusConfig | null;
+  serverTime: string;
 };
 
 export type BotPayload = {
@@ -202,9 +218,25 @@ export const api = {
   stats: (id: string) => request<Stats>(`/api/bots/${id}/interactions/stats`),
   sessions: (botId: string, page: number, filters?: URLSearchParams) => request<Paginated<UserSession>>(`/api/bots/${botId}/sessions?page=${page}&pageSize=20${filters ? `&${filters}` : ""}`),
   chatTimeline: (botId: string, sessionId: string) => request<ChatTimelineItem[]>(`/api/bots/${botId}/sessions/${sessionId}/chat`),
-  remarketingStates: (botId: string, page: number) => request<Paginated<RemarketingStateItem>>(`/api/bots/${botId}/remarketing-states?page=${page}&pageSize=10`),
+  remarketingStates: (botId: string, page: number, statusFilter?: string) =>
+    request<RemarketingStatusResponse>(`/api/bots/${botId}/remarketing-states?page=${page}&pageSize=10${statusFilter ? `&status=${statusFilter}` : ""}`),
   cancelAllRemarketing: (botId: string) => request<{ count: number }>(`/api/bots/${botId}/remarketing-states/cancel-all`, { method: "POST" }),
   toggleRemarketing: (botId: string, userId: string, active: boolean) => request<{ ok: boolean }>(`/api/bots/${botId}/remarketing-states/${userId}`, { method: "PATCH", body: JSON.stringify({ active }) }),
+  exportRemarketingStates: async (botId: string) => {
+    const response = await fetch(`/api/bots/${botId}/remarketing-states/export`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+    });
+    if (!response.ok) throw new Error("Failed to export");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `remarketing-${botId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
   getPixelConfig: (botId: string) => request<FacebookPixelConfig>(`/api/bots/${botId}/pixel`),
   updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string; enabled?: boolean }) => request<{ pixelId: string; hasToken: boolean; enabled: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
   deletePixelConfig: (botId: string) => request<void>(`/api/bots/${botId}/pixel`, { method: "DELETE" }),

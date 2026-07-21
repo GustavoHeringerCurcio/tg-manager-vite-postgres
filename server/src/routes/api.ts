@@ -9,7 +9,7 @@ import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
 import { defaultMessageFlow, normalizeMessageFlow, type MessageButton, type MessageStep } from "../bot/messageFlow.js";
 import { defaultPaymentFlow, isPaymentFlowConfigured, normalizePaymentFlow } from "../bot/paymentFlow.js";
-import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments } from "../bot/remarketing.js";
+import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments, getDiscountPercentage } from "../bot/remarketing.js";
 
 type BotBody = {
   name?: string;
@@ -257,17 +257,38 @@ export function apiRouter(env: AppEnv): Router {
   router.get("/bots/:id/remarketing-states", route(async (req, res) => {
     const botId = routeParam(req, "id");
     const pagination = parsePagination(req.query as Record<string, string | undefined>);
-    const [items, total] = await Promise.all([
+    const statusFilter = cleanString(req.query.status as string | undefined);
+    const where: Prisma.RemarketingStateWhereInput = {
+      botId,
+      ...(statusFilter === "active" ? { nextSendAt: { not: null } } : {}),
+      ...(statusFilter === "cancelled" ? { nextSendAt: null } : {})
+    };
+    const [items, total, bot] = await Promise.all([
       prisma.remarketingState.findMany({
-        where: { botId },
+        where,
         orderBy: { updatedAt: "desc" },
         skip: pagination.skip,
         take: pagination.take,
         include: { user: true }
       }),
-      prisma.remarketingState.count({ where: { botId } })
+      prisma.remarketingState.count({ where }),
+      prisma.bot.findUnique({ where: { id: botId } })
     ]);
-    res.json(serializeJson({ items, total, page: pagination.page, pageSize: pagination.pageSize }));
+    const config = bot ? normalizeRemarketing(bot.remarketing) : null;
+    res.json(serializeJson({
+      items,
+      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      config: config ? {
+        intervalMs: config.intervalMs,
+        maxSends: config.maxSends,
+        messageCount: config.messages.length,
+        messageTitles: config.messages.map(m => m.title),
+        discountOffer: config.discountOffer
+      } : null,
+      serverTime: new Date().toISOString()
+    }));
   }));
 
   router.post("/bots/:id/remarketing-states/cancel-all", route(async (req, res) => {
@@ -277,6 +298,51 @@ export function apiRouter(env: AppEnv): Router {
       data: { nextSendAt: null }
     });
     res.json({ count: result.count });
+  }));
+
+  router.get("/bots/:id/remarketing-states/export", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    const bot = await prisma.bot.findUnique({ where: { id: botId } });
+    const config = bot ? normalizeRemarketing(bot.remarketing) : null;
+    const states = await prisma.remarketingState.findMany({
+      where: { botId },
+      orderBy: { updatedAt: "desc" },
+      include: { user: true }
+    });
+    const headers = [
+      "Username", "Telegram ID", "First Name", "Status",
+      "Messages Sent", "Max Sends", "Next Message", "Next Send At",
+      "Discount Active", "Cycle", "Created At", "Updated At"
+    ];
+    const cycleCount = config?.messages.length ?? 0;
+    const rows = states.map(s => {
+      const isActive = s.nextSendAt !== null;
+      const nextMsgTitle = config && cycleCount > 0
+        ? config.messages[s.nextIndex % cycleCount]?.title ?? "—"
+        : "—";
+      const discountActive = config?.discountOffer?.enabled
+        ? getDiscountPercentage(config.discountOffer, s.totalSent) > 0
+        : false;
+      const cycle = cycleCount > 0 ? Math.floor(s.totalSent / cycleCount) + 1 : 1;
+      return [
+        s.user.username ?? "",
+        String(s.user.telegramId),
+        s.user.firstName ?? "",
+        isActive ? "Active" : "Cancelled",
+        String(s.totalSent),
+        config?.maxSends ? String(config.maxSends) : "∞",
+        nextMsgTitle,
+        s.nextSendAt ? s.nextSendAt.toISOString() : "—",
+        discountActive ? "Yes" : "No",
+        String(cycle),
+        s.createdAt.toISOString(),
+        s.updatedAt.toISOString()
+      ];
+    });
+    const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="remarketing-${botId}.csv"`);
+    res.send("\uFEFF" + csv);
   }));
 
   router.patch("/bots/:id/remarketing-states/:userId", route(async (req, res) => {
