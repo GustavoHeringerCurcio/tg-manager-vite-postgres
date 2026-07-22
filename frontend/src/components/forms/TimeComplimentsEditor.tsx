@@ -30,7 +30,6 @@ const COMMON_TIMEZONES = [
 
 const defaultPreset = (): TimeComplimentPreset => ({
   label: "Good Morning",
-  fallback: "Hey",
   startHour: 5,
   startMinute: 0,
   endHour: 11,
@@ -71,7 +70,7 @@ export default function TimeComplimentsEditor({ config, onChange }: TimeComplime
         <div>
           <Label className="text-sm font-semibold">Time Compliments</Label>
           <p className="text-xs text-muted-foreground">
-            Define time-based greetings that resolve via <code className="text-[11px] bg-muted px-1 rounded">{`{time_compliment_N}`}</code> placeholders
+            Define time-based greetings that resolve via <code className="text-[11px] bg-muted px-1 rounded">{`{time_compliment}`}</code> placeholder
           </p>
         </div>
       </div>
@@ -93,6 +92,19 @@ export default function TimeComplimentsEditor({ config, onChange }: TimeComplime
         </Select>
       </div>
 
+      <div className="space-y-2">
+        <Label className="text-xs">Global Fallback</Label>
+        <Input
+          value={config.fallback}
+          onChange={(e) => update({ fallback: e.target.value })}
+          className="h-8 text-sm max-w-xs"
+          placeholder="e.g., Hey"
+        />
+        <p className="text-[10px] text-muted-foreground/60">
+          Used when no time range matches the current time.
+        </p>
+      </div>
+
       {config.presets.length > 0 && (
         <div className="space-y-3">
           {config.presets.map((preset, index) => (
@@ -102,9 +114,6 @@ export default function TimeComplimentsEditor({ config, onChange }: TimeComplime
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono font-semibold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded">
-                    {`{time_compliment_${index + 1}}`}
-                  </span>
                   <span className="text-xs text-muted-foreground">Preset #{index + 1}</span>
                 </div>
                 <Button
@@ -118,8 +127,7 @@ export default function TimeComplimentsEditor({ config, onChange }: TimeComplime
                 </Button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
+              <div className="space-y-1.5">
                   <Label className="text-[11px] text-muted-foreground">Label (shown when time matches)</Label>
                   <Input
                     value={preset.label}
@@ -128,18 +136,8 @@ export default function TimeComplimentsEditor({ config, onChange }: TimeComplime
                     placeholder="e.g., Good Morning"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground">Fallback (when time doesn't match)</Label>
-                  <Input
-                    value={preset.fallback}
-                    onChange={(e) => updatePreset(index, { ...preset, fallback: e.target.value })}
-                    className="h-8 text-sm"
-                    placeholder="e.g., Hey"
-                  />
-                </div>
-              </div>
 
-              <div>
+                <div>
                 <Label className="text-[11px] text-muted-foreground mb-1.5 block">Time Range (HH:MM)</Label>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
@@ -213,20 +211,26 @@ export default function TimeComplimentsEditor({ config, onChange }: TimeComplime
         </div>
         <div className="space-y-1">
           <div className="flex items-baseline gap-2 text-xs">
-            <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{time}`}</code>
-            <span className="text-muted-foreground">Current time in HH:MM format</span>
+            <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{time_compliment}`}</code>
+            <span className="text-muted-foreground">
+              Resolves to the label of the first preset whose time range matches, or the global fallback if none match.
+            </span>
           </div>
-          {config.presets.map((preset, i) => (
-            <div key={i} className="flex items-baseline gap-2 text-xs">
-              <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-emerald-400">{`{time_compliment_${i + 1}}`}</code>
-              <span className="text-muted-foreground">
-                &quot;{preset.label}&quot; ({String(preset.startHour).padStart(2, "0")}:{String(preset.startMinute).padStart(2, "0")}–{String(preset.endHour).padStart(2, "0")}:{String(preset.endMinute).padStart(2, "0")})
-              </span>
+          {config.presets.length > 0 && (
+            <div className="border-t border-border/30 pt-2 mt-2 space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground/70 uppercase mb-1">Configured Presets</p>
+              {config.presets.map((preset, i) => (
+                <div key={i} className="flex items-baseline gap-2 text-xs">
+                  <span className="text-muted-foreground">
+                    &quot;{preset.label}&quot; ({String(preset.startHour).padStart(2, "0")}:{String(preset.startMinute).padStart(2, "0")}–{String(preset.endHour).padStart(2, "0")}:{String(preset.endMinute).padStart(2, "0")})
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
           {config.presets.length === 0 && (
             <p className="text-xs text-muted-foreground/60 italic pl-1">
-              Add presets above to see their placeholders here
+              Add presets above to see them here
             </p>
           )}
         </div>

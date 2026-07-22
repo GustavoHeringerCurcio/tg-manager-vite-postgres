@@ -29,6 +29,7 @@ const defaultRemarketing: RemarketingConfig = {
 
 const defaultTimeCompliments: TimeComplimentConfig = {
   timezone: "America/Sao_Paulo",
+  fallback: "",
   presets: [],
 };
 
@@ -37,7 +38,8 @@ function normalizeTimeCompliments(raw: unknown): TimeComplimentConfig {
   const record = raw as Record<string, unknown>;
   const presets = Array.isArray(record.presets) ? record.presets as TimeComplimentConfig["presets"] : [];
   const timezone = typeof record.timezone === "string" && record.timezone ? record.timezone : "America/Sao_Paulo";
-  return { timezone, presets };
+  const fallback = typeof record.fallback === "string" ? record.fallback : "";
+  return { timezone, fallback, presets };
 }
 
 interface BotFormProps {

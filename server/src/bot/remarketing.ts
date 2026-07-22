@@ -152,7 +152,6 @@ export function defaultRemarketingMessage(index: number): MessageStep {
 
 export type TimeComplimentPreset = {
   label: string;
-  fallback: string;
   startHour: number;
   startMinute: number;
   endHour: number;
@@ -161,6 +160,7 @@ export type TimeComplimentPreset = {
 
 export type TimeComplimentConfig = {
   timezone: string;
+  fallback: string;
   presets: TimeComplimentPreset[];
 };
 
@@ -176,14 +176,13 @@ function normalizeTimeComplimentPreset(value: unknown, index: number): TimeCompl
   if (!isRecord(value)) return null;
   const label = cleanString(value.label);
   if (!label) return null;
-  const fallback = cleanString(value.fallback) ?? "";
   const startHour = Number(value.startHour);
   const startMinute = Number(value.startMinute);
   const endHour = Number(value.endHour);
   const endMinute = Number(value.endMinute);
   if (!isValidHour(startHour) || !isValidMinute(startMinute)) return null;
   if (!isValidHour(endHour) || !isValidMinute(endMinute)) return null;
-  return { label, fallback, startHour, startMinute, endHour, endMinute };
+  return { label, startHour, startMinute, endHour, endMinute };
 }
 
 function cleanString(value: unknown): string | undefined {
@@ -195,6 +194,7 @@ function cleanString(value: unknown): string | undefined {
 export function normalizeTimeCompliments(value: unknown): TimeComplimentConfig {
   if (!isRecord(value)) return defaultTimeCompliments();
   const timezone = cleanString(value.timezone) ?? "America/Sao_Paulo";
+  const fallback = cleanString(value.fallback) ?? "";
   const rawPresets = value.presets;
   const presets: TimeComplimentPreset[] = [];
   if (Array.isArray(rawPresets)) {
@@ -203,12 +203,13 @@ export function normalizeTimeCompliments(value: unknown): TimeComplimentConfig {
       if (preset) presets.push(preset);
     }
   }
-  return { timezone, presets };
+  return { timezone, fallback, presets };
 }
 
 export function defaultTimeCompliments(): TimeComplimentConfig {
   return {
     timezone: "America/Sao_Paulo",
+    fallback: "",
     presets: []
   };
 }

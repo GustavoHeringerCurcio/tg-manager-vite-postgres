@@ -2,7 +2,7 @@ import type { TimeComplimentConfig } from "./remarketing.js";
 
 const NAME_REGEX = /\{name(?::([^}]*))?\}/g;
 const TIME_REGEX = /\{time\}/g;
-const TIME_COMPLIMENT_REGEX = /\{time_compliment_(\d+)\}/g;
+const TIME_COMPLIMENT_REGEX = /\{time_compliment\}/g;
 
 function getLocalTime(timezone: string): { hours: number; minutes: number } {
   const now = new Date();
@@ -67,16 +67,14 @@ export function resolveAllPlaceholders(
   if (timeCompliments?.timezone) {
     result = result.replace(TIME_REGEX, () => formatTime(timeCompliments.timezone));
 
-    result = result.replace(TIME_COMPLIMENT_REGEX, (_match, indexStr: string) => {
-      const index = parseInt(indexStr, 10);
-      if (!Number.isFinite(index) || index < 1) return "";
-      const preset = timeCompliments.presets[index - 1];
-      if (!preset) return "";
+    result = result.replace(TIME_COMPLIMENT_REGEX, () => {
       const { hours, minutes } = getLocalTime(timeCompliments.timezone);
-      if (isInRange(hours, minutes, preset.startHour, preset.startMinute, preset.endHour, preset.endMinute)) {
-        return preset.label;
+      for (const preset of timeCompliments.presets) {
+        if (isInRange(hours, minutes, preset.startHour, preset.startMinute, preset.endHour, preset.endMinute)) {
+          return preset.label;
+        }
       }
-      return preset.fallback ?? "";
+      return timeCompliments.fallback ?? "";
     });
   } else {
     result = result.replace(TIME_REGEX, () => formatTime("UTC"));

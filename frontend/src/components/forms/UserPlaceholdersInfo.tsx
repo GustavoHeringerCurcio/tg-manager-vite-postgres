@@ -47,18 +47,13 @@ export function UserPlaceholdersInfo() {
                 <span className="text-foreground/80">current time in HH:MM format (e.g., 07:45)</span>
               </div>
               <div className="flex items-baseline gap-2 text-xs">
-                <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-sky-400">{`{time_compliment_1}`}</code>
+                <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-sky-400">{`{time_compliment}`}</code>
                 <span className="text-muted-foreground">Resolves to</span>
-                <span className="text-foreground/80">preset #1 label if time matches, or fallback text</span>
-              </div>
-              <div className="flex items-baseline gap-2 text-xs">
-                <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-sky-400">{`{time_compliment_2}`}</code>
-                <span className="text-muted-foreground">Resolves to</span>
-                <span className="text-foreground/80">preset #2 label if time matches, or fallback text</span>
+                <span className="text-foreground/80">first matching preset label, or global fallback</span>
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground/60 italic mt-2">
-              Use 1-indexed numbers (1, 2, 3, ...) matching the order of presets in the Time Compliments editor.
+              Configure time compliment presets and the global fallback in the Time Compliments section of bot settings.
             </p>
           </div>
         </div>

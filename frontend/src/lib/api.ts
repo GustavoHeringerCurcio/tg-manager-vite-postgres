@@ -78,7 +78,6 @@ export type DiscountOfferConfig = {
 
 export type TimeComplimentPreset = {
   label: string;
-  fallback: string;
   startHour: number;
   startMinute: number;
   endHour: number;
@@ -87,6 +86,7 @@ export type TimeComplimentPreset = {
 
 export type TimeComplimentConfig = {
   timezone: string;
+  fallback: string;
   presets: TimeComplimentPreset[];
 };
 
