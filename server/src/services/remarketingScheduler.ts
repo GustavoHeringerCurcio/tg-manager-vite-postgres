@@ -113,7 +113,7 @@ async function processOne(
 
   const chatId = String(telegramId);
   try {
-    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage, config.discountOffer.labelTemplate);
+    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage, config.discountOffer.labelTemplate, config.discountOffer.showOriginalPrice);
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
     console.error(`[remarketing:${state.botId}] ${message}`);
@@ -148,7 +148,8 @@ async function sendRemarketingStep(
   timeCompliments: TimeComplimentConfig,
   applyDiscount: boolean = false,
   discountPercentage: number = 0,
-  labelTemplate: string = ""
+  labelTemplate: string = "",
+  showOriginalPrice: boolean = true
 ): Promise<void> {
   const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
     Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
@@ -176,7 +177,7 @@ async function sendRemarketingStep(
   const resolvedText = step.text
     ? markdownToHtml(resolveAllPlaceholders(step.text, { firstName }, timeCompliments))
     : step.text;
-  const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage, labelTemplate, firstName, timeCompliments.timezone);
+  const replyMarkup = buildInlineKeyboard(step, applyDiscount, discountPercentage, labelTemplate, firstName, timeCompliments.timezone, showOriginalPrice);
   const options = replyMarkup ? { reply_markup: replyMarkup as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
 
   if (step.type === "VIDEO" && step.mediaUrls.length > 0) {
@@ -230,7 +231,8 @@ function buildInlineKeyboard(
   discountPercentage: number = 0,
   labelTemplate: string = "",
   firstName: string | null = null,
-  timezone: string
+  timezone: string = "America/Sao_Paulo",
+  showOriginalPrice: boolean = true
 ): { inline_keyboard: Array<Array<{ text: string; style?: string; callback_data?: string; url?: string }>> } | undefined {
   if (step.buttons.length === 0) return undefined;
   return {
@@ -245,7 +247,7 @@ function buildInlineKeyboard(
           discountPercentage,
           firstName,
           timezone
-        });
+        }, showOriginalPrice);
         return [{
           text: labelText,
           style: BUTTON_STYLE_MAP[button.color],

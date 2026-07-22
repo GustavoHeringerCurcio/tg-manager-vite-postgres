@@ -10,6 +10,7 @@ export type DiscountOfferConfig = {
   enabled: boolean;
   tiers: DiscountTier[];
   labelTemplate: string;
+  showOriginalPrice: boolean;
 };
 
 export const DEFAULT_LABEL_TEMPLATE = "{label} - R${discount_price} ({discount_percentage}% OFF)";
@@ -56,7 +57,8 @@ function normalizeDiscountOffer(value: unknown): DiscountOfferConfig {
   const enabled = typeof value.enabled === "boolean" ? value.enabled : false;
   const tiers = normalizeDiscountTiers(value.tiers);
   const labelTemplate = typeof value.labelTemplate === "string" && value.labelTemplate.trim() ? value.labelTemplate.trim() : DEFAULT_LABEL_TEMPLATE;
-  return { enabled, tiers, labelTemplate };
+  const showOriginalPrice = typeof value.showOriginalPrice === "boolean" ? value.showOriginalPrice : true;
+  return { enabled, tiers, labelTemplate, showOriginalPrice };
 }
 
 function normalizeDiscountTiers(value: unknown): DiscountTier[] {
@@ -81,7 +83,8 @@ export function defaultDiscountOffer(): DiscountOfferConfig {
   return {
     enabled: false,
     tiers: [],
-    labelTemplate: DEFAULT_LABEL_TEMPLATE
+    labelTemplate: DEFAULT_LABEL_TEMPLATE,
+    showOriginalPrice: true
   };
 }
 
@@ -107,7 +110,32 @@ export type DiscountLabelParams = {
   timezone: string;
 };
 
-export function resolveDiscountLabel(template: string, params: DiscountLabelParams): string {
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function stripPriceFromLabel(label: string, price: number): string {
+  const priceDot = price.toFixed(2);
+  const priceComma = priceDot.replace('.', ',');
+
+  const patterns = [
+    `\\s*(de|por)\\s+R\\$\\s*${escapeRegex(priceDot)}\\s*$`,
+    `\\s*(de|por)\\s+R\\$\\s*${escapeRegex(priceComma)}\\s*$`,
+    `\\s+R\\$\\s*${escapeRegex(priceDot)}\\s*$`,
+    `\\s+R\\$\\s*${escapeRegex(priceComma)}\\s*$`,
+    `\\s+-\\s+R\\$\\s*${escapeRegex(priceDot)}\\s*$`,
+    `\\s+-\\s+R\\$\\s*${escapeRegex(priceComma)}\\s*$`,
+  ];
+
+  for (const p of patterns) {
+    const regex = new RegExp(p, 'i');
+    label = label.replace(regex, '').trim();
+  }
+
+  return label.trim();
+}
+
+export function resolveDiscountLabel(template: string, params: DiscountLabelParams, showOriginalPrice: boolean = true): string {
   const now = new Date();
   const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
     timeZone: params.timezone,
@@ -118,14 +146,24 @@ export function resolveDiscountLabel(template: string, params: DiscountLabelPara
     timeZone: params.timezone
   });
 
-  return template
-    .replace(/\{label\}/g, params.label)
-    .replace(/\{original_price\}/g, params.originalPrice.toFixed(2))
+  const label = params.originalPrice > 0
+    ? stripPriceFromLabel(params.label, params.originalPrice)
+    : params.label;
+
+  let result = template
+    .replace(/\{label\}/g, label)
+    .replace(/\{original_price\}/g, showOriginalPrice ? params.originalPrice.toFixed(2) : '')
     .replace(/\{discount_price\}/g, params.discountedPrice.toFixed(2))
     .replace(/\{discount_percentage\}/g, String(params.discountPercentage))
     .replace(/\{name\}/g, params.firstName ?? "")
     .replace(/\{time\}/g, timeFormatter.format(now))
     .replace(/\{data\}/g, dateFormatter.format(now));
+
+  if (!showOriginalPrice) {
+    result = result.replace(/~~/g, '').replace(/\s{2,}/g, ' ');
+  }
+
+  return result.trim();
 }
 
 export function defaultRemarketing(): RemarketingConfig {

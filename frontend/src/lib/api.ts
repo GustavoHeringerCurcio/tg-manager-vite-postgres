@@ -83,6 +83,7 @@ export type DiscountOfferConfig = {
   enabled: boolean;
   tiers: DiscountTier[];
   labelTemplate?: string;
+  showOriginalPrice?: boolean;
 };
 
 export type TimeComplimentPreset = {

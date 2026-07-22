@@ -24,7 +24,7 @@ const defaultRemarketing: RemarketingConfig = {
   intervalMs: 86400000,
   maxSends: 0,
   messages: [],
-  discountOffer: { enabled: false, tiers: [], labelTemplate: DEFAULT_LABEL_TEMPLATE },
+  discountOffer: { enabled: false, tiers: [], labelTemplate: DEFAULT_LABEL_TEMPLATE, showOriginalPrice: true },
 };
 
 const defaultTimeCompliments: TimeComplimentConfig = {
@@ -310,6 +310,24 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
                       .join(" · ")}
                   </p>
                 )}
+
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div>
+                    <Label className="text-xs">Mostrar preço original riscado</Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Exibe o preço original com strikethrough ao lado do preço com desconto
+                    </p>
+                  </div>
+                  <Switch
+                    checked={remarketing.discountOffer.showOriginalPrice !== false}
+                    onCheckedChange={(v) =>
+                      setRemarketing({
+                        ...remarketing,
+                        discountOffer: { ...remarketing.discountOffer, showOriginalPrice: v },
+                      })
+                    }
+                  />
+                </div>
 
                 <div className="space-y-1.5 pt-1">
                   <Label className="text-[11px] text-muted-foreground">Button Label Template</Label>
