@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ExternalLink, Receipt, ChevronLeft, ChevronRight } from "lucide-react";
+import { ExternalLink, Receipt, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { useEffect, useCallback } from "react";
 
 function txnStatusBadge(status: string) {
@@ -97,6 +97,7 @@ export default function BotTransactionsPage() {
                   <TableHead className="text-xs font-medium">Status</TableHead>
                   <TableHead className="text-xs font-medium">Payment</TableHead>
                   <TableHead className="text-xs font-medium">PIX Code</TableHead>
+                  <TableHead className="text-xs font-medium">Reference</TableHead>
                   <TableHead className="text-xs font-medium">Checkout</TableHead>
                 </TableRow>
               </TableHeader>
@@ -133,6 +134,34 @@ export default function BotTransactionsPage() {
                             {item.pixCode}
                           </TooltipContent>
                         </Tooltip>
+                      ) : (
+                        <span className="text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.livepixReference ? (
+                        <div className="flex items-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <span className="cursor-help font-mono text-xs text-muted-foreground">
+                                  {item.livepixReference.slice(0, 14)}…
+                                </span>
+                              }
+                            />
+                            <TooltipContent className="max-w-xs break-all font-mono text-xs">
+                              {item.livepixReference}
+                            </TooltipContent>
+                          </Tooltip>
+                          <button
+                            type="button"
+                            className="inline-flex items-center text-muted-foreground/50 hover:text-primary transition-colors"
+                            onClick={() => navigator.clipboard.writeText(item.livepixReference ?? "").catch(() => {})}
+                            aria-label="Copy reference"
+                          >
+                            <Copy className="size-3" />
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-muted-foreground/40">—</span>
                       )}

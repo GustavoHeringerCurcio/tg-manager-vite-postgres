@@ -63,6 +63,7 @@ export type BotSettings = {
   maxDailyPixGenerations?: number;
   resetPixAfterStart?: boolean;
   adminTelegramIds?: string[];
+  hideAdminFromDashboard?: boolean;
 };
 
 export type Bot = {
@@ -166,7 +167,7 @@ export type BotPayload = {
 export type Paginated<T> = { items: T[]; total: number; page: number; pageSize: number };
 export type UserSummary = { id: string; telegramId: string; username: string | null; firstName: string | null; lastName: string | null };
 export type User = UserSummary & { sessionCount: number; transactionCount: number };
-export type Transaction = { id: string; amount: number; status: string; paymentMethod: string; pixCode: string | null; checkoutUrl: string | null; createdAt: string; user: UserSummary };
+export type Transaction = { id: string; amount: number; status: string; paymentMethod: string; pixCode: string | null; checkoutUrl: string | null; livepixReference: string | null; createdAt: string; user: UserSummary };
 export type Interaction = { id: string; type: string; direction: string; content: string | null; payload?: object; sessionId: string | null; stepIndex: number | null; buttonId: string | null; messageId: string | null; chatId: string | null; metadata: Record<string, unknown> | null; createdAt: string; user: UserSummary | null };
 export type Stats = { totalInteractions: number; totalUsers: number; checkoutClicks: number; messageCount: number; callbackCount: number; dailyActiveUsers: number };
 
