@@ -268,7 +268,7 @@ export default function UtilsGetFileId() {
             <div className="flex items-center gap-1.5">
               <label className="text-sm font-medium">Chat ID</label>
               <Tooltip>
-                <TooltipTrigger render={<Info className="size-3.5 text-muted-foreground cursor-help" />} />
+                <TooltipTrigger render={<span className="inline-flex cursor-help"><Info className="size-3.5 text-muted-foreground" /></span>} />
                 <TooltipContent side="top" className="max-w-72 p-3 text-xs leading-relaxed">
                   <p className="font-medium mb-1">What is a Chat ID?</p>
                   <p className="text-muted-foreground">
