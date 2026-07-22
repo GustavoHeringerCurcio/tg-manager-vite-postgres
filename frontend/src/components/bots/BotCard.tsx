@@ -207,15 +207,15 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
 
       <Link
         to={`/manager/${bot.id}/dashboard`}
-        className="flex flex-col items-center flex-1 px-4 pt-4 pb-4"
+        className="flex flex-col items-center justify-center flex-1 px-4 py-4"
       >
-        <div className="relative mb-4 mt-2">
-          <div className={`absolute -inset-3 rounded-3xl blur-lg transition-all duration-300 ${accent.glow} group-hover:${accent.glowHover}`} />
-          <Avatar className={`relative size-20 rounded-2xl ring-2 transition-all duration-300 ${accent.ring} group-hover:${accent.ringHover} group-hover:scale-105`} size="lg">
+        <div className="relative mb-5">
+          <div className={`absolute -inset-4 rounded-3xl blur-xl transition-all duration-300 ${accent.glow} group-hover:${accent.glowHover}`} />
+          <Avatar className={`relative size-28 rounded-2xl ring-2 transition-all duration-300 ${accent.ring} group-hover:${accent.ringHover} group-hover:scale-105`} size="lg">
             {bot.photoUrl ? (
               <AvatarImage src={bot.photoUrl} className="rounded-2xl object-cover" />
             ) : null}
-            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-semibold text-2xl">
+            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-3xl">
               {bot.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
