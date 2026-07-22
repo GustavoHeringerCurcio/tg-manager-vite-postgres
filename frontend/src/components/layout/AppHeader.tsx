@@ -1,117 +1,125 @@
-import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { RefreshCw, Plus, LogOut, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Search,
+  Bell,
+  ChevronDown,
+  LogOut,
+  Settings,
+  CreditCard,
+  User,
+  Bot,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
-import type { Bot as BotType } from "@/types";
-import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { label: "Bots", href: "/manager" },
+  { label: "Analytics", href: "/manager" },
+  { label: "Settings", href: "/manager" },
+];
 
 export default function AppHeader() {
-  const { botId } = useParams<{ botId?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const [bot, setBot] = useState<BotType | null>(null);
 
-  useEffect(() => {
-    if (!botId) return;
-    api.bots().then((bots) => {
-      const found = bots.find((b) => b.id === botId);
-      if (found) setBot(found);
-    });
-  }, [botId]);
-
-  const pathParts = location.pathname.split("/").filter(Boolean);
-
-  function pageLabel(segment: string): string {
-    const labels: Record<string, string> = {
-      manager: "Bots",
-      new: "Create",
-      dashboard: "Dashboard",
-      messages: "Message Flow",
-      remarketing: "Remarketing",
-      transactions: "Transactions",
-      interactions: "Interactions",
-    };
-    return labels[segment] || segment;
-  }
+  const isActive = (href: string) =>
+    href === "/manager" ? location.pathname === "/manager" : location.pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b bg-background/80 backdrop-blur-xl px-3">
-      <div className="flex items-center gap-1.5">
-        <Tooltip>
-          <TooltipTrigger render={<SidebarTrigger />} />
-          <TooltipContent side="bottom">Toggle sidebar (Ctrl+B)</TooltipContent>
-        </Tooltip>
-        <Separator orientation="vertical" className="h-4" />
-        <Breadcrumb>
-          <BreadcrumbList>
-            {pathParts.map((part, i) => {
-              const href = "/" + pathParts.slice(0, i + 1).join("/");
-              const isLast = i === pathParts.length - 1;
-              const label = part === botId && bot ? bot.name : pageLabel(part);
-
-              return (
-                <span key={href} className="flex items-center gap-1">
-                  {i > 0 && (
-                    <BreadcrumbSeparator>
-                      <ChevronRight className="size-3" />
-                    </BreadcrumbSeparator>
-                  )}
-                  <BreadcrumbItem>
-                    {isLast ? (
-                      <BreadcrumbPage className="font-medium">{label}</BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink
-                        render={<Link to={href} />}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {label}
-                      </BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                </span>
-              );
-            })}
-          </BreadcrumbList>
-        </Breadcrumb>
+    <header className="fixed top-0 left-0 right-0 z-30 flex h-[var(--header-height)] items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-xl px-4">
+      <div className="flex items-center gap-3">
+        <SidebarTrigger className="shrink-0" />
+        <Link to="/manager" className="flex items-center gap-2 shrink-0">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Bot className="size-4" />
+          </div>
+          <span className="font-semibold tracking-tight text-sm">Botflix</span>
+        </Link>
+        <nav className="hidden md:flex items-center gap-0.5 ml-4">
+          {navItems.map((item) => (
+            <Button
+              key={item.label}
+              variant={isActive(item.href) ? "secondary" : "ghost"}
+              size="sm"
+              render={<Link to={item.href} />}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </nav>
       </div>
-      <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button variant="ghost" size="icon-sm" onClick={() => navigate(0)}>
-                <RefreshCw className="size-3.5" />
-              </Button>
-            }
+
+      <div className="hidden lg:flex flex-1 max-w-sm mx-4">
+        <div className="relative w-full">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search bots..."
+            className="h-8 pl-8 pr-3 text-xs bg-muted/50 border-transparent focus-visible:ring-0 focus-visible:border-border rounded-lg"
           />
-          <TooltipContent side="bottom">Refresh data</TooltipContent>
-        </Tooltip>
-        <Button variant="default" size="xs" render={<Link to="/manager/new" />}>
-          <Plus className="mr-1 size-3" />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon-sm" className="relative">
+          <Bell className="size-4" />
+          <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary animate-pulse-dot" />
+        </Button>
+
+        <Button
+          variant="default"
+          size="xs"
+          className="hidden sm:inline-flex"
+          render={<Link to="/manager/new" />}
+        >
           New Bot
         </Button>
-        <Tooltip>
-          <TooltipTrigger
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
             render={
-              <Button variant="ghost" size="icon-sm" onClick={logout}>
-                <LogOut className="size-3.5" />
+              <Button variant="ghost" className={cn("flex items-center gap-2 pl-1.5 pr-2")}>
+                <Avatar size="sm">
+                  <AvatarFallback className="text-[10px]">A</AvatarFallback>
+                </Avatar>
+                <ChevronDown className="size-3 text-muted-foreground hidden md:block" />
               </Button>
             }
           />
-          <TooltipContent side="bottom">Sign out</TooltipContent>
-        </Tooltip>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/manager")}>
+              <User />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/manager")}>
+              <CreditCard />
+              Billing
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/manager")}>
+              <Settings />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={logout} variant="destructive">
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

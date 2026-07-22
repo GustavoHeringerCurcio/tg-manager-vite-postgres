@@ -10,6 +10,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import {
   Bot,
@@ -28,7 +31,11 @@ import {
   Wrench,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import type { Bot as BotType } from "@/types";
@@ -45,29 +52,53 @@ export default function AppSidebar() {
   const [remarketingOpen, setRemarketingOpen] = useState(true);
 
   useEffect(() => {
-    api.bots().then(setBots).catch(() => {}).finally(() => setLoading(false));
+    api
+      .bots()
+      .then(setBots)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border px-0 py-0">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
+      <SidebarHeader className="px-3 py-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/manager" />} className="relative px-3 py-5">
-              <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-transform group-hover/menu-button:scale-105">
+            <SidebarMenuButton
+              size="lg"
+              render={<Link to="/manager" />}
+              className="px-3 py-5 data-active:!bg-transparent -ml-1"
+            >
+              <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover/menu-button:scale-105">
                 <Bot className="size-5" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold tracking-tight">Botflix</span>
-                <span className="text-xs text-sidebar-foreground/40">Admin</span>
+                <span className="font-semibold tracking-tight text-sm">
+                  Botflix
+                </span>
+                <span className="text-xs text-sidebar-foreground/40">
+                  Admin
+                </span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
+      <div className="px-2 pb-1">
+        <Button
+          variant="default"
+          size="sm"
+          className="w-full justify-start gap-2 h-9 rounded-lg"
+          render={<Link to="/manager/new" />}
+        >
+          <Plus className="size-4" />
+          <span>New Bot</span>
+        </Button>
+      </div>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Main</SidebarGroupLabel>
@@ -78,7 +109,7 @@ export default function AppSidebar() {
                 isActive={location.pathname === "/manager"}
                 render={<Link to="/manager" />}
               >
-                <Bot className="size-4" />
+                <Bot />
                 <span>All Bots</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -88,7 +119,7 @@ export default function AppSidebar() {
                 isActive={location.pathname.startsWith("/utils")}
                 render={<Link to="/utils/file-id" />}
               >
-                <Wrench className="size-4 text-purple-400" />
+                <Wrench />
                 <span>Utils</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -102,20 +133,24 @@ export default function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Dashboard"
-                  isActive={location.pathname === `/manager/${botId}/dashboard`}
+                  isActive={
+                    location.pathname === `/manager/${botId}/dashboard`
+                  }
                   render={<Link to={`/manager/${botId}/dashboard`} />}
                 >
-                  <LayoutDashboard className="size-4 text-sky-400" />
+                  <LayoutDashboard />
                   <span>Dashboard</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Settings"
-                  isActive={location.pathname === `/manager/${botId}/settings`}
+                  isActive={
+                    location.pathname === `/manager/${botId}/settings`
+                  }
                   render={<Link to={`/manager/${botId}/settings`} />}
                 >
-                  <Settings className="size-4 text-slate-400" />
+                  <Settings />
                   <span>Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -125,79 +160,116 @@ export default function AppSidebar() {
                   isActive={isActive(`/manager/${botId}/messages`)}
                   render={<Link to={`/manager/${botId}/messages`} />}
                 >
-                  <Workflow className="size-4 text-emerald-400" />
+                  <Workflow />
                   <span>Message Flow</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <Collapsible open={remarketingOpen} onOpenChange={setRemarketingOpen} className="group/collapsible">
+              <Collapsible
+                open={remarketingOpen}
+                onOpenChange={setRemarketingOpen}
+                className="group/collapsible"
+              >
                 <SidebarMenuItem>
-                  <CollapsibleTrigger render={<button className="w-full" />}>
+                  <CollapsibleTrigger
+                    render={<button className="w-full" />}
+                  >
                     <SidebarMenuButton
                       tooltip="Remarketing"
-                      isActive={isActive(`/manager/${botId}/remarketing`)}
+                      isActive={isActive(
+                        `/manager/${botId}/remarketing`
+                      )}
                     >
-                      <Timer className="size-4 text-amber-400" />
+                      <Timer />
                       <span>Remarketing</span>
-                      <ChevronDown className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                      <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="ml-4 space-y-0.5 animate-fade-in">
-                      <SidebarMenuButton
-                        isActive={location.pathname === `/manager/${botId}/remarketing`}
-                        size="sm"
-                        render={<Link to={`/manager/${botId}/remarketing`} />}
-                      >
-                        <span>Settings</span>
-                      </SidebarMenuButton>
-                      <SidebarMenuButton
-                        isActive={location.pathname === `/manager/${botId}/remarketing-status`}
-                        size="sm"
-                        render={<Link to={`/manager/${botId}/remarketing-status`} />}
-                      >
-                        <span>Status</span>
-                      </SidebarMenuButton>
-                    </div>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={
+                            location.pathname ===
+                            `/manager/${botId}/remarketing`
+                          }
+                          render={
+                            <Link
+                              to={`/manager/${botId}/remarketing`}
+                            />
+                          }
+                        >
+                          Settings
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={
+                            location.pathname ===
+                            `/manager/${botId}/remarketing-status`
+                          }
+                          render={
+                            <Link
+                              to={`/manager/${botId}/remarketing-status`}
+                            />
+                          }
+                        >
+                          Status
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Transactions"
-                  isActive={isActive(`/manager/${botId}/transactions`)}
+                  isActive={isActive(
+                    `/manager/${botId}/transactions`
+                  )}
                   render={<Link to={`/manager/${botId}/transactions`} />}
                 >
-                  <ArrowLeftRight className="size-4 text-violet-400" />
+                  <ArrowLeftRight />
                   <span>Transactions</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Interactions"
-                  isActive={isActive(`/manager/${botId}/interactions`)}
+                  isActive={isActive(
+                    `/manager/${botId}/interactions`
+                  )}
                   render={<Link to={`/manager/${botId}/interactions`} />}
                 >
-                  <MessageCircle className="size-4 text-rose-400" />
+                  <MessageCircle />
                   <span>Interactions</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Chat Preview"
-                  isActive={location.pathname === `/manager/${botId}/chat-preview`}
-                  render={<Link to={`/manager/${botId}/chat-preview`} />}
+                  isActive={
+                    location.pathname ===
+                    `/manager/${botId}/chat-preview`
+                  }
+                  render={
+                    <Link to={`/manager/${botId}/chat-preview`} />
+                  }
                 >
-                  <MessageSquare className="size-4 text-cyan-400" />
+                  <MessageSquare />
                   <span>Chat Preview</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Payment Settings"
-                  isActive={isActive(`/manager/${botId}/payment-settings`)}
-                  render={<Link to={`/manager/${botId}/payment-settings`} />}
+                  isActive={isActive(
+                    `/manager/${botId}/payment-settings`
+                  )}
+                  render={
+                    <Link to={`/manager/${botId}/payment-settings`} />
+                  }
                 >
-                  <CreditCard className="size-4 text-emerald-400" />
+                  <CreditCard />
                   <span>Payment Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -208,11 +280,15 @@ export default function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>My Bots</SidebarGroupLabel>
           <SidebarMenu>
-            <Collapsible open={botsOpen} onOpenChange={setBotsOpen} className="group/collapsible">
+            <Collapsible
+              open={botsOpen}
+              onOpenChange={setBotsOpen}
+              className="group/collapsible"
+            >
               <SidebarMenuItem>
                 <CollapsibleTrigger render={<button className="w-full" />}>
                   <SidebarMenuButton tooltip="Toggle bot list">
-                    <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                    <ChevronDown className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                     <span>Bots</span>
                     <span className="ml-auto rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-sidebar-foreground/60">
                       {loading ? "..." : bots.length}
@@ -220,66 +296,80 @@ export default function AppSidebar() {
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="ml-4 space-y-0.5 animate-fade-in">
+                  <SidebarMenuSub>
                     {loading ? (
-                      <>
+                      <div className="space-y-1 px-1">
                         <Skeleton className="h-7 w-full" />
                         <Skeleton className="h-7 w-full" />
-                      </>
+                      </div>
                     ) : bots.length === 0 ? (
-                      <p className="px-2 py-1 text-xs text-muted-foreground">No bots yet</p>
+                      <p className="px-2 py-1 text-xs text-sidebar-foreground/50">
+                        No bots yet
+                      </p>
                     ) : (
                       bots.map((bot) => (
-                        <SidebarMenuButton
-                          key={bot.id}
-                          isActive={bot.id === botId}
-                          size="sm"
-                          tooltip={bot.name}
-                          render={<Link to={`/manager/${bot.id}/dashboard`} />}
-                        >
-                          <Avatar className="size-4 rounded-sm" size="sm">
-                            {bot.photoUrl ? (
-                              <AvatarImage src={bot.photoUrl} className="rounded-sm object-cover" />
-                            ) : null}
-                            <AvatarFallback className="rounded-sm text-[9px]">{bot.name.charAt(0).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <span className="truncate">{bot.name}</span>
-                        </SidebarMenuButton>
+                        <SidebarMenuSubItem key={bot.id}>
+                          <SidebarMenuSubButton
+                            isActive={bot.id === botId}
+                            render={
+                              <Link
+                                to={`/manager/${bot.id}/dashboard`}
+                              />
+                            }
+                          >
+                            <Avatar className="size-4 rounded-sm" size="sm">
+                              {bot.photoUrl ? (
+                                <AvatarImage
+                                  src={bot.photoUrl}
+                                  className="rounded-sm object-cover"
+                                />
+                              ) : null}
+                              <AvatarFallback className="rounded-sm text-[9px]">
+                                {bot.name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{bot.name}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
                       ))
                     )}
-                  </div>
+                  </SidebarMenuSub>
                 </CollapsibleContent>
               </SidebarMenuItem>
             </Collapsible>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={theme === "dark" ? "Switch to light" : "Switch to dark"}
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
-              {theme === "dark" ? (
-                <>
-                  <Sun className="size-4 text-amber-400" />
-                  <span>Light Mode</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="size-4 text-sky-400" />
-                  <span>Dark Mode</span>
-                </>
-              )}
+            <SidebarMenuButton size="sm" className="h-auto py-3">
+              <Avatar size="sm">
+                <AvatarFallback className="text-[10px]">A</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-medium">Admin</span>
+                <span className="text-xs text-sidebar-foreground/40">
+                  admin@botflix
+                </span>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Create New Bot" render={<Link to="/manager/new" />}>
-              <div className="flex size-4 items-center justify-center rounded bg-primary/20">
-                <Plus className="size-3 text-primary" />
-              </div>
-              <span>Create New Bot</span>
+            <SidebarMenuButton
+              tooltip={
+                theme === "dark" ? "Switch to light" : "Switch to dark"
+              }
+              onClick={() =>
+                setTheme(theme === "dark" ? "light" : "dark")
+              }
+              size="sm"
+            >
+              {theme === "dark" ? <Sun /> : <Moon />}
+              <span>
+                {theme === "dark" ? "Light Mode" : "Dark Mode"}
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
