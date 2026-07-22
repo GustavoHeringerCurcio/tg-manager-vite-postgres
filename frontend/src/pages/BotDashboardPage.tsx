@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useBotDetail } from "@/hooks/useBotDetail";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
@@ -15,6 +15,35 @@ import {
 } from "lucide-react";
 import type { DashboardPeriod } from "@/lib/api";
 
+const FILTER_STORAGE_KEY = "botflix_dashboard_filter";
+
+interface SavedFilterState {
+  period?: DashboardPeriod;
+  autoRefresh?: boolean;
+}
+
+function loadFilterState(botId: string): SavedFilterState {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!raw) return {};
+    const all = JSON.parse(raw) as Record<string, SavedFilterState>;
+    return all[botId] ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFilterState(botId: string, period: DashboardPeriod, autoRefresh: boolean) {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    const all: Record<string, SavedFilterState> = raw ? JSON.parse(raw) : {};
+    all[botId] = { period, autoRefresh };
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // ignore quota errors
+  }
+}
+
 function defaultPeriod(): DashboardPeriod {
   const now = new Date();
   return {
@@ -26,9 +55,23 @@ function defaultPeriod(): DashboardPeriod {
 
 export default function BotDashboardPage() {
   const { botId } = useParams<{ botId: string }>();
+
+  const initialFilter = useMemo(() => {
+    if (!botId) return { period: defaultPeriod(), autoRefresh: true };
+    const saved = loadFilterState(botId);
+    return {
+      period: saved.period ?? defaultPeriod(),
+      autoRefresh: saved.autoRefresh ?? true,
+    };
+  }, [botId]);
+
   const { bot, loading: botLoading } = useBotDetail(botId);
-  const [period, setPeriod] = useState<DashboardPeriod>(defaultPeriod);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [period, setPeriod] = useState<DashboardPeriod>(initialFilter.period);
+  const [autoRefresh, setAutoRefresh] = useState(initialFilter.autoRefresh);
+
+  useEffect(() => {
+    if (botId) saveFilterState(botId, period, autoRefresh);
+  }, [botId, period, autoRefresh]);
 
   const { stats, timeline, dailyActiveUsers, computeStat, loading: statsLoading, error } = useDashboardStats(
     botId,
