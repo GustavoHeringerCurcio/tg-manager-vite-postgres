@@ -15,6 +15,8 @@ import { prisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
+import { normalizePaymentFlow } from "./bot/paymentFlow.js";
+import type { MessageButton } from "./bot/messageFlow.js";
 import { utilsRouter } from "./routes/utils.js";
 
 const env = loadEnv();
@@ -40,6 +42,104 @@ app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
 app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
 app.use("/api", adminAuth(env.adminPassword), utilsRouter());
+
+app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPassword), async (req: Request, res: Response) => {
+  try {
+    const botId = String(req.params.botId ?? "");
+    const reference = typeof req.body?.reference === "string" ? req.body.reference.trim() : "";
+
+    if (!botId || !reference) {
+      res.status(400).json({ error: "botId and reference are required" });
+      return;
+    }
+
+    const transaction = await prisma.transaction.findFirst({
+      where: { botId, livepixReference: reference, status: "PENDING" },
+      select: { id: true, userId: true }
+    });
+
+    if (!transaction) {
+      res.status(404).json({ error: "Pending transaction not found for this reference" });
+      return;
+    }
+
+    await prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { status: "COMPLETED" }
+    });
+
+    const [bot, user] = await Promise.all([
+      prisma.bot.findUnique({ where: { id: botId }, select: { token: true, paymentFlow: true } }),
+      prisma.user.findUnique({ where: { id: transaction.userId }, select: { telegramId: true } })
+    ]);
+
+    if (!bot || !user) {
+      res.status(404).json({ error: "Bot or user not found" });
+      return;
+    }
+
+    const token = bot.token;
+    const chatId = String(user.telegramId);
+    const flow = normalizePaymentFlow(bot.paymentFlow);
+    const deliverables = flow.deliverables ?? [];
+
+    let delivered = 0;
+
+    for (const step of deliverables) {
+      if (step.delayMs > 0) {
+        await new Promise((r) => setTimeout(r, step.delayMs));
+      }
+
+      const inlineKeyboard = step.buttons.length > 0
+        ? { inline_keyboard: step.buttons.map((btn: MessageButton) => [{ text: btn.label, ...(btn.action === "OPEN_URL" && btn.url ? { url: btn.url } : { callback_data: `deliverable:${btn.id}` }) }]) }
+        : undefined;
+
+      let method: string;
+      let body: Record<string, unknown>;
+
+      switch (step.type) {
+        case "AUDIO":
+          method = "sendVoice";
+          body = { chat_id: chatId, voice: step.mediaUrls[0] ?? "", caption: step.text ?? "", parse_mode: "HTML" };
+          break;
+        case "IMAGE":
+          method = "sendPhoto";
+          body = { chat_id: chatId, photo: step.mediaUrls[0] ?? "", caption: step.text ?? "", parse_mode: "HTML" };
+          break;
+        case "VIDEO":
+          method = "sendVideo";
+          body = { chat_id: chatId, video: step.mediaUrls[0] ?? "", caption: step.text ?? "", parse_mode: "HTML" };
+          break;
+        default:
+          method = "sendMessage";
+          body = { chat_id: chatId, text: step.text ?? step.title, parse_mode: "HTML" };
+      }
+
+      if (inlineKeyboard) {
+        body.reply_markup = inlineKeyboard;
+      }
+
+      const tgResp = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!tgResp.ok) {
+        const errBody = await tgResp.text().catch(() => "");
+        console.error(`[simulate-confirm] Telegram ${method} failed: ${tgResp.status} - ${errBody}`);
+      } else {
+        delivered++;
+      }
+    }
+
+    res.json({ ok: true, status: "COMPLETED", delivered });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unexpected error";
+    console.error(`[simulate-confirm] ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
 
 app.use(express.static(publicDir));
 app.get(/^\/(?!api|webhook).*/, (_req, res) => {
