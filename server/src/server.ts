@@ -72,12 +72,12 @@ app.post("/api/utils/file-id", adminAuth(env.adminPassword), upload.single("file
       return;
     }
 
-    const form = new FormData();
+    const form = new (globalThis as any).FormData();
     form.append("chat_id", chatId);
-    const blob = new Blob([file.buffer], { type: file.mimetype || "application/octet-stream" });
-    form.append("document", blob as any, file.originalname || "upload.bin");
+    const blob = new (globalThis as any).Blob([file.buffer], { type: file.mimetype || "application/octet-stream" });
+    form.append("document", blob, file.originalname || "upload.bin");
 
-    let tgResp: globalThis.Response;
+    let tgResp: any;
     try {
       tgResp = await fetch(`https://api.telegram.org/bot${bot.token}/sendDocument`, {
         method: "POST",
