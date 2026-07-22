@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Search, Upload, Link, Copy, Check, AlertTriangle, X, ChevronDown } from "lucide-react";
+import { Search, Upload, Link, Copy, Check, AlertTriangle, X, ChevronDown, Info } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 type SourceMode = "url" | "file";
 
@@ -264,7 +265,30 @@ export default function UtilsGetFileId() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Chat ID</label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-sm font-medium">Chat ID</label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="size-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-72 p-3 text-xs leading-relaxed">
+                  <p className="font-medium mb-1">What is a Chat ID?</p>
+                  <p className="text-muted-foreground">
+                    A unique number that identifies a user, group, or channel on Telegram.
+                    You need it so your bot knows where to send the file.
+                  </p>
+                  <p className="font-medium mt-2 mb-1">How to get yours:</p>
+                  <ol className="text-muted-foreground list-decimal list-inside space-y-0.5">
+                    <li>Open Telegram and search for <strong>@RawDataBot</strong></li>
+                    <li>Start a chat and send any message</li>
+                    <li>The bot will reply with your Chat ID</li>
+                  </ol>
+                  <p className="text-muted-foreground mt-1">
+                    For groups: add @RawDataBot, send a message, then check the reply.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
             {selectedBot && adminIds.length > 0 && (
               <div className="mb-2">
