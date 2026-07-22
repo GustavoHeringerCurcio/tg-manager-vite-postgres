@@ -123,7 +123,9 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
 async function getAdminUserIds(botId: string): Promise<string[]> {
   const bot = await prisma.bot.findUnique({ where: { id: botId }, select: { settings: true } });
   if (!bot) return [];
-  const adminTelegramIds = normalizeBotSettings(bot.settings).adminTelegramIds ?? [];
+  const settings = normalizeBotSettings(bot.settings);
+  if (settings.hideAdminFromDashboard === false) return [];
+  const adminTelegramIds = settings.adminTelegramIds ?? [];
   if (adminTelegramIds.length === 0) return [];
   const adminUsers = await prisma.user.findMany({
     where: { botId, telegramId: { in: adminTelegramIds.map(id => BigInt(id)) } },

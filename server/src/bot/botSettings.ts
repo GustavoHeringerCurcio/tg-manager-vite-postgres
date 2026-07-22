@@ -4,6 +4,7 @@ export type BotSettings = {
   maxDailyPixGenerations?: number;
   resetPixAfterStart?: boolean;
   adminTelegramIds?: string[];
+  hideAdminFromDashboard?: boolean;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -40,6 +41,10 @@ export function normalizeBotSettings(value: unknown): BotSettings {
 
   if (typeof value.resetPixAfterStart === "boolean") {
     settings.resetPixAfterStart = value.resetPixAfterStart;
+  }
+
+  if (typeof value.hideAdminFromDashboard === "boolean") {
+    settings.hideAdminFromDashboard = value.hideAdminFromDashboard;
   }
 
   if (Array.isArray(value.adminTelegramIds)) {

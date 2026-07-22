@@ -83,6 +83,7 @@ export default function BotSettingsPage() {
         maxDailyPixGenerations: settings.maxDailyPixGenerations ?? undefined,
         resetPixAfterStart: settings.resetPixAfterStart ?? undefined,
         adminTelegramIds: settings.adminTelegramIds?.length ? settings.adminTelegramIds : undefined,
+        hideAdminFromDashboard: settings.hideAdminFromDashboard ?? undefined,
       };
       await api.updateBotSettings(botId, cleaned);
       setSettings(cleaned);
@@ -211,6 +212,20 @@ export default function BotSettingsPage() {
               <p className="text-[11px] text-muted-foreground mb-3">
                 Telegram user IDs that appear as quick-select options in the Utils &rarr; Get File ID tool.
               </p>
+
+              <div className="flex items-center gap-3 mb-4">
+                <Switch
+                  size="sm"
+                  checked={settings.hideAdminFromDashboard !== false}
+                  onCheckedChange={(v) => update({ hideAdminFromDashboard: v })}
+                />
+                <div>
+                  <Label className="text-sm">Hide admin interactions from dashboard</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    When enabled, admin user interactions, transactions, and activity are excluded from all dashboard statistics and charts.
+                  </p>
+                </div>
+              </div>
 
               <div className="flex flex-wrap gap-2 mb-3">
                 {(settings.adminTelegramIds ?? []).map((id) => (
