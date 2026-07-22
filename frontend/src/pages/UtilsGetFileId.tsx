@@ -281,13 +281,13 @@ export default function UtilsGetFileId() {
                     <div>
                       <h4 className="text-sm font-medium mb-1">How to get yours:</h4>
                       <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-                        <li>Open Telegram and search for <strong>@RawDataBot</strong></li>
-                        <li>Start a chat and send any message</li>
+                        <li>Open Telegram and search for <strong>@IDBot</strong></li>
+                        <li>Start a chat and send <strong>/getid</strong></li>
                         <li>The bot will reply with your Chat ID</li>
                       </ol>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      For groups: add <strong>@RawDataBot</strong>, send a message, then check the reply.
+                      For groups: add <strong>@IDBot</strong>, send <strong>/getgroupid</strong>, then check the reply.
                     </p>
                   </div>
                   <DialogFooter>
