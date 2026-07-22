@@ -467,10 +467,10 @@ export function apiRouter(env: AppEnv): Router {
           userId,
           nextIndex: 0,
           totalSent: 0,
-          nextSendAt: new Date(Date.now() + config.intervalMs)
+          nextSendAt: new Date(Date.now() + config.initialDelayMs)
         },
         update: {
-          nextSendAt: new Date(Date.now() + config.intervalMs)
+          nextSendAt: new Date(Date.now() + config.initialDelayMs)
         }
       });
     } else {

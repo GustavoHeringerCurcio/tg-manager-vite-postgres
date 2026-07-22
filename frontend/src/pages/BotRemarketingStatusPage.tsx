@@ -94,6 +94,7 @@ export default function BotRemarketingStatusPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [togglingUsers, setTogglingUsers] = useState<Set<string>>(new Set());
+  const browserOffsetRef = useRef(0);
   const [now, setNow] = useState(Date.now());
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -113,6 +114,8 @@ export default function BotRemarketingStatusPage() {
         filter === "all" ? undefined : filter
       );
       setData(result);
+      const serverMs = new Date(result.serverTime).getTime();
+      browserOffsetRef.current = Date.now() - serverMs;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load remarketing states");
     } finally {
@@ -129,7 +132,7 @@ export default function BotRemarketingStatusPage() {
       fetchData(page, statusFilter);
     }, POLL_INTERVAL_MS);
     tickTimer.current = setInterval(() => {
-      setNow(Date.now());
+      setNow(Date.now() - browserOffsetRef.current);
     }, TICK_INTERVAL_MS);
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current);

@@ -25,6 +25,7 @@ const defaultRemarketing: RemarketingConfig = {
   maxSends: 0,
   messages: [],
   discountOffer: { enabled: false, tiers: [], labelTemplate: DEFAULT_LABEL_TEMPLATE, showOriginalPrice: true },
+  skipStale: false,
 };
 
 const defaultTimeCompliments: TimeComplimentConfig = {

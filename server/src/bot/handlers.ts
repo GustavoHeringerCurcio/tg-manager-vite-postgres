@@ -591,12 +591,12 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             userId: user.id,
             nextIndex: 0,
             totalSent: 0,
-            nextSendAt: new Date(Date.now() + remarketing.intervalMs)
+            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
           },
           update: {
             nextIndex: 0,
             totalSent: 0,
-            nextSendAt: new Date(Date.now() + remarketing.intervalMs)
+            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
           }
         });
       }

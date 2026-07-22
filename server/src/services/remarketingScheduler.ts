@@ -77,24 +77,26 @@ async function processOne(
   }
 
   const now = Date.now();
-  const staleThreshold = config.intervalMs * 2;
-  if (now - state.nextSendAt.getTime() > staleThreshold) {
-    const newTotalSent = state.totalSent + 1;
-    const newNextIndex = (state.nextIndex + 1) % config.messages.length;
-    if (config.maxSends > 0 && newTotalSent >= config.maxSends) {
-      await prisma.remarketingState.delete({ where: { id: state.id } });
+  if (config.skipStale) {
+    const staleThreshold = config.intervalMs * 2;
+    if (now - state.nextSendAt.getTime() > staleThreshold) {
+      const newTotalSent = state.totalSent + 1;
+      const newNextIndex = (state.nextIndex + 1) % config.messages.length;
+      if (config.maxSends > 0 && newTotalSent >= config.maxSends) {
+        await prisma.remarketingState.delete({ where: { id: state.id } });
+        return;
+      }
+      await prisma.remarketingState.update({
+        where: { id: state.id },
+        data: {
+          nextIndex: newNextIndex,
+          totalSent: newTotalSent,
+          nextSendAt: new Date(now + config.intervalMs)
+        }
+      });
+      console.warn(`[remarketing:${state.botId}] skipped stale message (nextSendAt was ${state.nextSendAt.toISOString()}), advancing to next interval`);
       return;
     }
-    await prisma.remarketingState.update({
-      where: { id: state.id },
-      data: {
-        nextIndex: newNextIndex,
-        totalSent: newTotalSent,
-        nextSendAt: new Date(now + config.intervalMs)
-      }
-    });
-    console.warn(`[remarketing:${state.botId}] skipped stale message (nextSendAt was ${state.nextSendAt.toISOString()}), advancing to next interval`);
-    return;
   }
 
   const manager = getBotManager(state.botId);

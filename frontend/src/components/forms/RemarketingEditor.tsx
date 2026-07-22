@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import MessageFlowEditor from "./MessageFlowEditor";
 import type { RemarketingConfig } from "@/types";
-import { Timer } from "lucide-react";
+import { Timer, Clock } from "lucide-react";
 
 interface RemarketingEditorProps {
   config: RemarketingConfig;
@@ -217,6 +217,38 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
             steps={config.messages}
             onChange={(messages) => update({ messages })}
           />
+
+          <div className="space-y-2">
+            <Label className="text-xs">Initial Delay (ms, 0 = immediate)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={config.initialDelayMs ?? config.intervalMs}
+              onChange={(e) => update({ initialDelayMs: Number(e.target.value) })}
+              className="h-8 text-sm w-36"
+            />
+            <p className="text-[0.7rem] text-muted-foreground">
+              Time before the first follow-up is sent (defaults to schedule interval)
+            </p>
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-purple-500/10 ring-1 ring-purple-500/20 mt-0.5">
+                <Clock className="size-4 text-purple-400" />
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">Skip Stale Messages</Label>
+                <p className="text-xs text-muted-foreground">
+                  Skip messages that are more than 2× overdue (e.g. after server downtime)
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={config.skipStale ?? false}
+              onCheckedChange={(v) => update({ skipStale: v })}
+            />
+          </div>
         </div>
       )}
     </div>

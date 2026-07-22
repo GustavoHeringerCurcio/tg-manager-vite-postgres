@@ -21,6 +21,8 @@ export type RemarketingConfig = {
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;
+  skipStale: boolean;
+  initialDelayMs: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -43,12 +45,19 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
   }
   const messages = normalizeMessageFlow(value.messages);
   const discountOffer = normalizeDiscountOffer(value.discountOffer);
+  const skipStale = typeof value.skipStale === "boolean" ? value.skipStale : false;
+  const initialDelayMsRaw = Number(value.initialDelayMs ?? intervalMs);
+  const initialDelayMs = Number.isFinite(initialDelayMsRaw) && initialDelayMsRaw >= 0
+    ? Math.round(initialDelayMsRaw)
+    : intervalMs;
   return {
     enabled,
     intervalMs: Math.round(intervalMs),
     maxSends: Math.round(maxSends),
     messages,
-    discountOffer
+    discountOffer,
+    skipStale,
+    initialDelayMs
   };
 }
 
@@ -172,7 +181,9 @@ export function defaultRemarketing(): RemarketingConfig {
     intervalMs: 86400000,
     maxSends: 0,
     messages: [],
-    discountOffer: defaultDiscountOffer()
+    discountOffer: defaultDiscountOffer(),
+    skipStale: false,
+    initialDelayMs: 86400000
   };
 }
 
