@@ -16,6 +16,9 @@ import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
+import multer from "multer";
+import { FormData, Blob } from "undici";
+import { getBotManager } from "./services/botRegistry.js";
 
 const env = loadEnv();
 const app = express();
@@ -39,6 +42,121 @@ app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
 app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
 app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+app.post("/api/utils/file-id", adminAuth(env.adminPassword), upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Record<string, unknown>;
+    const botId = typeof body.botId === "string" ? body.botId.trim() : "";
+    const chatId = typeof body.chatId === "string" ? body.chatId.trim() : "";
+
+    const file = (req as any).file as { buffer: Buffer; mimetype: string; originalname: string; size: number } | undefined;
+
+    if (!botId || !chatId) {
+      res.status(400).json({ error: "Missing botId or chatId" });
+      return;
+    }
+    if (!file || !file.buffer || !file.mimetype) {
+      res.status(400).json({ error: "Missing file" });
+      return;
+    }
+
+    const bot = await prisma.bot.findUnique({
+      where: { id: botId },
+      select: { id: true, token: true }
+    });
+
+    if (!bot) {
+      res.status(404).json({ error: "Bot not found" });
+      return;
+    }
+
+    let telegramMessage: any | null = null;
+
+    // Prefer active Telegraf instance if available
+    try {
+      const manager = getBotManager(botId);
+      if (manager?.telegraf?.telegram) {
+        telegramMessage = await manager.telegraf.telegram.sendDocument(
+          chatId,
+          { source: file.buffer, filename: file.originalname || "upload.bin" } as any
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[utils:file-id] Telegraf sendDocument failed: ${message}`);
+      telegramMessage = null;
+    }
+
+    // Fallback to raw HTTP if Telegraf flow was not used or failed
+    let httpPayload: any | null = null;
+    if (!telegramMessage) {
+      const form = new FormData();
+      form.set("chat_id", chatId);
+      const blob = new Blob([file.buffer], { type: file.mimetype });
+      form.set("document", blob as any, file.originalname || "upload.bin");
+
+      let tgResp: globalThis.Response;
+      try {
+        tgResp = await fetch(`https://api.telegram.org/bot${bot.token}/sendDocument`, {
+          method: "POST",
+          body: form as any
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[utils:file-id] Telegram request failed: ${message}`);
+        res.status(502).json({ error: "telegram_request_failed" });
+        return;
+      }
+
+      const text = await tgResp.text().catch(() => "");
+      if (!tgResp.ok) {
+        console.error(`[utils:file-id] Telegram API error ${tgResp.status}: ${text}`);
+        res.status(502).json({ error: "telegram_error", status: tgResp.status });
+        return;
+      }
+
+      try {
+        httpPayload = JSON.parse(text);
+      } catch {
+        console.error("[utils:file-id] Invalid JSON from Telegram");
+        res.status(502).json({ error: "invalid_telegram_response" });
+        return;
+      }
+    }
+
+    // Normalize result shape: pick from Telegraf message or HTTP payload.result
+    const result = telegramMessage ?? httpPayload?.result;
+
+    const fileId: string | undefined = result?.document?.file_id
+      ?? result?.audio?.file_id
+      ?? result?.voice?.file_id
+      ?? result?.video?.file_id
+      ?? (Array.isArray(result?.photo) ? result.photo[result.photo.length - 1]?.file_id : undefined);
+
+    const fileUniqueId: string | undefined = result?.document?.file_unique_id
+      ?? result?.audio?.file_unique_id
+      ?? result?.voice?.file_unique_id
+      ?? result?.video?.file_unique_id
+      ?? (Array.isArray(result?.photo) ? result.photo[result.photo.length - 1]?.file_unique_id : undefined);
+
+    if (!fileId) {
+      console.error("[utils:file-id] Could not extract file_id from Telegram result");
+      res.status(502).json({ error: "file_id_not_found" });
+      return;
+    }
+
+    res.json({ ok: true, fileId, fileUniqueId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unexpected error";
+    console.error(`[utils:file-id] ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
 
 app.post("/api/bots/:botId/payment/pix-copied", adminAuth(env.adminPassword), async (req: Request, res: Response) => {
   try {
