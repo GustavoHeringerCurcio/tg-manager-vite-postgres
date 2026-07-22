@@ -8,8 +8,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
 } from "recharts";
+import type { Granularity } from "@/lib/api";
 import {
   ChartContainer,
   ChartTooltip,
@@ -22,6 +22,7 @@ import type { DashboardStatsResponse } from "@/lib/api";
 
 interface SalesChartsProps {
   timeline: DashboardStatsResponse["timeline"];
+  granularity: Granularity;
 }
 
 const revenueConfig = {
@@ -50,12 +51,23 @@ function formatCurrency(value: number): string {
   return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, granularity: Granularity): string {
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  switch (granularity) {
+    case "monthly":
+      return d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+    case "weekly": {
+      const end = new Date(d);
+      end.setDate(end.getDate() + 6);
+      return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}-${end.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}`;
+    }
+    case "daily":
+    default:
+      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  }
 }
 
-export default function SalesCharts({ timeline }: SalesChartsProps) {
+export default function SalesCharts({ timeline, granularity }: SalesChartsProps) {
   const hasData = timeline.length > 0;
 
   const { totalRevenue, totalOrders, totalInteractions, totalNewUsers } = useMemo(() => {
@@ -109,7 +121,7 @@ export default function SalesCharts({ timeline }: SalesChartsProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={formatDate}
+              tickFormatter={(v) => formatDate(v, granularity)}
               tick={{ fontSize: 11 }}
             />
             <YAxis
@@ -133,7 +145,7 @@ export default function SalesCharts({ timeline }: SalesChartsProps) {
                 <ChartTooltipContent
                   labelFormatter={(_, payload) => {
                     const date = payload?.[0]?.payload?.date;
-                    return date ? formatDate(date) : "";
+                    return date ? formatDate(date, granularity) : "";
                   }}
                   formatter={(value, name) => {
                     if (name === "revenue") return <span className="font-mono">{formatCurrency(value as number)}</span>;
@@ -192,7 +204,7 @@ export default function SalesCharts({ timeline }: SalesChartsProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={formatDate}
+              tickFormatter={(v) => formatDate(v, granularity)}
               tick={{ fontSize: 11 }}
             />
             <YAxis
@@ -206,7 +218,7 @@ export default function SalesCharts({ timeline }: SalesChartsProps) {
                 <ChartTooltipContent
                   labelFormatter={(_, payload) => {
                     const date = payload?.[0]?.payload?.date;
-                    return date ? formatDate(date) : "";
+                    return date ? formatDate(date, granularity) : "";
                   }}
                   formatter={(value, name) => {
                     return <span className="font-mono">{(value as number).toLocaleString()}</span>;

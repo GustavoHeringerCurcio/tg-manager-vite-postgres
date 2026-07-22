@@ -33,7 +33,7 @@ function presetToPeriod(preset: TimePreset, granularity: Granularity): Dashboard
       return { from: start.toISOString(), to, granularity };
     }
     case "all":
-      return { granularity };
+      return { from: "2020-01-01T00:00:00.000Z", granularity };
     case "custom":
       return { granularity };
   }

@@ -239,7 +239,7 @@ export default function BotDashboardPage() {
             ))}
           </div>
 
-          <SalesCharts timeline={timeline} />
+          <SalesCharts timeline={timeline} granularity={period.granularity} />
         </>
       )}
     </div>
