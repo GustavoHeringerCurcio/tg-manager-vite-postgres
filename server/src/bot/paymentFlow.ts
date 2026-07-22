@@ -6,7 +6,9 @@ export type PaymentFlow = {
   verifyLabel: string;
   pixCopyLabel: string;
   unpaidAudioFileIds: string[];
-  verifyPaymentAudios: string[];
+  verifyPaymentFailAudios: string[];
+  verifyPaymentSuccessAudios: string[];
+  isVerifyPaymentAudioEnabled: boolean;
   copyPixAudios: string[];
   isCopyPixAudioEnabled: boolean;
 };
@@ -40,8 +42,21 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
   const unpaidAudioFileIds = normalizeStringArray(value.unpaidAudioFileIds);
 
   const record = value as Record<string, unknown>;
-  const verifyPaymentAudiosRaw = normalizeStringArray(record.verifyPaymentAudios);
-  const verifyPaymentAudios = verifyPaymentAudiosRaw.length ? verifyPaymentAudiosRaw : unpaidAudioFileIds;
+
+  const verifyPaymentFailAudiosRaw = normalizeStringArray(record.verifyPaymentFailAudios);
+  const verifyPaymentAudiosLegacy = normalizeStringArray(record.verifyPaymentAudios);
+  const verifyPaymentFailAudios =
+    verifyPaymentFailAudiosRaw.length
+      ? verifyPaymentFailAudiosRaw
+      : verifyPaymentAudiosLegacy.length
+        ? verifyPaymentAudiosLegacy
+        : unpaidAudioFileIds;
+
+  const verifyPaymentSuccessAudios = normalizeStringArray(record.verifyPaymentSuccessAudios);
+
+  const isVerifyPaymentAudioEnabled =
+    typeof record.isVerifyPaymentAudioEnabled === "boolean" ? (record.isVerifyPaymentAudioEnabled as boolean) : false;
+
   const copyPixAudios = normalizeStringArray(record.copyPixAudios);
   const isCopyPixAudioEnabled =
     typeof record.isCopyPixAudioEnabled === "boolean" ? (record.isCopyPixAudioEnabled as boolean) : false;
@@ -51,7 +66,9 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
     verifyLabel,
     pixCopyLabel,
     unpaidAudioFileIds,
-    verifyPaymentAudios,
+    verifyPaymentFailAudios,
+    verifyPaymentSuccessAudios,
+    isVerifyPaymentAudioEnabled,
     copyPixAudios,
     isCopyPixAudioEnabled
   };
@@ -63,7 +80,9 @@ export function defaultPaymentFlow(): PaymentFlow {
     verifyLabel: "Verificar pagamento",
     pixCopyLabel: "Copiar PIX",
     unpaidAudioFileIds: [],
-    verifyPaymentAudios: [],
+    verifyPaymentFailAudios: [],
+    verifyPaymentSuccessAudios: [],
+    isVerifyPaymentAudioEnabled: false,
     copyPixAudios: [],
     isCopyPixAudioEnabled: false
   };

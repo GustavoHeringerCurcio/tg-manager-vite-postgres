@@ -18,7 +18,9 @@ export type PaymentFlow = {
   verifyLabel: string;
   pixCopyLabel: string;
   unpaidAudioFileIds: string[];
-  verifyPaymentAudios?: string[];
+  verifyPaymentFailAudios?: string[];
+  verifyPaymentSuccessAudios?: string[];
+  isVerifyPaymentAudioEnabled?: boolean;
   copyPixAudios?: string[];
   isCopyPixAudioEnabled?: boolean;
 };
@@ -271,10 +273,6 @@ export const api = {
   getBot: (id: string) => request<Bot>(`/api/bots/${id}`),
   createBot: (payload: BotPayload) => request<Bot>("/api/bots", { method: "POST", body: JSON.stringify(payload) }),
   updateBot: (id: string, payload: BotPayload) => request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
-  updatePaymentFlow: (id: string, paymentFlow: PaymentFlow) =>
-    request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify({ paymentFlow }) }),
-  notifyPixCopied: (botId: string, sessionId: string) =>
-    request<{ ok: boolean }>(`/api/bots/${botId}/payment/pix-copied`, { method: "POST", body: JSON.stringify({ sessionId }) }),
   getFileIdFromUrl: (botId: string, chatId: string, url: string) =>
     request<{ ok: boolean; fileId: string; fileUniqueId?: string }>(`/api/utils/file-id`, {
       method: "POST",

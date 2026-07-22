@@ -385,6 +385,11 @@ async function sendLivePixPayment(
       }
     );
 
+    // WARNING: These two final buttons are MANDATORY — both always appear and their function
+    // MUST NOT be replaced. The "Verify Payment" button is always a callback; the "Copy PIX"
+    // button is always a native copy_text so the user can copy the PIX code in one tap.
+    // Audio features (toggled via paymentFlow.isVerifyPaymentAudioEnabled / isCopyPixAudioEnabled)
+    // layer on top by sending voice messages alongside the buttons — never by replacing them.
     const finalButtons: KeyboardButton[][] = [[
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
@@ -481,6 +486,19 @@ async function sendLivePixPayment(
         content: "LivePix payment default", chatId, messageId,
         logPayloads: services.env.logPayloads
       });
+    }
+
+    if (paymentFlow.isCopyPixAudioEnabled && paymentFlow.copyPixAudios.length > 0) {
+      const audioIndex = Math.floor(Math.random() * paymentFlow.copyPixAudios.length);
+      const audioId = paymentFlow.copyPixAudios[audioIndex];
+      if (audioId && chatId) {
+        try {
+          await ctx.telegram.sendVoice(chatId, audioId);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[bot:${botConfig.id}] copy-pix sendVoice failed: ${msg}`);
+        }
+      }
     }
 
     logInteraction({
@@ -648,8 +666,22 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       try {
         const payment = await services.livePix.checkPayment(reference);
         if (payment && payment.amount != null && payment.amount > 0) {
-          await ctx.answerCbQuery();
-          await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`, { parse_mode: "HTML" });
+          if (paymentFlow.isVerifyPaymentAudioEnabled && paymentFlow.verifyPaymentSuccessAudios.length > 0) {
+            await ctx.answerCbQuery();
+            const index = Math.floor(Math.random() * paymentFlow.verifyPaymentSuccessAudios.length);
+            const fileId = paymentFlow.verifyPaymentSuccessAudios[index];
+            if (fileId && chatId) {
+              try {
+                await ctx.telegram.sendVoice(chatId, fileId);
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.warn(`[bot:${botConfig.id}] sendVoice failed: ${msg}`);
+              }
+            }
+          } else {
+            await ctx.answerCbQuery();
+            await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`, { parse_mode: "HTML" });
+          }
           await prisma.transaction.updateMany({
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
@@ -675,11 +707,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             );
           }
         } else {
-          const unpaidList = paymentFlow.unpaidAudioFileIds ?? [];
-          if (unpaidList.length > 0) {
+          if (paymentFlow.isVerifyPaymentAudioEnabled && paymentFlow.verifyPaymentFailAudios.length > 0) {
             await ctx.answerCbQuery();
-            const index = Math.floor(Math.random() * unpaidList.length);
-            const fileId = unpaidList[index];
+            const index = Math.floor(Math.random() * paymentFlow.verifyPaymentFailAudios.length);
+            const fileId = paymentFlow.verifyPaymentFailAudios[index];
             if (fileId && chatId) {
               try {
                 await ctx.telegram.sendVoice(chatId, fileId);

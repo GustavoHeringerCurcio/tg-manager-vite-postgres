@@ -14,6 +14,11 @@ const defaultPaymentFlow: PaymentFlow = {
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
   unpaidAudioFileIds: [],
+  verifyPaymentFailAudios: [],
+  verifyPaymentSuccessAudios: [],
+  isVerifyPaymentAudioEnabled: false,
+  copyPixAudios: [],
+  isCopyPixAudioEnabled: false,
 };
 
 export default function BotLivepixPage() {

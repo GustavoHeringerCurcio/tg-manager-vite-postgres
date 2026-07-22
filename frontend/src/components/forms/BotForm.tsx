@@ -61,7 +61,8 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
   );
-  const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", unpaidAudioFileIds: [] });
+  const defaultPaymentFlowInline: PaymentFlow = { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", unpaidAudioFileIds: [], verifyPaymentFailAudios: [], verifyPaymentSuccessAudios: [], isVerifyPaymentAudioEnabled: false, copyPixAudios: [], isCopyPixAudioEnabled: false };
+  const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? defaultPaymentFlowInline);
   const [timeCompliments, setTimeCompliments] = useState<TimeComplimentConfig>(normalizeTimeCompliments(bot?.timeCompliments));
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);
   const [messageFlowOpen, setMessageFlowOpen] = useState(true);
@@ -76,7 +77,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
     photoUrl: bot?.photoUrl ?? "",
     messageFlow: bot?.messageFlow ?? [],
     remarketing: bot?.remarketing ?? defaultRemarketing,
-    paymentFlow: bot?.paymentFlow ?? { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", unpaidAudioFileIds: [] },
+    paymentFlow: bot?.paymentFlow ?? defaultPaymentFlowInline,
     timeCompliments: normalizeTimeCompliments(bot?.timeCompliments),
   }), [bot]);
 

@@ -15,6 +15,11 @@ const defaultPaymentFlow: PaymentFlow = {
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
   unpaidAudioFileIds: [],
+  verifyPaymentFailAudios: [],
+  verifyPaymentSuccessAudios: [],
+  isVerifyPaymentAudioEnabled: false,
+  copyPixAudios: [],
+  isCopyPixAudioEnabled: false,
 };
 
 export function isLivepixConfigured(paymentFlow: PaymentFlow): boolean {
@@ -41,6 +46,22 @@ export default function LivepixSettings({ paymentFlow, onChange }: LivepixSettin
 
   return (
     <div className="space-y-4">
+      
+
+      <PlaceholdersInfo />
+
+      <CollapsibleSection
+        title="Payment Messages"
+        summary={`${flow.steps.length} step${flow.steps.length !== 1 ? "s" : ""}`}
+        icon={<CreditCard className="size-4 text-amber-400" />}
+        open={true}
+        onOpenChange={() => {}}
+      >
+        <div className="pt-4">
+          <MessageFlowEditor steps={flow.steps} onChange={(steps) => update({ steps })} showPaymentOptions livepixConfigured={isLivepixConfigured(flow)} />
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection
         title="Last Message Buttons"
         summary={`"${flow.verifyLabel}" · "${flow.pixCopyLabel}"`}
@@ -135,20 +156,6 @@ export default function LivepixSettings({ paymentFlow, onChange }: LivepixSettin
               </p>
             </div>
           </div>
-        </div>
-      </CollapsibleSection>
-
-      <PlaceholdersInfo />
-
-      <CollapsibleSection
-        title="Payment Messages"
-        summary={`${flow.steps.length} step${flow.steps.length !== 1 ? "s" : ""}`}
-        icon={<CreditCard className="size-4 text-amber-400" />}
-        open={true}
-        onOpenChange={() => {}}
-      >
-        <div className="pt-4">
-          <MessageFlowEditor steps={flow.steps} onChange={(steps) => update({ steps })} showPaymentOptions livepixConfigured={isLivepixConfigured(flow)} />
         </div>
       </CollapsibleSection>
     </div>
