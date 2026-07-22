@@ -38,6 +38,13 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
   const verifyLabel = cleanString(value.verifyLabel) ?? "Verificar pagamento";
   const pixCopyLabel = cleanString(value.pixCopyLabel) ?? "Copiar PIX";
   const unpaidAudioFileIds = normalizeStringArray(value.unpaidAudioFileIds);
+  const verifyPaymentAudiosRaw = normalizeStringArray((value as Record<string, unknown>).verifyPaymentAudios);
+  const verifyPaymentAudios = verifyPaymentAudiosRaw.length ? verifyPaymentAudiosRaw : unpaidAudioFileIds;
+  const copyPixAudios = normalizeStringArray((value as Record<string, unknown>).copyPixAudios);
+  const isCopyPixAudioEnabled =
+    typeof (value as Record<string, unknown>).isCopyPixAudioEnabled === "boolean"
+      ? ((value as Record<string, unknown>).isCopyPixAudioEnabled as boolean)
+      : false;
 
   const record = value as Record<string, unknown>;
   const verifyPaymentAudiosRaw = normalizeStringArray(record.verifyPaymentAudios);
