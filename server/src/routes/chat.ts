@@ -33,10 +33,20 @@ export function chatRouter(): Router {
     const query = req.query as Record<string, string | undefined>;
     const status = cleanString(query.status);
     const userId = cleanString(query.userId);
+    const search = cleanString(query.search);
     const where: Prisma.UserSessionWhereInput = {
       botId,
       ...(status ? { status } : {}),
-      ...(userId ? { userId } : {})
+      ...(userId ? { userId } : {}),
+      ...(search ? {
+        user: {
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" } },
+            { username: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
+          ]
+        }
+      } : {})
     };
     const [items, total] = await Promise.all([
       prisma.userSession.findMany({
@@ -59,12 +69,28 @@ export function chatRouter(): Router {
     });
     if (!session) throw new HttpError(404, "Session not found");
 
-    const interactions = await prisma.interaction.findMany({
+    const sessionInteractions = await prisma.interaction.findMany({
       where: { sessionId },
       orderBy: { createdAt: "asc" }
     });
 
-    const timeline = interactions.map((item) => ({
+    const remarketingInteractions = await prisma.interaction.findMany({
+      where: {
+        botId,
+        userId: session.userId,
+        sessionId: null,
+        createdAt: {
+          gte: session.startedAt,
+          ...(session.endedAt ? { lte: session.endedAt } : {})
+        }
+      },
+      orderBy: { createdAt: "asc" }
+    });
+
+    const allInteractions = [...sessionInteractions, ...remarketingInteractions]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    const timeline = allInteractions.map((item) => ({
       id: item.id,
       direction: item.direction,
       type: item.type,

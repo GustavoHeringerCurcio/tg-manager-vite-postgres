@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Paginated, UserSession, ChatTimelineItem } from "@/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare,
@@ -11,7 +12,10 @@ import {
   ChevronRight,
   Inbox,
   ArrowLeft,
+  Search,
+  X,
 } from "lucide-react";
+import ChatMessageBubble from "@/components/shared/ChatMessageBubble";
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -23,12 +27,12 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function sessionLabel(session: UserSession): string {
@@ -40,12 +44,15 @@ function userInitial(session: UserSession): string {
   return name.charAt(0).toUpperCase();
 }
 
+const POLL_INTERVAL = 10_000;
+
 export default function BotChatPreviewPage() {
   const { botId } = useParams<{ botId: string }>();
   const [sessions, setSessions] = useState<Paginated<UserSession> | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [sessionsPage, setSessionsPage] = useState(1);
+  const [search, setSearch] = useState("");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<ChatTimelineItem[] | null>(null);
@@ -54,13 +61,16 @@ export default function BotChatPreviewPage() {
 
   const timelineEndRef = useRef<HTMLDivElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchSessions = useCallback(async (page: number) => {
+  const fetchSessions = useCallback(async (page: number, searchTerm: string) => {
     if (!botId) return;
     setSessionsLoading(true);
     setSessionsError(null);
     try {
-      const result = await api.sessions(botId, page);
+      const params = new URLSearchParams();
+      if (searchTerm.trim()) params.set("search", searchTerm.trim());
+      const result = await api.sessions(botId, page, params);
       setSessions(result);
     } catch (err) {
       setSessionsError(err instanceof Error ? err.message : "Failed to load sessions");
@@ -70,8 +80,8 @@ export default function BotChatPreviewPage() {
   }, [botId]);
 
   useEffect(() => {
-    fetchSessions(sessionsPage);
-  }, [fetchSessions, sessionsPage]);
+    fetchSessions(sessionsPage, search);
+  }, [fetchSessions, sessionsPage, search]);
 
   const fetchTimeline = useCallback(async (sessionId: string) => {
     if (!botId) return;
@@ -89,7 +99,9 @@ export default function BotChatPreviewPage() {
   }, [botId]);
 
   useEffect(() => {
-    if (selectedId) fetchTimeline(selectedId);
+    if (selectedId) {
+      fetchTimeline(selectedId);
+    }
   }, [selectedId, fetchTimeline]);
 
   useEffect(() => {
@@ -97,6 +109,33 @@ export default function BotChatPreviewPage() {
       timelineEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [timeline]);
+
+  const selectedSession = sessions?.items.find((s) => s.id === selectedId) ?? null;
+  const isActiveSession = selectedSession?.status === "ACTIVE";
+
+  useEffect(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+
+    if (selectedId && isActiveSession && botId) {
+      pollTimerRef.current = setInterval(() => {
+        api.chatTimeline(botId, selectedId)
+          .then((result) => {
+            setTimeline(result);
+          })
+          .catch(() => {});
+      }, POLL_INTERVAL);
+    }
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [selectedId, isActiveSession, botId]);
 
   function handleSelect(sessionId: string) {
     setSelectedId(sessionId);
@@ -107,16 +146,26 @@ export default function BotChatPreviewPage() {
     setTimeline(null);
   }
 
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setSessionsPage(1);
+  }
+
+  function clearSearch() {
+    setSearch("");
+    setSessionsPage(1);
+  }
+
   const totalSessionsPages = sessions ? Math.ceil(sessions.total / sessions.pageSize) : 0;
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Chat Preview</h1>
           <p className="text-sm text-muted-foreground">Replay user conversations</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => fetchSessions(sessionsPage)}>
+        <Button variant="outline" size="sm" onClick={() => fetchSessions(sessionsPage, search)}>
           <RefreshCw className="mr-1.5 size-3.5" />
           Refresh
         </Button>
@@ -125,11 +174,27 @@ export default function BotChatPreviewPage() {
       <div className="flex h-[calc(100vh-10rem)] gap-0 rounded-xl border border-border/60 overflow-hidden shadow-sm">
         {/* ── Sessions panel ── */}
         <div className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 shrink-0 flex-col border-r border-border/50 bg-muted/10`}>
-          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Sessions
-              {sessions && <span className="ml-1 font-normal normal-case">({sessions.total})</span>}
-            </p>
+          <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5 gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="h-8 pl-8 pr-7 text-xs rounded-lg"
+              />
+              {search && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+            <span className="shrink-0 text-[10px] text-muted-foreground">
+              {sessions ? `${sessions.total} sessions` : ""}
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -148,14 +213,14 @@ export default function BotChatPreviewPage() {
             ) : sessionsError ? (
               <div className="flex flex-col items-center gap-3 py-12 px-4">
                 <p className="text-xs text-destructive text-center">{sessionsError}</p>
-                <Button variant="outline" size="sm" onClick={() => fetchSessions(sessionsPage)}>
+                <Button variant="outline" size="sm" onClick={() => fetchSessions(sessionsPage, search)}>
                   Retry
                 </Button>
               </div>
             ) : !sessions || sessions.items.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 px-4">
                 <Inbox className="size-8 text-muted-foreground/30" />
-                <p className="text-xs text-muted-foreground">No sessions yet</p>
+                <p className="text-xs text-muted-foreground">{search ? "No sessions match your search" : "No sessions yet"}</p>
               </div>
             ) : (
               <div className="divide-y divide-border/30">
@@ -229,16 +294,29 @@ export default function BotChatPreviewPage() {
                 <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={handleBack}>
                   <ArrowLeft className="size-4" />
                 </Button>
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="size-4 text-muted-foreground" />
-                  <p className="text-sm font-medium">
-                    {sessions?.items.find((s) => s.id === selectedId) ? (
-                      sessionLabel(sessions.items.find((s) => s.id === selectedId)!)
-                    ) : (
-                      "Conversation"
-                    )}
+                <div className="flex items-center gap-2 min-w-0">
+                  <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm font-medium truncate">
+                    {selectedSession ? sessionLabel(selectedSession) : "Conversation"}
                   </p>
                 </div>
+                {selectedSession && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      selectedSession.status === "ACTIVE"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <span className={`size-1.5 rounded-full ${selectedSession.status === "ACTIVE" ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                    {selectedSession.status}
+                  </span>
+                )}
+                {isActiveSession && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 animate-pulse">
+                    Live
+                  </span>
+                )}
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -253,7 +331,7 @@ export default function BotChatPreviewPage() {
               {/* Timeline body */}
               <div
                 ref={timelineScrollRef}
-                className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-muted/5"
+                className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-muted/5"
               >
                 {timelineLoading ? (
                   <div className="space-y-4">
@@ -278,7 +356,6 @@ export default function BotChatPreviewPage() {
                 ) : (
                   <>
                     {timeline.map((item, i) => {
-                      const isOutgoing = item.direction === "outgoing";
                       const prevItem = i > 0 ? timeline[i - 1] : null;
                       const timeGap = prevItem
                         ? new Date(item.createdAt).getTime() - new Date(prevItem.createdAt).getTime()
@@ -288,38 +365,13 @@ export default function BotChatPreviewPage() {
                       return (
                         <div key={item.id}>
                           {showDateDivider && (
-                            <div className="flex justify-center mb-4">
+                            <div className="flex justify-center mb-3">
                               <span className="text-[10px] text-muted-foreground bg-background px-3 py-0.5 rounded-full border border-border/50">
                                 {formatDate(item.createdAt)} {formatTime(item.createdAt)}
                               </span>
                             </div>
                           )}
-                          <div className={`flex ${isOutgoing ? "justify-start" : "justify-end"} mb-1`}>
-                            <div
-                              className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
-                                isOutgoing
-                                  ? "bg-muted rounded-bl-md"
-                                  : "bg-primary text-primary-foreground rounded-br-md"
-                              }`}
-                            >
-                              <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                                isOutgoing ? "text-foreground" : "text-primary-foreground"
-                              }`}>
-                                {item.content || (item.type === "callback_query" ? `[Button: ${item.buttonId ?? "unknown"}]` : "[media]")}
-                              </p>
-                              <div className={`flex items-center gap-2 mt-1.5 text-[10px] ${
-                                isOutgoing ? "text-muted-foreground" : "text-primary-foreground/60"
-                              }`}>
-                                <span>{formatTime(item.createdAt)}</span>
-                                {item.stepIndex != null && (
-                                  <span className="opacity-60">step:{item.stepIndex}</span>
-                                )}
-                                {item.buttonId && (
-                                  <span className="max-w-[100px] truncate opacity-60">{item.buttonId}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          <ChatMessageBubble item={item} />
                         </div>
                       );
                     })}

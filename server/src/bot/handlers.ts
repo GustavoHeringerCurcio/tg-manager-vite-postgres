@@ -297,7 +297,7 @@ async function sendStep(
     metadata: step.buttons.length > 0 ? {
       buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
     } : undefined,
-    logPayloads: services.env.logPayloads
+    logPayloads: env.logPayloads
   });
 }
 
@@ -468,6 +468,9 @@ async function sendLivePixPayment(
           logInteraction({
             botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
             content: resolvedText, stepIndex: -1 - index, chatId, messageId,
+            metadata: step.buttons.length > 0 ? {
+              buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+            } : undefined,
             logPayloads: services.env.logPayloads
           });
         } else if (isLast) {
@@ -476,11 +479,49 @@ async function sendLivePixPayment(
           if (resolvedStep.type === "IMAGE" && resolvedStep.mediaUrls.length === 1) {
             const resolvedPhoto = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
             await ctx.replyWithPhoto(resolvedPhoto, { caption: resolvedText ?? undefined, ...kbParam } as object);
+            logInteraction({
+              botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+              content: `image:${step.title}`, stepIndex: -1 - index, chatId, messageId,
+              metadata: {
+                mediaType: "IMAGE",
+                title: step.title,
+                mediaCount: resolvedStep.mediaUrls.length,
+                ...(step.buttons.length > 0 ? {
+                  buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+                } : {})
+              },
+              logPayloads: services.env.logPayloads
+            });
           } else if (resolvedStep.type === "VIDEO" && resolvedStep.mediaUrls.length === 1) {
             const resolvedVideo = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
             await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText ?? undefined, ...kbParam } as object);
+            logInteraction({
+              botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+              content: `video:${step.title}`, stepIndex: -1 - index, chatId, messageId,
+              metadata: {
+                mediaType: "VIDEO",
+                title: step.title,
+                mediaCount: resolvedStep.mediaUrls.length,
+                ...(step.buttons.length > 0 ? {
+                  buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+                } : {})
+              },
+              logPayloads: services.env.logPayloads
+            });
           } else if (resolvedStep.type === "AUDIO" && getAudioFileId(resolvedStep, timeCompliments.timezone)) {
             await ctx.replyWithVoice(getAudioFileId(resolvedStep, timeCompliments.timezone)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
+            logInteraction({
+              botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+              content: `audio:${step.title}`, stepIndex: -1 - index, chatId, messageId,
+              metadata: {
+                mediaType: "AUDIO",
+                title: step.title,
+                ...(step.buttons.length > 0 ? {
+                  buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+                } : {})
+              },
+              logPayloads: services.env.logPayloads
+            });
           } else {
             await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, timeCompliments, "HTML");
           }
@@ -495,6 +536,7 @@ async function sendLivePixPayment(
             logInteraction({
               botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
               content: "qr_code", stepIndex: -1 - index, chatId, messageId,
+              metadata: { mediaType: "IMAGE", title: `QR Code - R$ ${amount.toFixed(2)}` },
               logPayloads: services.env.logPayloads
             });
           } catch (error) {
@@ -510,6 +552,9 @@ async function sendLivePixPayment(
       logInteraction({
         botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
         content: "LivePix payment default", chatId, messageId,
+        metadata: {
+          buttons: [{ id: "livepix", label: "Pagar via LivePix", color: "BLUE", action: "OPEN_URL" as const }]
+        },
         logPayloads: services.env.logPayloads
       });
     }
@@ -520,6 +565,12 @@ async function sendLivePixPayment(
       if (audioId && chatId) {
         try {
           await ctx.telegram.sendVoice(chatId, audioId);
+          logInteraction({
+            botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
+            content: "audio:Áudio de pagamento", chatId, messageId,
+            metadata: { mediaType: "AUDIO", title: "Áudio de pagamento" },
+            logPayloads: services.env.logPayloads
+          });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.warn(`[bot:${botConfig.id}] copy-pix sendVoice failed: ${msg}`);
@@ -692,6 +743,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       try {
         const payment = await services.livePix.checkPayment(reference);
         if (payment && payment.amount != null && payment.amount > 0) {
+          const user = await upsertTelegramUser(botConfig.id, ctx);
           if (paymentFlow.isVerifyPaymentAudioEnabled && paymentFlow.verifyPaymentSuccessAudios.length > 0) {
             await ctx.answerCbQuery();
             const index = Math.floor(Math.random() * paymentFlow.verifyPaymentSuccessAudios.length);
@@ -699,6 +751,12 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             if (fileId && chatId) {
               try {
                 await ctx.telegram.sendVoice(chatId, fileId);
+                logInteraction({
+                  botId: botConfig.id, userId: user?.id ?? null, sessionId: null, type: "message", direction: "outgoing",
+                  content: "audio:Pagamento confirmado", chatId,
+                  metadata: { mediaType: "AUDIO", title: "Pagamento confirmado" },
+                  logPayloads: services.env.logPayloads
+                });
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.warn(`[bot:${botConfig.id}] sendVoice failed: ${msg}`);
@@ -712,7 +770,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
           });
-          const user = await upsertTelegramUser(botConfig.id, ctx);
+          // user already fetched above
           if (user) {
             const sessionId = await createOrResumeSession(botConfig.id, user.id);
 
@@ -751,6 +809,12 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             if (fileId && chatId) {
               try {
                 await ctx.telegram.sendVoice(chatId, fileId);
+                logInteraction({
+                  botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
+                  content: "audio:Pagamento não identificado", chatId,
+                  metadata: { mediaType: "AUDIO", title: "Pagamento não identificado" },
+                  logPayloads: services.env.logPayloads
+                });
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.warn(`[bot:${botConfig.id}] sendVoice failed: ${msg}`);
@@ -807,7 +871,13 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
     logInteraction({
       botId: botConfig.id, userId: user.id, sessionId, type: "callback_query", direction: "incoming",
-      content: data, buttonId, chatId, messageId: ctx.callbackQuery.message?.message_id,
+      content: button.label, buttonId, chatId, messageId: ctx.callbackQuery.message?.message_id,
+      metadata: {
+        buttonLabel: button.label,
+        buttonColor: button.color,
+        buttonAction: button.action,
+        buttonPrice: button.price,
+      },
       payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
     });
 

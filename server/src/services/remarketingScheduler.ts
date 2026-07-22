@@ -115,7 +115,13 @@ async function processOne(
 
   const chatId = String(telegramId);
   try {
-    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage, config.discountOffer.labelTemplate, config.discountOffer.showOriginalPrice);
+    const session = await prisma.userSession.findFirst({
+      where: { botId: state.botId, userId: state.userId, status: "ACTIVE" },
+      orderBy: { startedAt: "desc" },
+      select: { id: true }
+    });
+    const sessionId = session?.id ?? null;
+    await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, sessionId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage, config.discountOffer.labelTemplate, config.discountOffer.showOriginalPrice);
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
     console.error(`[remarketing:${state.botId}] ${message}`);
@@ -146,6 +152,7 @@ async function sendRemarketingStep(
   step: MessageStep,
   botId: string,
   userId: string | null,
+  sessionId: string | null,
   firstName: string | null,
   timeCompliments: TimeComplimentConfig,
   applyDiscount: boolean = false,
@@ -195,14 +202,55 @@ async function sendRemarketingStep(
       }));
       await withTimeout((telegram as any).sendMediaGroup(chatId, mediaGroup), 10000);
     }
-    logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
+    logInteraction({
+      botId, userId, sessionId,
+      type: "message", direction: "outgoing",
+      content: `remarketing:${step.title}`,
+      metadata: {
+        isRemarketing: true,
+        mediaType: "VIDEO",
+        title: step.title,
+        mediaCount: step.mediaUrls.length,
+        ...(applyDiscount ? { discountPercentage } : {}),
+        ...(step.buttons.length > 0 ? {
+          buttons: step.buttons.map((b) => {
+            if (applyDiscount && b.action === "LIVEPIX_PAYMENT" && b.price != null && b.price > 0) {
+              const discounted = Math.round(b.price * (1 - discountPercentage / 100) * 100) / 100;
+              return { id: b.id, label: b.label, color: b.color, action: b.action, originalPrice: b.price, discountedPrice: discounted, discountPercentage };
+            }
+            return { id: b.id, label: b.label, color: b.color, action: b.action, price: b.price };
+          })
+        } : {})
+      },
+      logPayloads: false
+    });
     return;
   }
 
   const remarketingAudioFileId = step.type === "AUDIO" ? getAudioFileId(step, timeCompliments.timezone) : null;
   if (step.type === "AUDIO" && remarketingAudioFileId) {
     await withTimeout(telegram.sendVoice(chatId, remarketingAudioFileId, { caption: resolvedText, ...options }), 10000);
-    logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
+    logInteraction({
+      botId, userId, sessionId,
+      type: "message", direction: "outgoing",
+      content: `remarketing:${step.title}`,
+      metadata: {
+        isRemarketing: true,
+        mediaType: "AUDIO",
+        title: step.title,
+        ...(applyDiscount ? { discountPercentage } : {}),
+        ...(step.buttons.length > 0 ? {
+          buttons: step.buttons.map((b) => {
+            if (applyDiscount && b.action === "LIVEPIX_PAYMENT" && b.price != null && b.price > 0) {
+              const discounted = Math.round(b.price * (1 - discountPercentage / 100) * 100) / 100;
+              return { id: b.id, label: b.label, color: b.color, action: b.action, originalPrice: b.price, discountedPrice: discounted, discountPercentage };
+            }
+            return { id: b.id, label: b.label, color: b.color, action: b.action, price: b.price };
+          })
+        } : {})
+      },
+      logPayloads: false
+    });
     return;
   }
 
@@ -219,12 +267,51 @@ async function sendRemarketingStep(
       }));
       await withTimeout((telegram as any).sendMediaGroup(chatId, mediaGroup), 10000);
     }
-    logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
+    logInteraction({
+      botId, userId, sessionId,
+      type: "message", direction: "outgoing",
+      content: `remarketing:${step.title}`,
+      metadata: {
+        isRemarketing: true,
+        mediaType: "IMAGE",
+        title: step.title,
+        mediaCount: step.mediaUrls.length,
+        ...(applyDiscount ? { discountPercentage } : {}),
+        ...(step.buttons.length > 0 ? {
+          buttons: step.buttons.map((b) => {
+            if (applyDiscount && b.action === "LIVEPIX_PAYMENT" && b.price != null && b.price > 0) {
+              const discounted = Math.round(b.price * (1 - discountPercentage / 100) * 100) / 100;
+              return { id: b.id, label: b.label, color: b.color, action: b.action, originalPrice: b.price, discountedPrice: discounted, discountPercentage };
+            }
+            return { id: b.id, label: b.label, color: b.color, action: b.action, price: b.price };
+          })
+        } : {})
+      },
+      logPayloads: false
+    });
     return;
   }
 
   await withTimeout(telegram.sendMessage(chatId, resolvedText ?? " ", options), 10000);
-  logInteraction({ botId, userId, type: "message", direction: "outgoing", content: resolvedText ?? step.title, logPayloads: false });
+  logInteraction({
+    botId, userId, sessionId,
+    type: "message", direction: "outgoing",
+    content: resolvedText ?? step.title,
+    metadata: {
+      isRemarketing: true,
+      ...(applyDiscount ? { discountPercentage } : {}),
+      ...(step.buttons.length > 0 ? {
+        buttons: step.buttons.map((b) => {
+          if (applyDiscount && b.action === "LIVEPIX_PAYMENT" && b.price != null && b.price > 0) {
+            const discounted = Math.round(b.price * (1 - discountPercentage / 100) * 100) / 100;
+            return { id: b.id, label: b.label, color: b.color, action: b.action, originalPrice: b.price, discountedPrice: discounted, discountPercentage };
+          }
+          return { id: b.id, label: b.label, color: b.color, action: b.action, price: b.price };
+        })
+      } : {})
+    },
+    logPayloads: false
+  });
 }
 
 function buildInlineKeyboard(

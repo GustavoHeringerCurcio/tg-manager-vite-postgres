@@ -177,33 +177,35 @@ function seedSessions(botId: string): void {
   const now = Date.now();
   const users = [mockUsers[0], mockUsers[1], mockUsers[2]];
 
-  const conversationFlows: Array<{ dir: string; type: string; content: string; stepIndex?: number; buttonId?: string }[]> = [
+  const conversationFlows: Array<{ dir: string; type: string; content: string; stepIndex?: number; buttonId?: string; metadata?: Record<string, unknown> | null }[]> = [
     [
       { dir: "incoming", type: "message", content: "/start", stepIndex: 0 },
-      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0 },
-      { dir: "outgoing", type: "message", content: "Here's a quick overview of our platform.", stepIndex: 1 },
+      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0, metadata: { buttons: [{ id: "btn_demo_1", label: "Quero participar", color: "GREEN", action: "LIVEPIX_PAYMENT", price: 29.90 }] } },
+      { dir: "outgoing", type: "message", content: "audio:Áudio de boas-vindas", stepIndex: 1, metadata: { mediaType: "AUDIO", title: "Áudio de boas-vindas" } },
       { dir: "incoming", type: "message", content: "I want to know more" },
-      { dir: "outgoing", type: "message", content: "Don't miss out on this limited offer!", stepIndex: 2 },
-      { dir: "incoming", type: "callback_query", content: "livepix_payment:btn_demo_1", buttonId: "btn_demo_1" },
+      { dir: "outgoing", type: "message", content: "Don't miss out on this limited offer!", stepIndex: 2, metadata: { buttons: [{ id: "btn_demo_1", label: "Pagar R$ 29,90", color: "GREEN", action: "LIVEPIX_PAYMENT", price: 29.90 }] } },
+      { dir: "incoming", type: "callback_query", content: "Pagar R$ 29,90", buttonId: "btn_demo_1", metadata: { buttonLabel: "Pagar R$ 29,90", buttonColor: "GREEN", buttonAction: "LIVEPIX_PAYMENT", buttonPrice: 29.90 } },
       { dir: "outgoing", type: "message", content: "Pagamento PIX\n\nValor: R$ 29,90", stepIndex: -1 },
       { dir: "outgoing", type: "message", content: "Pagamento PIX - R$ 29,90\n\n<code>00020126580014br...</code>", stepIndex: -1 },
       { dir: "incoming", type: "message", content: "já paguei!" },
       { dir: "outgoing", type: "message", content: "Pagamento confirmado!" },
+      { dir: "outgoing", type: "message", content: "remarketing:Oferta especial!", metadata: { isRemarketing: true, mediaType: "AUDIO", title: "Oferta especial!", discountPercentage: 15, buttons: [{ id: "btn_rmk", label: "Aproveitar 15% OFF", color: "RED", action: "LIVEPIX_PAYMENT", originalPrice: 29.90, discountedPrice: 25.42, discountPercentage: 15 }] } },
     ],
     [
       { dir: "incoming", type: "message", content: "/start", stepIndex: 0 },
-      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0 },
-      { dir: "outgoing", type: "video", content: "video:Video Content", stepIndex: 1 },
+      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0, metadata: { buttons: [{ id: "btn_video_1", label: "Assistir agora", color: "BLUE", action: "OPEN_URL" }] } },
+      { dir: "outgoing", type: "message", content: "video:Video de apresentação", stepIndex: 1, metadata: { mediaType: "VIDEO", title: "Video de apresentação" } },
       { dir: "incoming", type: "message", content: "quanto custa?" },
-      { dir: "outgoing", type: "message", content: "To unlock full access, complete your payment below.", stepIndex: 2 },
+      { dir: "outgoing", type: "message", content: "To unlock full access, complete your payment below.", stepIndex: 2, metadata: { buttons: [{ id: "btn_pro", label: "Plano PRO - R$ 49,90", color: "BLUE", action: "LIVEPIX_PAYMENT", price: 49.90 }] } },
     ],
     [
       { dir: "incoming", type: "message", content: "/start", stepIndex: 0 },
-      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0 },
-      { dir: "incoming", type: "callback_query", content: "livepix_payment:btn_promo", buttonId: "btn_promo" },
+      { dir: "outgoing", type: "message", content: "Welcome to Botflix! 🎬", stepIndex: 0, metadata: { buttons: [{ id: "btn_promo", label: "Promoção especial", color: "RED", action: "LIVEPIX_PAYMENT", price: 49.90 }] } },
+      { dir: "incoming", type: "callback_query", content: "Promoção especial", buttonId: "btn_promo", metadata: { buttonLabel: "Promoção especial", buttonColor: "RED", buttonAction: "LIVEPIX_PAYMENT", buttonPrice: 49.90 } },
       { dir: "outgoing", type: "message", content: "Pagamento PIX\n\nValor: R$ 49,90", stepIndex: -1 },
       { dir: "outgoing", type: "message", content: "Pagamento PIX - R$ 49,90", stepIndex: -1 },
       { dir: "incoming", type: "message", content: "não vou comprar" },
+      { dir: "outgoing", type: "message", content: "remarketing:Última chance!", metadata: { isRemarketing: true, discountPercentage: 20, buttons: [{ id: "btn_rmk2", label: "Última chance 20% OFF", color: "RED", action: "LIVEPIX_PAYMENT", originalPrice: 49.90, discountedPrice: 39.92, discountPercentage: 20 }] } },
     ],
   ];
 
@@ -242,7 +244,7 @@ function seedSessions(botId: string): void {
         content: msg.content,
         stepIndex: msg.stepIndex ?? null,
         buttonId: msg.buttonId ?? null,
-        metadata: null,
+        metadata: msg.metadata ?? null,
         createdAt: msgDate.toISOString(),
       };
     });
