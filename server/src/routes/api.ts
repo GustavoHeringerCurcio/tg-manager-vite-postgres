@@ -257,6 +257,107 @@ export function apiRouter(env: AppEnv): Router {
     res.json({ totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers });
   }));
 
+  router.get("/bots/:id/dashboard/stats", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    const query = req.query as Record<string, string | undefined>;
+    const granularity = query.granularity === "weekly" ? "week" : query.granularity === "monthly" ? "month" : "day";
+
+    const now = new Date();
+    const to = query.to ? new Date(String(query.to)) : now;
+    const from = query.from
+      ? new Date(String(query.from))
+      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const periodMs = to.getTime() - from.getTime();
+    const prevFrom = new Date(from.getTime() - periodMs);
+    const prevTo = new Date(from.getTime() - 1);
+
+    const dateFilter = (start: Date, end: Date) => ({ gte: start, lte: end });
+
+    async function fetchAggregates(start: Date, end: Date) {
+      const interactionWhere = { botId, createdAt: dateFilter(start, end) };
+      const txnWhere = { botId, status: "COMPLETED", createdAt: dateFilter(start, end) };
+
+      const [totalInteractions, checkoutClicks, messageCount, callbackCount, totalRevenue, orders, activeUsers] = await Promise.all([
+        prisma.interaction.count({ where: interactionWhere }),
+        prisma.interaction.count({ where: { ...interactionWhere, type: "callback_query", content: { startsWith: "livepix_payment:" } } }),
+        prisma.interaction.count({ where: { ...interactionWhere, type: "message" } }),
+        prisma.interaction.count({ where: { ...interactionWhere, type: "callback_query" } }),
+        prisma.transaction.aggregate({ where: txnWhere, _sum: { amount: true } }),
+        prisma.transaction.count({ where: txnWhere }),
+        prisma.user.count({ where: { botId, lastInteraction: dateFilter(start, end) } }),
+      ]);
+
+      const conversionRate = totalInteractions > 0 ? (checkoutClicks / totalInteractions) * 100 : 0;
+
+      return {
+        totalRevenue: totalRevenue._sum.amount ?? 0,
+        totalUsers: activeUsers,
+        conversionRate,
+        totalInteractions,
+        checkoutClicks,
+        orders,
+        messageCount,
+        callbackCount,
+      };
+    }
+
+    async function fetchTimeline(start: Date, end: Date) {
+      const dateTrunc = granularity === "week" ? "week" : granularity === "month" ? "month" : "day";
+
+      const [txnRows, interactionRows, userRows] = await Promise.all([
+        prisma.$queryRawUnsafe<Array<{ date: string; revenue: number; transactions: number }>>(
+          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END), 0)::float AS revenue, COUNT(*)::int AS transactions FROM "transactions" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
+          dateTrunc,
+          botId,
+          start,
+          end,
+        ),
+        prisma.$queryRawUnsafe<Array<{ date: string; interactions: number }>>(
+          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COUNT(*)::int AS interactions FROM "interactions" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
+          dateTrunc,
+          botId,
+          start,
+          end,
+        ),
+        prisma.$queryRawUnsafe<Array<{ date: string; newUsers: number }>>(
+          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COUNT(*)::int AS "newUsers" FROM "users" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
+          dateTrunc,
+          botId,
+          start,
+          end,
+        ),
+      ]);
+
+      const dateMap = new Map<string, { date: string; revenue: number; transactions: number; newUsers: number; interactions: number }>();
+
+      for (const row of txnRows) {
+        dateMap.set(row.date, { date: row.date, revenue: row.revenue, transactions: row.transactions, newUsers: 0, interactions: 0 });
+      }
+      for (const row of interactionRows) {
+        const entry = dateMap.get(row.date);
+        if (entry) entry.interactions = row.interactions;
+        else dateMap.set(row.date, { date: row.date, revenue: 0, transactions: 0, newUsers: 0, interactions: row.interactions });
+      }
+      for (const row of userRows) {
+        const entry = dateMap.get(row.date);
+        if (entry) entry.newUsers = row.newUsers;
+        else dateMap.set(row.date, { date: row.date, revenue: 0, transactions: 0, newUsers: row.newUsers, interactions: 0 });
+      }
+
+      return Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    const [stats, previousStats, dailyActiveUsers, timeline] = await Promise.all([
+      fetchAggregates(from, to),
+      fetchAggregates(prevFrom, prevTo),
+      prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
+      fetchTimeline(from, to),
+    ]);
+
+    res.json(serializeJson({ stats, previousStats, dailyActiveUsers, timeline }));
+  }));
+
   router.get("/bots/:id/remarketing-states", route(async (req, res) => {
     const botId = routeParam(req, "id");
     const pagination = parsePagination(req.query as Record<string, string | undefined>);

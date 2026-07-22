@@ -1,105 +1,184 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useBotDetail } from "@/hooks/useBotDetail";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import PeriodFilter from "@/components/shared/PeriodFilter";
+import StatCard from "@/components/bots/StatCard";
+import SalesCharts from "@/components/bots/SalesCharts";
 import {
   Users, Activity, Send, MousePointerClick, CreditCard,
   UserCheck, MessageCircle, ArrowLeftRight, Workflow,
+  DollarSign, TrendingUp, ShoppingCart,
 } from "lucide-react";
+import type { DashboardPeriod } from "@/lib/api";
 
-const statCards = [
-  {
-    key: "totalUsers",
-    icon: Users,
-    label: "Total Users",
-    gradient: "from-sky-500/15 to-sky-500/5",
-    iconColor: "text-sky-400",
-    ringColor: "ring-sky-500/20",
-  },
-  {
-    key: "totalInteractions",
-    icon: Activity,
-    label: "Interactions",
-    gradient: "from-violet-500/15 to-violet-500/5",
-    iconColor: "text-violet-400",
-    ringColor: "ring-violet-500/20",
-  },
-  {
-    key: "messageCount",
-    icon: Send,
-    label: "Messages Sent",
-    gradient: "from-emerald-500/15 to-emerald-500/5",
-    iconColor: "text-emerald-400",
-    ringColor: "ring-emerald-500/20",
-  },
-  {
-    key: "callbackCount",
-    icon: MousePointerClick,
-    label: "Callbacks",
-    gradient: "from-amber-500/15 to-amber-500/5",
-    iconColor: "text-amber-400",
-    ringColor: "ring-amber-500/20",
-  },
-  {
-    key: "checkoutClicks",
-    icon: CreditCard,
-    label: "Checkout Clicks",
-    gradient: "from-rose-500/15 to-rose-500/5",
-    iconColor: "text-rose-400",
-    ringColor: "ring-rose-500/20",
-  },
-  {
-    key: "dailyActiveUsers",
-    icon: UserCheck,
-    label: "Daily Active",
-    gradient: "from-cyan-500/15 to-cyan-500/5",
-    iconColor: "text-cyan-400",
-    ringColor: "ring-cyan-500/20",
-  },
-];
+function defaultPeriod(): DashboardPeriod {
+  const now = new Date();
+  return {
+    from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    to: now.toISOString(),
+    granularity: "daily",
+  };
+}
 
 export default function BotDashboardPage() {
   const { botId } = useParams<{ botId: string }>();
-  const { bot, stats, loading, error } = useBotDetail(botId);
+  const { bot, loading: botLoading } = useBotDetail(botId);
+  const [period, setPeriod] = useState<DashboardPeriod>(defaultPeriod);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  if (loading) {
+  const { stats, timeline, dailyActiveUsers, computeStat, loading: statsLoading, error } = useDashboardStats(
+    botId,
+    period,
+    autoRefresh,
+  );
+
+  const loading = botLoading || (statsLoading && !stats);
+
+  if (botLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
         <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-shimmer">
-              <CardContent className="p-5 space-y-3">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-8 w-16" />
-                <Skeleton className="h-3 w-12" />
-              </CardContent>
-            </Card>
+        <Skeleton className="h-9 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border/60 p-5 space-y-3 animate-shimmer">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-3 w-12" />
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
-  if (error || !bot) {
+  if (!bot) {
     return (
       <div className="flex flex-col items-center gap-4 py-12 animate-fade-in">
-        <p className="text-destructive">{error || "Bot not found"}</p>
+        <p className="text-destructive">Bot not found</p>
         <Button variant="outline" render={<Link to="/manager" />}>Back to Bots</Button>
       </div>
     );
   }
 
-  const values: Record<string, number> = {
-    totalUsers: stats?.totalUsers ?? 0,
-    totalInteractions: stats?.totalInteractions ?? 0,
-    messageCount: stats?.messageCount ?? 0,
-    callbackCount: stats?.callbackCount ?? 0,
-    checkoutClicks: stats?.checkoutClicks ?? 0,
-    dailyActiveUsers: stats?.dailyActiveUsers ?? 0,
-  };
+  const rev = computeStat("totalRevenue");
+  const us = computeStat("totalUsers");
+  const conv = computeStat("conversionRate");
+  const int_ = computeStat("totalInteractions");
+  const ord = computeStat("orders");
+  const msg = computeStat("messageCount");
+  const cb = computeStat("callbackCount");
+
+  const statCards = [
+    {
+      key: "revenue",
+      icon: DollarSign,
+      label: "Revenue",
+      value: rev.value,
+      previousValue: rev.previousValue,
+      changePercent: rev.changePercent,
+      format: "currency" as const,
+      subtitle: undefined,
+      iconColor: "text-emerald-400",
+      gradient: "from-emerald-500/15 to-emerald-500/5",
+      ringColor: "ring-emerald-500/20",
+    },
+    {
+      key: "users",
+      icon: Users,
+      label: "Active Users",
+      value: us.value,
+      previousValue: us.previousValue,
+      changePercent: us.changePercent,
+      format: "number" as const,
+      subtitle: undefined,
+      iconColor: "text-sky-400",
+      gradient: "from-sky-500/15 to-sky-500/5",
+      ringColor: "ring-sky-500/20",
+    },
+    {
+      key: "conversion",
+      icon: TrendingUp,
+      label: "Conversion Rate",
+      value: conv.value,
+      previousValue: conv.previousValue,
+      changePercent: conv.changePercent,
+      format: "percent" as const,
+      subtitle: "checkout ÷ interactions",
+      iconColor: "text-amber-400",
+      gradient: "from-amber-500/15 to-amber-500/5",
+      ringColor: "ring-amber-500/20",
+    },
+    {
+      key: "interactions",
+      icon: Activity,
+      label: "Interactions",
+      value: int_.value,
+      previousValue: int_.previousValue,
+      changePercent: int_.changePercent,
+      format: "number" as const,
+      subtitle: undefined,
+      iconColor: "text-violet-400",
+      gradient: "from-violet-500/15 to-violet-500/5",
+      ringColor: "ring-violet-500/20",
+    },
+    {
+      key: "orders",
+      icon: ShoppingCart,
+      label: "Orders",
+      value: ord.value,
+      previousValue: ord.previousValue,
+      changePercent: ord.changePercent,
+      format: "number" as const,
+      subtitle: "completed",
+      iconColor: "text-rose-400",
+      gradient: "from-rose-500/15 to-rose-500/5",
+      ringColor: "ring-rose-500/20",
+    },
+    {
+      key: "messages",
+      icon: Send,
+      label: "Messages Sent",
+      value: msg.value,
+      previousValue: msg.previousValue,
+      changePercent: msg.changePercent,
+      format: "number" as const,
+      subtitle: undefined,
+      iconColor: "text-cyan-400",
+      gradient: "from-cyan-500/15 to-cyan-500/5",
+      ringColor: "ring-cyan-500/20",
+    },
+    {
+      key: "callbacks",
+      icon: MousePointerClick,
+      label: "Callbacks",
+      value: cb.value,
+      previousValue: cb.previousValue,
+      changePercent: cb.changePercent,
+      format: "number" as const,
+      subtitle: undefined,
+      iconColor: "text-orange-400",
+      gradient: "from-orange-500/15 to-orange-500/5",
+      ringColor: "ring-orange-500/20",
+    },
+    {
+      key: "dau",
+      icon: UserCheck,
+      label: "Daily Active",
+      value: dailyActiveUsers,
+      previousValue: 0,
+      changePercent: null,
+      format: "number" as const,
+      subtitle: "last 24h",
+      iconColor: "text-indigo-400",
+      gradient: "from-indigo-500/15 to-indigo-500/5",
+      ringColor: "ring-indigo-500/20",
+    },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -129,32 +208,40 @@ export default function BotDashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-stagger">
-        {statCards.map(({ key, icon: Icon, label, gradient, iconColor, ringColor }) => (
-          <Card
-            key={key}
-            className={`group relative overflow-hidden transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 ring-1 ring-border/50 ${ringColor}`}
-          >
-            <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-50`} />
-            <CardContent className="relative p-5">
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {label}
-                </p>
-                <div className={`flex size-8 items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm ring-1 ring-border/30 ${ringColor}`}>
-                  <Icon className={`size-4 ${iconColor}`} />
-                </div>
-              </div>
-              <p className="text-2xl font-bold tracking-tight tabular-nums">
-                {values[key].toLocaleString()}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground/60">
-                {label === "Checkout Clicks" ? "purchases" : "all time"}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <PeriodFilter
+        value={period}
+        autoRefresh={autoRefresh}
+        onPeriodChange={setPeriod}
+        onAutoRefreshChange={setAutoRefresh}
+      />
+
+      {error ? (
+        <div className="flex flex-col items-center gap-4 py-12">
+          <p className="text-sm text-destructive">{error}</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-stagger">
+            {statCards.map((card) => (
+              <StatCard
+                key={card.key}
+                icon={card.icon}
+                label={card.label}
+                value={card.value}
+                previousValue={card.previousValue}
+                changePercent={card.changePercent}
+                format={card.format}
+                subtitle={card.subtitle}
+                iconColor={card.iconColor}
+                gradient={card.gradient}
+                ringColor={card.ringColor}
+              />
+            ))}
+          </div>
+
+          <SalesCharts timeline={timeline} />
+        </>
+      )}
     </div>
   );
 }

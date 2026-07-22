@@ -159,6 +159,51 @@ export type UserSummary = { id: string; telegramId: string; username: string | n
 export type Transaction = { id: string; amount: number; status: string; paymentMethod: string; pixCode: string | null; checkoutUrl: string | null; createdAt: string; user: UserSummary };
 export type Interaction = { id: string; type: string; direction: string; content: string | null; payload?: object; sessionId: string | null; stepIndex: number | null; buttonId: string | null; messageId: string | null; chatId: string | null; metadata: Record<string, unknown> | null; createdAt: string; user: UserSummary | null };
 export type Stats = { totalInteractions: number; totalUsers: number; checkoutClicks: number; messageCount: number; callbackCount: number; dailyActiveUsers: number };
+
+export type Granularity = "daily" | "weekly" | "monthly";
+
+export type DashboardPeriod = {
+  from?: string;
+  to?: string;
+  granularity: Granularity;
+};
+
+export type DashboardStatNumber = {
+  value: number;
+  previousValue: number;
+  changePercent: number | null;
+};
+
+export type DashboardStatsResponse = {
+  stats: {
+    totalRevenue: number;
+    totalUsers: number;
+    conversionRate: number;
+    totalInteractions: number;
+    checkoutClicks: number;
+    orders: number;
+    messageCount: number;
+    callbackCount: number;
+  };
+  previousStats: {
+    totalRevenue: number;
+    totalUsers: number;
+    conversionRate: number;
+    totalInteractions: number;
+    checkoutClicks: number;
+    orders: number;
+    messageCount: number;
+    callbackCount: number;
+  } | null;
+  dailyActiveUsers: number;
+  timeline: Array<{
+    date: string;
+    revenue: number;
+    transactions: number;
+    newUsers: number;
+    interactions: number;
+  }>;
+};
 export type UserSession = { id: string; botId: string; userId: string; status: string; currentStepIndex: number | null; stepsCompleted: number[]; messageCount: number; metadata: Record<string, unknown>; startedAt: string; endedAt: string | null; createdAt: string; updatedAt: string; user: UserSummary };
 export type ChatTimelineItem = { id: string; direction: string; type: string; content: string | null; stepIndex: number | null; buttonId: string | null; messageId: string | null; chatId: string | null; metadata: Record<string, unknown> | null; createdAt: string };
 
@@ -226,6 +271,13 @@ export const api = {
   transactions: (id: string, page: number) => request<Paginated<Transaction>>(`/api/bots/${id}/transactions?page=${page}&pageSize=10`),
   interactions: (id: string, page: number, filters: URLSearchParams) => request<Paginated<Interaction>>(`/api/bots/${id}/interactions?page=${page}&pageSize=10&${filters}`),
   stats: (id: string) => request<Stats>(`/api/bots/${id}/interactions/stats`),
+  dashboardStats: (id: string, period: DashboardPeriod) => {
+    const params = new URLSearchParams();
+    if (period.from) params.set("from", period.from);
+    if (period.to) params.set("to", period.to);
+    params.set("granularity", period.granularity);
+    return request<DashboardStatsResponse>(`/api/bots/${id}/dashboard/stats?${params}`);
+  },
   sessions: (botId: string, page: number, filters?: URLSearchParams) => request<Paginated<UserSession>>(`/api/bots/${botId}/sessions?page=${page}&pageSize=20${filters ? `&${filters}` : ""}`),
   chatTimeline: (botId: string, sessionId: string) => request<ChatTimelineItem[]>(`/api/bots/${botId}/sessions/${sessionId}/chat`),
   remarketingStates: (botId: string, page: number, statusFilter?: string) =>
