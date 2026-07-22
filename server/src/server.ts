@@ -16,13 +16,14 @@ import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
+import { utilsRouter } from "./routes/utils.js";
 
 const env = loadEnv();
 const app = express();
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(dirname, "../public");
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "50mb" }));
 app.post("/webhook/:botId", webhookDispatcher);
 
 app.get("/api/health", async (_req, res) => {
@@ -39,87 +40,8 @@ app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
 app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
 app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
+app.use("/api", adminAuth(env.adminPassword), utilsRouter());
 
-
-app.post("/api/utils/file-id", adminAuth(env.adminPassword), async (req: Request, res: Response) => {
-  try {
-    const body = req.body as Record<string, unknown>;
-    const botId = typeof body.botId === "string" ? body.botId.trim() : "";
-    const chatId = typeof body.chatId === "string" ? body.chatId.trim() : "";
-    const url = typeof body.url === "string" ? body.url.trim() : "";
-
-    if (!botId || !chatId || !url) {
-      res.status(400).json({ error: "Missing botId, chatId or url" });
-      return;
-    }
-
-    const bot = await prisma.bot.findUnique({
-      where: { id: botId },
-      select: { id: true, token: true }
-    });
-
-    if (!bot) {
-      res.status(404).json({ error: "Bot not found" });
-      return;
-    }
-
-    let tgResp: any;
-    try {
-      tgResp = await fetch(`https://api.telegram.org/bot${bot.token}/sendDocument`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, document: url })
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[utils:file-id] Telegram request failed: ${message}`);
-      res.status(502).json({ error: "telegram_request_failed" });
-      return;
-    }
-
-    const text = await tgResp.text().catch(() => "");
-    if (!tgResp.ok) {
-      console.error(`[utils:file-id] Telegram API error ${tgResp.status}: ${text}`);
-      res.status(502).json({ error: "telegram_error", status: tgResp.status });
-      return;
-    }
-
-    let payload: any;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      console.error("[utils:file-id] Invalid JSON from Telegram");
-      res.status(502).json({ error: "invalid_telegram_response" });
-      return;
-    }
-
-    const result = payload?.result;
-
-    const fileId: string | undefined = result?.document?.file_id
-      ?? result?.audio?.file_id
-      ?? result?.voice?.file_id
-      ?? result?.video?.file_id
-      ?? (Array.isArray(result?.photo) ? result.photo[result.photo.length - 1]?.file_id : undefined);
-
-    const fileUniqueId: string | undefined = result?.document?.file_unique_id
-      ?? result?.audio?.file_unique_id
-      ?? result?.voice?.file_unique_id
-      ?? result?.video?.file_unique_id
-      ?? (Array.isArray(result?.photo) ? result.photo[result.photo.length - 1]?.file_unique_id : undefined);
-
-    if (!fileId) {
-      console.error("[utils:file-id] Could not extract file_id from Telegram result");
-      res.status(502).json({ error: "file_id_not_found" });
-      return;
-    }
-
-    res.json({ ok: true, fileId, fileUniqueId });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unexpected error";
-    console.error(`[utils:file-id] ${message}`);
-    res.status(500).json({ error: message });
-  }
-});
 
 app.post("/api/bots/:botId/payment/pix-copied", adminAuth(env.adminPassword), async (req: Request, res: Response) => {
   try {

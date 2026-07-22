@@ -59,6 +59,7 @@ export type BotSettings = {
   language?: string;
   maxDailyPixGenerations?: number;
   resetPixAfterStart?: boolean;
+  adminTelegramIds?: string[];
 };
 
 export type Bot = {
@@ -109,6 +110,8 @@ export type RemarketingConfig = {
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;
+  skipStale?: boolean;
+  initialDelayMs?: number;
 };
 
 export type FacebookPixelConfig = {
@@ -159,6 +162,7 @@ export type BotPayload = {
 
 export type Paginated<T> = { items: T[]; total: number; page: number; pageSize: number };
 export type UserSummary = { id: string; telegramId: string; username: string | null; firstName: string | null; lastName: string | null };
+export type User = UserSummary & { sessionCount: number; transactionCount: number };
 export type Transaction = { id: string; amount: number; status: string; paymentMethod: string; pixCode: string | null; checkoutUrl: string | null; createdAt: string; user: UserSummary };
 export type Interaction = { id: string; type: string; direction: string; content: string | null; payload?: object; sessionId: string | null; stepIndex: number | null; buttonId: string | null; messageId: string | null; chatId: string | null; metadata: Record<string, unknown> | null; createdAt: string; user: UserSummary | null };
 export type Stats = { totalInteractions: number; totalUsers: number; checkoutClicks: number; messageCount: number; callbackCount: number; dailyActiveUsers: number };
@@ -295,6 +299,8 @@ export const api = {
 
     return (await response.json()) as { ok: boolean; fileId: string; fileUniqueId?: string };
   },
+  users: (botId: string, page: number, search?: string) =>
+    request<Paginated<User>>(`/api/bots/${botId}/users?page=${page}&pageSize=20${search ? `&search=${encodeURIComponent(search)}` : ""}`),
   setStatus: (id: string, status: BotStatus) => request<Bot>(`/api/bots/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteBot: (id: string) => request<void>(`/api/bots/${id}`, { method: "DELETE" }),
   transactions: (id: string, page: number) => request<Paginated<Transaction>>(`/api/bots/${id}/transactions?page=${page}&pageSize=10`),

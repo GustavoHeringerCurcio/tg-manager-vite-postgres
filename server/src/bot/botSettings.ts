@@ -3,6 +3,7 @@ export type BotSettings = {
   language?: string;
   maxDailyPixGenerations?: number;
   resetPixAfterStart?: boolean;
+  adminTelegramIds?: string[];
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -39,6 +40,13 @@ export function normalizeBotSettings(value: unknown): BotSettings {
 
   if (typeof value.resetPixAfterStart === "boolean") {
     settings.resetPixAfterStart = value.resetPixAfterStart;
+  }
+
+  if (Array.isArray(value.adminTelegramIds)) {
+    const ids = (value.adminTelegramIds as unknown[]).filter(
+      (id): id is string => typeof id === "string" && id.trim().length > 0 && /^\d+$/.test(id.trim())
+    ).map(id => id.trim());
+    if (ids.length > 0) settings.adminTelegramIds = ids;
   }
 
   return settings;

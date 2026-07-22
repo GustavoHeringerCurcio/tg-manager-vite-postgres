@@ -13,6 +13,7 @@ export type {
   BotPayload,
   Paginated,
   UserSummary,
+  User,
   Transaction,
   Interaction,
   Stats,

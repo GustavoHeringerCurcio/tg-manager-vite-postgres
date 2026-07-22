@@ -44,6 +44,7 @@ export default function BotSettingsPage() {
   const { bot, loading, error, refresh } = useBotDetail(botId);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<BotSettings>({});
+  const [newAdminId, setNewAdminId] = useState("");
 
   useEffect(() => {
     if (bot?.settings) {
@@ -81,6 +82,7 @@ export default function BotSettingsPage() {
         language: settings.language || undefined,
         maxDailyPixGenerations: settings.maxDailyPixGenerations ?? undefined,
         resetPixAfterStart: settings.resetPixAfterStart ?? undefined,
+        adminTelegramIds: settings.adminTelegramIds?.length ? settings.adminTelegramIds : undefined,
       };
       await api.updateBotSettings(botId, cleaned);
       setSettings(cleaned);
@@ -91,6 +93,20 @@ export default function BotSettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function addAdminId() {
+    const trimmed = newAdminId.trim();
+    if (!trimmed || !/^\d+$/.test(trimmed)) return;
+    const current = settings.adminTelegramIds ?? [];
+    if (current.includes(trimmed)) return;
+    update({ adminTelegramIds: [...current, trimmed] });
+    setNewAdminId("");
+  }
+
+  function removeAdminId(id: string) {
+    const current = settings.adminTelegramIds ?? [];
+    update({ adminTelegramIds: current.filter((x) => x !== id) });
   }
 
   return (
@@ -175,20 +191,62 @@ export default function BotSettingsPage() {
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
-              <Switch
-                size="sm"
-                checked={settings.resetPixAfterStart !== false}
-                onCheckedChange={(v) => update({ resetPixAfterStart: v })}
-              />
-              <div>
-                <Label className="text-sm">Reset PIX counter on /start</Label>
-                <p className="text-[11px] text-muted-foreground">
-                  When enabled, the /start command resets the user&apos;s PIX generation counter to zero.
-                </p>
+              <div className="flex items-center gap-3 pt-4">
+                <Switch
+                  size="sm"
+                  checked={settings.resetPixAfterStart !== false}
+                  onCheckedChange={(v) => update({ resetPixAfterStart: v })}
+                />
+                <div>
+                  <Label className="text-sm">Reset PIX counter on /start</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    When enabled, the /start command resets the user&apos;s PIX generation counter to zero.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+
+            <div className="border-t border-border pt-6">
+              <h3 className="text-sm font-medium mb-4">Admin Users</h3>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Telegram user IDs that appear as quick-select options in the Utils &rarr; Get File ID tool.
+              </p>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {(settings.adminTelegramIds ?? []).map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium"
+                  >
+                    {id}
+                    <button
+                      type="button"
+                      onClick={() => removeAdminId(id)}
+                      className="ml-1 text-muted-foreground hover:text-destructive"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {(settings.adminTelegramIds ?? []).length === 0 && (
+                  <span className="text-xs text-muted-foreground">No admin users configured</span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Telegram ID (ex: 57837291)"
+                  value={newAdminId}
+                  onChange={(e) => setNewAdminId(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addAdminId(); }}
+                  className="h-9 text-sm max-w-[250px]"
+                />
+                <Button variant="outline" size="sm" onClick={addAdminId} disabled={!newAdminId.trim()}>
+                  Add
+                </Button>
+              </div>
+            </div>
         </CardContent>
       </Card>
 
