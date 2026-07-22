@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { cn } from "@/lib/utils";
 import {
   MoreHorizontal,
   Users,
@@ -31,7 +32,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useState } from "react";
-import type { Bot, BotStatus } from "@/types";
+import type { Bot } from "@/types";
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -48,30 +49,6 @@ function relativeTime(dateStr: string): string {
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(months / 12)}y ago`;
 }
-
-const statusAccent: Record<BotStatus, { gradient: string; ring: string; ringHover: string; glow: string; glowHover: string }> = {
-  ACTIVE: {
-    gradient: "from-emerald-500/50 to-emerald-500/5",
-    ring: "ring-emerald-500/20",
-    ringHover: "ring-emerald-500/40",
-    glow: "bg-emerald-500/5",
-    glowHover: "bg-emerald-500/15",
-  },
-  INACTIVE: {
-    gradient: "from-border to-transparent",
-    ring: "ring-border",
-    ringHover: "ring-muted-foreground/30",
-    glow: "bg-muted-foreground/5",
-    glowHover: "bg-muted-foreground/10",
-  },
-  SUSPENDED: {
-    gradient: "from-destructive/50 to-destructive/5",
-    ring: "ring-destructive/20",
-    ringHover: "ring-destructive/40",
-    glow: "bg-destructive/5",
-    glowHover: "bg-destructive/15",
-  },
-};
 
 interface BotCardProps {
   bot: Bot;
@@ -94,12 +71,13 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
   const navigate = useNavigate();
 
   const requiredText = DELETE_PHRASE + bot.name;
-  const accent = statusAccent[bot.status];
+  const isActive = bot.status === "ACTIVE";
+  const isSuspended = bot.status === "SUSPENDED";
 
   async function handleStatusToggle() {
     setStatusChanging(true);
     try {
-      const newStatus = bot.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      const newStatus = isActive ? "INACTIVE" : "ACTIVE";
       onStatusChange(bot.id, newStatus);
     } finally {
       setStatusChanging(false);
@@ -107,9 +85,18 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
   }
 
   return (
-    <Card className="group relative flex flex-col aspect-square shadow-sm transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
-      <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r ${accent.gradient}`} />
+    <Card className="group relative flex flex-col shadow-sm transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
+      {/* ---- Zone 1: status accent bar ---- */}
+      <div
+        className={cn(
+          "absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r",
+          isActive && "from-emerald-500/60 to-emerald-500/5",
+          isSuspended && "from-destructive/60 to-destructive/5",
+          !isActive && !isSuspended && "from-border to-transparent"
+        )}
+      />
 
+      {/* ---- Zone 2: action buttons ---- */}
       <div className="absolute top-3 right-3 flex items-center gap-0.5 z-10">
         <Button
           variant="ghost"
@@ -117,9 +104,9 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
           className="text-muted-foreground/50 hover:text-foreground transition-colors"
           disabled={statusChanging}
           onClick={handleStatusToggle}
-          title={bot.status === "ACTIVE" ? "Deactivate" : "Activate"}
+          title={isActive ? "Deactivate" : "Activate"}
         >
-          {bot.status === "ACTIVE" ? (
+          {isActive ? (
             <PowerOff className="size-3.5 text-amber-500" />
           ) : (
             <Power className="size-3.5 text-emerald-500" />
@@ -143,7 +130,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               Edit Messages
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={handleStatusToggle}>
-              {bot.status === "ACTIVE" ? (
+              {isActive ? (
                 <>
                   <PowerOff className="mr-2 size-4" /> Deactivate
                 </>
@@ -205,59 +192,63 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
         </DropdownMenu>
       </div>
 
+      {/* ---- Zone 3: avatar + metadata ---- */}
       <Link
         to={`/manager/${bot.id}/dashboard`}
-        className="flex flex-col items-center justify-center flex-1 px-4 py-4"
+        className="flex items-center gap-4 p-5"
       >
-        <div className="relative mb-5">
-          <div className={`absolute -inset-4 rounded-3xl blur-xl transition-all duration-300 ${accent.glow} group-hover:${accent.glowHover}`} />
-          <Avatar className={`relative size-28 rounded-2xl ring-2 transition-all duration-300 ${accent.ring} group-hover:${accent.ringHover} group-hover:scale-105`} size="lg">
-            {bot.photoUrl ? (
-              <AvatarImage src={bot.photoUrl} className="rounded-2xl object-cover" />
-            ) : null}
-            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-3xl">
-              {bot.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-        </div>
+        <Avatar
+          className={cn(
+            "size-16 rounded-2xl ring-2 shrink-0 transition-all duration-200 group-hover:scale-105",
+            isActive && "ring-emerald-500/20 group-hover:ring-emerald-500/40",
+            isSuspended && "ring-destructive/20 group-hover:ring-destructive/40",
+            !isActive && !isSuspended && "ring-border group-hover:ring-muted-foreground/30"
+          )}
+          size="lg"
+        >
+          {bot.photoUrl ? (
+            <AvatarImage src={bot.photoUrl} className="rounded-2xl object-cover" />
+          ) : null}
+          <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-xl">
+            {bot.name.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
 
-        <h3 className="font-semibold text-base leading-tight truncate max-w-full">
-          {bot.name}
-        </h3>
-
-        <div className="mt-1">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-base leading-tight truncate">
+            {bot.name}
+          </h3>
           <StatusBadge status={bot.status} />
-        </div>
-
-        <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/60">
-          <Calendar className="size-2.5" />
-          {relativeTime(bot.createdAt)}
-        </p>
-
-        <div className="mt-auto w-full">
-          <div className="mb-3 border-t border-border/40" />
-          <div className="grid grid-cols-2 gap-2">
-            <div className="text-center">
-              <p className="text-lg font-bold tabular-nums leading-none">
-                {stats?.totalUsers?.toLocaleString() ?? "—"}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-                <Users className="size-2.5" />
-                Users
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold tabular-nums leading-none">
-                {stats?.messageCount?.toLocaleString() ?? "—"}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-                <MessageSquare className="size-2.5" />
-                Msgs
-              </p>
-            </div>
-          </div>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground/60">
+            <Calendar className="size-2.5" />
+            {relativeTime(bot.createdAt)}
+          </p>
         </div>
       </Link>
+
+      {/* ---- Zone 4: stats footer ---- */}
+      <div className="border-t border-border/40 bg-muted/30 rounded-b-xl px-5 py-3">
+        <div className="flex items-center justify-around">
+          <div className="text-center">
+            <p className="text-base font-bold tabular-nums leading-none">
+              {stats?.totalUsers?.toLocaleString() ?? "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+              <Users className="size-3" />
+              Users
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold tabular-nums leading-none">
+              {stats?.messageCount?.toLocaleString() ?? "—"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+              <MessageSquare className="size-3" />
+              Msgs
+            </p>
+          </div>
+        </div>
+      </div>
     </Card>
   );
 }
