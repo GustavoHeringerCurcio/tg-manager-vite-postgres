@@ -1,17 +1,23 @@
-To bridge the "Copiar Chave Pix" click to sending audio on Telegram, please add these actual files (with correct full paths from your repo) so I can implement precise changes:
+To implement sending audio on Telegram when the user clicks "Copiar chave Pix", please add the following existing files (with their exact full paths from your repository) to this chat so I can modify them:
 
-Frontend (please add paths to the real files in your repo):
-- The component/page that renders the "Copiar chave Pix" button and handles its onClick (the place currently calling navigator.clipboard.writeText or similar).
-- The component/page that renders the "Verificar pagamento" action and triggers the backend (I will mirror its logic for Pix).
+Frontend:
+- The component/page that renders the "Copiar chave Pix" button and handles its onClick (often near navigator.clipboard.writeText). This is the place where we will call an API to notify the backend that Pix was copied.
+- The component/page that implements the "Verificar pagamento" action, including any existing API call it makes. I will mirror that request for the Pix flow.
 
-Backend (please add paths to the real files in your repo):
-- The HTTP route/handler that processes the "Verificar pagamento" click (so I can replicate for Pix).
-- The controller/service that sends the unpaid/verify audio on Telegram (e.g., a helper that calls Telegram API sendVoice or equivalent).
-- If separate, the Telegram bot API utility/client used to send messages/audios.
+Backend:
+- The HTTP route/handler that processes the "Verificar pagamento" click (e.g., POST /api/bots/:id/payment/verify or similar). I will add a sibling handler for the Pix-copied event.
+- The controller/service that sends the Telegram audio for "Verificar pagamento" (the function that calls sendVoice/sendAudio). I will reuse this for Pix, gated by isCopyPixAudioEnabled and using copyPixAudios.
+- The Telegram bot API client/utility used to send messages/audio (so we can call the same function consistently).
 
-After you add those specific files, I will:
-1) Wire the frontend "Copiar chave Pix" click to call a new/parallel API route.
-2) On the backend, mirror the verify-payment audio logic:
-   - Read bot.paymentFlow, check isCopyPixAudioEnabled.
-   - If true and copyPixAudios has values, pick one (same selection logic as verify) and send via Telegram API to the user's chat.
-3) Keep the architecture and styling consistent with your existing verify-payment flow.
+Notes:
+- I will follow the existing verify-payment logic:
+  - If isCopyPixAudioEnabled is true and copyPixAudios has items, select an audio (same selection method as verify) and send it to the user's chat.
+  - If disabled or empty, no audio will be sent.
+- If there is any middleware/auth or context extractor (e.g., to resolve botId, userId/session/chatId) used in the verify flow, please add that file as well so I can hook into it for the Pix flow.
+
+If you are unsure which files to add, please search your project for:
+- "Copiar chave Pix", "Copiar Pix", or navigator.clipboard.writeText for the frontend button component.
+- "Verificar pagamento" or the verify-payment API path for the frontend and backend references.
+- "sendVoice", "sendAudio", or your Telegram send helper for the backend service.
+
+Once you add these files here, I will implement the end-to-end bridge.

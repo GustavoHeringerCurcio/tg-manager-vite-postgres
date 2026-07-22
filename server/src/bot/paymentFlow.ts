@@ -6,6 +6,9 @@ export type PaymentFlow = {
   verifyLabel: string;
   pixCopyLabel: string;
   unpaidAudioFileIds: string[];
+  verifyPaymentAudios: string[];
+  copyPixAudios: string[];
+  isCopyPixAudioEnabled: boolean;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -36,7 +39,22 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
   const pixCopyLabel = cleanString(value.pixCopyLabel) ?? "Copiar PIX";
   const unpaidAudioFileIds = normalizeStringArray(value.unpaidAudioFileIds);
 
-  return { steps, verifyLabel, pixCopyLabel, unpaidAudioFileIds };
+  const record = value as Record<string, unknown>;
+  const verifyPaymentAudiosRaw = normalizeStringArray(record.verifyPaymentAudios);
+  const verifyPaymentAudios = verifyPaymentAudiosRaw.length ? verifyPaymentAudiosRaw : unpaidAudioFileIds;
+  const copyPixAudios = normalizeStringArray(record.copyPixAudios);
+  const isCopyPixAudioEnabled =
+    typeof record.isCopyPixAudioEnabled === "boolean" ? (record.isCopyPixAudioEnabled as boolean) : false;
+
+  return {
+    steps,
+    verifyLabel,
+    pixCopyLabel,
+    unpaidAudioFileIds,
+    verifyPaymentAudios,
+    copyPixAudios,
+    isCopyPixAudioEnabled
+  };
 }
 
 export function defaultPaymentFlow(): PaymentFlow {
@@ -44,7 +62,10 @@ export function defaultPaymentFlow(): PaymentFlow {
     steps: [],
     verifyLabel: "Verificar pagamento",
     pixCopyLabel: "Copiar PIX",
-    unpaidAudioFileIds: []
+    unpaidAudioFileIds: [],
+    verifyPaymentAudios: [],
+    copyPixAudios: [],
+    isCopyPixAudioEnabled: false
   };
 }
 

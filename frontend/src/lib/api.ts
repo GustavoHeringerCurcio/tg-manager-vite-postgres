@@ -18,6 +18,9 @@ export type PaymentFlow = {
   verifyLabel: string;
   pixCopyLabel: string;
   unpaidAudioFileIds: string[];
+  verifyPaymentAudios?: string[];
+  copyPixAudios?: string[];
+  isCopyPixAudioEnabled?: boolean;
 };
 
 export type MessageButton = {
