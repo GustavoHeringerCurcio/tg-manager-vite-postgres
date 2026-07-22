@@ -1,0 +1,15 @@
+UI Sections:
+- Áudios - Verificar Pagamento
+- Áudios - Copiar Chave Pix
+
+States Created:
+- verifyPaymentAudios
+- copyPixAudios
+- isCopyPixAudioEnabled
+- newVerifyAudioId
+- newCopyAudioId
+
+Confirmations:
+- verifyPaymentAudios exists: yes
+- copyPixAudios exists: yes
+- Toggle switch for Pix audio present in return: yes
