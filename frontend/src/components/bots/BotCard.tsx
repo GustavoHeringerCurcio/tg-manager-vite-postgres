@@ -86,7 +86,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
   }
 
   const avatarRing = cn(
-    "!size-24 rounded-2xl ring-2 shadow-md shrink-0 transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg",
+    "!size-24 rounded-full ring-2 shadow-md shrink-0 transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg",
     isActive &&
       "ring-emerald-500/30 shadow-emerald-500/10 group-hover:ring-emerald-500/50 group-hover:shadow-emerald-500/20",
     isSuspended &&
@@ -239,10 +239,10 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
             {bot.photoUrl ? (
               <AvatarImage
                 src={bot.photoUrl}
-                className="rounded-2xl object-cover"
+                className="rounded-full object-cover"
               />
             ) : null}
-            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-4xl">
+            <AvatarFallback className="rounded-full bg-primary/10 text-primary font-bold text-4xl">
               {bot.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
