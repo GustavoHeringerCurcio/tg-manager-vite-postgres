@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export default function UtilsGetFileId() {
   const [botId, setBotId] = useState("");
   const [chatId, setChatId] = useState("");
-  const [fileUrl, setFileUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileId, setFileId] = useState<string | null>(null);
@@ -16,13 +16,13 @@ export default function UtilsGetFileId() {
     setError(null);
     setFileId(null);
     setFileUniqueId(null);
-    if (!botId.trim() || !chatId.trim() || !fileUrl.trim()) {
-      setError("Informe botId, chatId e a URL do arquivo.");
+    if (!botId.trim() || !chatId.trim() || !file) {
+      setError("Informe botId, chatId e selecione um arquivo.");
       return;
     }
     setUploading(true);
     try {
-      const result = await api.getFileIdFromUrl(botId.trim(), chatId.trim(), fileUrl.trim());
+      const result = await api.getFileIdFromFile(botId.trim(), chatId.trim(), file);
       setFileId(result.fileId);
       setFileUniqueId(result.fileUniqueId ?? null);
     } catch (e) {
@@ -66,17 +66,15 @@ export default function UtilsGetFileId() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Arquivo (URL pública)</label>
+            <label className="text-sm font-medium">Arquivo</label>
             <Input
-              type="url"
-              placeholder="https://exemplo.com/arquivo.mp3"
-              value={fileUrl}
-              onChange={(e) => setFileUrl(e.target.value)}
+              type="file"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Button onClick={handleUpload} disabled={uploading || !fileUrl.trim() || !botId.trim() || !chatId.trim()}>
+            <Button onClick={handleUpload} disabled={uploading || !file || !botId.trim() || !chatId.trim()}>
               {uploading ? "Enviando..." : "Upload"}
             </Button>
           </div>
