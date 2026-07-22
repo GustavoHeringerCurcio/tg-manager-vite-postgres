@@ -20,7 +20,7 @@ export function StatusBadge({ status }: { status: BotStatus }) {
   const config = statusConfig[status];
 
   return (
-    <Badge variant="outline" className={`gap-1 text-[10px] ${config.className}`}>
+    <Badge variant="outline" className={`gap-1 text-xs ${config.className}`}>
       {status === "ACTIVE" && (
         <span className="relative flex size-1.5">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400/75" />

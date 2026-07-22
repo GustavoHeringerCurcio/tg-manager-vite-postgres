@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
-import type { Bot, BotPayload, BotStatus } from "@/types";
+import type { Bot, BotPayload, BotStatus, Stats } from "@/types";
 import { api } from "@/lib/api";
 
 export function useBots() {
   const [bots, setBots] = useState<Bot[]>([]);
+  const [stats, setStats] = useState<Record<string, Stats>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,6 +14,17 @@ export function useBots() {
     try {
       const data = await api.bots();
       setBots(data);
+      const statsMap: Record<string, Stats> = {};
+      await Promise.all(
+        data.map(async (bot) => {
+          try {
+            statsMap[bot.id] = await api.stats(bot.id);
+          } catch {
+            // stats fetch fails silently — card shows "—"
+          }
+        })
+      );
+      setStats(statsMap);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch bots");
     } finally {
@@ -46,5 +58,5 @@ export function useBots() {
     await fetchBots();
   }, [fetchBots]);
 
-  return { bots, loading, error, createBot, updateBot, setStatus, deleteBot, refresh: fetchBots };
+  return { bots, stats, loading, error, createBot, updateBot, setStatus, deleteBot, refresh: fetchBots };
 }

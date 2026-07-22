@@ -29,9 +29,26 @@ import {
   Power,
   PowerOff,
   ArrowUpRight,
+  Calendar,
 } from "lucide-react";
 import { useState } from "react";
 import type { Bot } from "@/types";
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
 
 interface BotCardProps {
   bot: Bot;
@@ -67,12 +84,12 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
 
   return (
     <Card className="group relative flex flex-col shadow-sm transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
-      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r from-primary/60 to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r from-primary/60 to-primary/20" />
 
       <Link to={`/manager/${bot.id}/dashboard`} className="flex flex-col flex-1 p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
-            <Avatar className="size-11 rounded-xl ring-2 ring-border/50 group-hover:ring-primary/30 transition-all" size="lg">
+            <Avatar className="size-11 rounded-xl ring-2 ring-border group-hover:ring-primary/50 transition-all" size="lg">
               {bot.photoUrl ? (
                 <AvatarImage src={bot.photoUrl} className="rounded-xl object-cover" />
               ) : null}
@@ -83,12 +100,16 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
             <div>
               <h3 className="font-semibold text-sm leading-tight">{bot.name}</h3>
               <StatusBadge status={bot.status} />
+              <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <Calendar className="size-2.5" />
+                {relativeTime(bot.createdAt)}
+              </p>
             </div>
           </div>
           <ArrowUpRight className="size-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </div>
 
-        <div className="mt-auto grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+        <div className="mt-auto grid grid-cols-2 gap-2 pt-3 border-t border-border/50">
           <div className="text-center">
             <p className="text-lg font-bold tabular-nums leading-none">
               {stats?.totalUsers?.toLocaleString() ?? "—"}
@@ -114,15 +135,15 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
         <Button
           variant="ghost"
           size="icon-xs"
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-muted-foreground/50 hover:text-foreground transition-colors"
           disabled={statusChanging}
           onClick={handleStatusToggle}
           title={bot.status === "ACTIVE" ? "Deactivate" : "Activate"}
         >
           {bot.status === "ACTIVE" ? (
-            <PowerOff className="size-3.5 text-amber-400" />
+            <PowerOff className="size-3.5 text-amber-500" />
           ) : (
-            <Power className="size-3.5 text-emerald-400" />
+            <Power className="size-3.5 text-emerald-500" />
           )}
         </Button>
         <DropdownMenu>
@@ -131,7 +152,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               <Button
                 variant="ghost"
                 size="icon-xs"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-muted-foreground/50 hover:text-foreground transition-colors"
               >
                 <MoreHorizontal className="size-3.5" />
               </Button>

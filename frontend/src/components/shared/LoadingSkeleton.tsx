@@ -7,7 +7,7 @@ export function LoadingSkeleton() {
       <div className="flex items-center gap-4">
         <Skeleton className="h-8 w-48" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i} className="animate-shimmer">
             <CardContent className="p-5 space-y-3">
