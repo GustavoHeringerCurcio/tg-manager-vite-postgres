@@ -41,17 +41,9 @@ const TIMEZONES = [
 export default function BotSettingsPage() {
   const { botId } = useParams<{ botId: string }>();
   const navigate = useNavigate();
-  const { bot, loading, error } = useBotDetail(botId);
+  const { bot, loading, error, refresh } = useBotDetail(botId);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<BotSettings>({});
-
-  useEffect(() => {
-    if (botId) {
-      api.getBotSettings(botId)
-        .then(setSettings)
-        .catch(() => {});
-    }
-  }, [botId]);
 
   useEffect(() => {
     if (bot?.settings) {
@@ -92,6 +84,7 @@ export default function BotSettingsPage() {
       };
       await api.updateBotSettings(botId, cleaned);
       setSettings(cleaned);
+      refresh();
       toast.success("Settings saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
@@ -186,7 +179,7 @@ export default function BotSettingsPage() {
               <Switch
                 size="sm"
                 checked={settings.resetPixAfterStart !== false}
-                onCheckedChange={(v) => update({ resetPixAfterStart: v || undefined })}
+                onCheckedChange={(v) => update({ resetPixAfterStart: v })}
               />
               <div>
                 <Label className="text-sm">Reset PIX counter on /start</Label>

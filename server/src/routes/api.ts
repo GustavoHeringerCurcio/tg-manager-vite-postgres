@@ -10,6 +10,7 @@ import { startBot, stopBot } from "../services/botLifecycle.js";
 import { defaultMessageFlow, normalizeMessageFlow, type MessageButton, type MessageStep } from "../bot/messageFlow.js";
 import { defaultPaymentFlow, isPaymentFlowConfigured, normalizePaymentFlow } from "../bot/paymentFlow.js";
 import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments, getDiscountPercentage } from "../bot/remarketing.js";
+import { normalizeBotSettings } from "../bot/botSettings.js";
 
 type BotBody = {
   name?: string;
@@ -126,7 +127,8 @@ export function apiRouter(env: AppEnv): Router {
     const bots = await prisma.bot.findMany({ orderBy: { createdAt: "desc" } });
     const normalized = bots.map(b => {
       const flow = normalizePaymentFlow(b.paymentFlow);
-      return { ...b, timeCompliments: normalizeTimeCompliments(b.timeCompliments), livepixConfigured: isPaymentFlowConfigured(flow) };
+      const botSettings = normalizeBotSettings(b.settings);
+      return { ...b, timeCompliments: normalizeTimeCompliments(b.timeCompliments, botSettings.timezone), livepixConfigured: isPaymentFlowConfigured(flow) };
     });
     res.json(serializeJson(sanitizeBots(normalized)));
   }));
@@ -135,7 +137,8 @@ export function apiRouter(env: AppEnv): Router {
     const bot = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!bot) throw new HttpError(404, "Bot not found");
     const flow = normalizePaymentFlow(bot.paymentFlow);
-    const normalized = { ...bot, timeCompliments: normalizeTimeCompliments(bot.timeCompliments), livepixConfigured: isPaymentFlowConfigured(flow) };
+    const botSettings = normalizeBotSettings(bot.settings);
+    const normalized = { ...bot, timeCompliments: normalizeTimeCompliments(bot.timeCompliments, botSettings.timezone), livepixConfigured: isPaymentFlowConfigured(flow) };
     res.json(serializeJson(sanitizeBot(normalized)));
   }));
 

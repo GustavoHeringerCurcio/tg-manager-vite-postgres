@@ -231,7 +231,7 @@ function buildInlineKeyboard(
   discountPercentage: number = 0,
   labelTemplate: string = "",
   firstName: string | null = null,
-  timezone: string = "America/Sao_Paulo",
+  timezone: string,
   showOriginalPrice: boolean = true
 ): { inline_keyboard: Array<Array<{ text: string; style?: string; callback_data?: string; url?: string }>> } | undefined {
   if (step.buttons.length === 0) return undefined;
