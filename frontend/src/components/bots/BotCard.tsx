@@ -86,7 +86,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
   }
 
   const avatarRing = cn(
-    "size-24 rounded-2xl ring-2 shadow-md shrink-0 transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg",
+    "!size-24 rounded-2xl ring-2 shadow-md shrink-0 transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg",
     isActive &&
       "ring-emerald-500/30 shadow-emerald-500/10 group-hover:ring-emerald-500/50 group-hover:shadow-emerald-500/20",
     isSuspended &&
@@ -235,7 +235,7 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
       >
         {/* centered avatar */}
         <div className="flex-1 flex items-center justify-center w-full pb-3">
-          <Avatar className={avatarRing} size="lg">
+          <Avatar className={avatarRing}>
             {bot.photoUrl ? (
               <AvatarImage
                 src={bot.photoUrl}
