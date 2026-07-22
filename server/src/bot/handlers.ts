@@ -233,6 +233,14 @@ async function sendStep(
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `video:${step.title}`, stepIndex, chatId, messageId,
+      metadata: {
+        mediaType: "VIDEO",
+        title: step.title,
+        mediaCount: step.mediaUrls.length,
+        ...(step.buttons.length > 0 ? {
+          buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+        } : {})
+      },
       logPayloads: env.logPayloads
     });
     return;
@@ -243,6 +251,13 @@ async function sendStep(
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `audio:${step.title}`, stepIndex, chatId, messageId,
+      metadata: {
+        mediaType: "AUDIO",
+        title: step.title,
+        ...(step.buttons.length > 0 ? {
+          buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+        } : {})
+      },
       logPayloads: env.logPayloads
     });
     return;
@@ -263,6 +278,14 @@ async function sendStep(
     logInteraction({
       botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
       content: `image:${step.title}`, stepIndex, chatId, messageId,
+      metadata: {
+        mediaType: "IMAGE",
+        title: step.title,
+        mediaCount: step.mediaUrls.length,
+        ...(step.buttons.length > 0 ? {
+          buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+        } : {})
+      },
       logPayloads: env.logPayloads
     });
     return;
@@ -271,7 +294,10 @@ async function sendStep(
   logInteraction({
     botId: botConfig.id, userId: user?.id, sessionId, type: "message", direction: "outgoing",
     content: step.text ?? step.title, stepIndex, chatId, messageId,
-    logPayloads: env.logPayloads
+    metadata: step.buttons.length > 0 ? {
+      buttons: step.buttons.map((b) => ({ id: b.id, label: b.label, color: b.color, action: b.action, price: b.price }))
+    } : undefined,
+    logPayloads: services.env.logPayloads
   });
 }
 
@@ -689,6 +715,17 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           const user = await upsertTelegramUser(botConfig.id, ctx);
           if (user) {
             const sessionId = await createOrResumeSession(botConfig.id, user.id);
+
+            const deliverables = paymentFlow.deliverables ?? [];
+            if (deliverables.length > 0) {
+              for (const [index, step] of deliverables.entries()) {
+                if (step.delayMs > 0) {
+                  await delay(step.delayMs);
+                }
+                await sendStep(ctx, botConfig, user, sessionId, step, index, services.env, timeCompliments);
+              }
+            }
+
             logInteraction({
               botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
               content: "Payment confirmed", chatId,

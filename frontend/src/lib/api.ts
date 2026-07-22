@@ -23,6 +23,7 @@ export type PaymentFlow = {
   isVerifyPaymentAudioEnabled?: boolean;
   copyPixAudios?: string[];
   isCopyPixAudioEnabled?: boolean;
+  deliverables?: MessageStep[];
 };
 
 export type MessageButton = {

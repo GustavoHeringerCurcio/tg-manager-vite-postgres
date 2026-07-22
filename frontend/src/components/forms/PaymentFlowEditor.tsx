@@ -24,6 +24,7 @@ const defaultPaymentFlow: PaymentFlow = {
   isVerifyPaymentAudioEnabled: false,
   copyPixAudios: [],
   isCopyPixAudioEnabled: false,
+  deliverables: [],
 };
 
 export default function PaymentFlowEditor({ paymentFlow, onChange }: PaymentFlowEditorProps) {

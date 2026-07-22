@@ -11,6 +11,7 @@ export type PaymentFlow = {
   isVerifyPaymentAudioEnabled: boolean;
   copyPixAudios: string[];
   isCopyPixAudioEnabled: boolean;
+  deliverables: MessageStep[];
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -61,6 +62,8 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
   const isCopyPixAudioEnabled =
     typeof record.isCopyPixAudioEnabled === "boolean" ? (record.isCopyPixAudioEnabled as boolean) : false;
 
+  const deliverables = normalizeMessageFlow(record.deliverables);
+
   return {
     steps,
     verifyLabel,
@@ -70,7 +73,8 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
     verifyPaymentSuccessAudios,
     isVerifyPaymentAudioEnabled,
     copyPixAudios,
-    isCopyPixAudioEnabled
+    isCopyPixAudioEnabled,
+    deliverables
   };
 }
 
@@ -84,7 +88,8 @@ export function defaultPaymentFlow(): PaymentFlow {
     verifyPaymentSuccessAudios: [],
     isVerifyPaymentAudioEnabled: false,
     copyPixAudios: [],
-    isCopyPixAudioEnabled: false
+    isCopyPixAudioEnabled: false,
+    deliverables: []
   };
 }
 

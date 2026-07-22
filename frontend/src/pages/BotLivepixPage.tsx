@@ -19,6 +19,7 @@ const defaultPaymentFlow: PaymentFlow = {
   isVerifyPaymentAudioEnabled: false,
   copyPixAudios: [],
   isCopyPixAudioEnabled: false,
+  deliverables: [],
 };
 
 export default function BotLivepixPage() {

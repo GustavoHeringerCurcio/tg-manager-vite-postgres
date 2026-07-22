@@ -61,7 +61,7 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
   const [remarketing, setRemarketing] = useState<RemarketingConfig>(
     bot?.remarketing ?? defaultRemarketing
   );
-  const defaultPaymentFlowInline: PaymentFlow = { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", unpaidAudioFileIds: [], verifyPaymentFailAudios: [], verifyPaymentSuccessAudios: [], isVerifyPaymentAudioEnabled: false, copyPixAudios: [], isCopyPixAudioEnabled: false };
+  const defaultPaymentFlowInline: PaymentFlow = { steps: [], verifyLabel: "Verificar pagamento", pixCopyLabel: "Copiar PIX", unpaidAudioFileIds: [], verifyPaymentFailAudios: [], verifyPaymentSuccessAudios: [], isVerifyPaymentAudioEnabled: false, copyPixAudios: [], isCopyPixAudioEnabled: false, deliverables: [] };
   const [paymentFlow, setPaymentFlow] = useState<PaymentFlow>(bot?.paymentFlow ?? defaultPaymentFlowInline);
   const [timeCompliments, setTimeCompliments] = useState<TimeComplimentConfig>(normalizeTimeCompliments(bot?.timeCompliments));
   const [settingsOpen, setSettingsOpen] = useState(!isEditing);

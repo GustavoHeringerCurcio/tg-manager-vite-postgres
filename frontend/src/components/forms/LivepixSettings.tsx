@@ -20,6 +20,7 @@ const defaultPaymentFlow: PaymentFlow = {
   isVerifyPaymentAudioEnabled: false,
   copyPixAudios: [],
   isCopyPixAudioEnabled: false,
+  deliverables: [],
 };
 
 export function isLivepixConfigured(paymentFlow: PaymentFlow): boolean {

@@ -143,6 +143,7 @@ export default function BotPaymentAudioPage() {
         isVerifyPaymentAudioEnabled: isVerifyAudioEnabled,
         copyPixAudios: copyPixAudios,
         isCopyPixAudioEnabled: isCopyPixAudioEnabled,
+        deliverables: bot.paymentFlow?.deliverables ?? [],
       };
       const updated = await api.updateBot(botId, {
         name: bot.name,

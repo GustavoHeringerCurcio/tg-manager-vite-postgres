@@ -15,6 +15,7 @@ import BotChatPreviewPage from "@/pages/BotChatPreviewPage";
 import BotPaymentPage from "@/pages/BotPaymentPage";
 import BotLivepixPage from "@/pages/BotLivepixPage";
 import BotPaymentAudioPage from "@/pages/BotPaymentAudioPage";
+import BotDeliverablesPage from "@/pages/BotDeliverablesPage";
 import BotSettingsPage from "@/pages/BotSettingsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import UtilsGetFileId from "@/pages/UtilsGetFileId";
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/manager/:botId/payment-settings" element={<BotPaymentPage />} />
             <Route path="/manager/:botId/payment-settings/audio" element={<BotPaymentAudioPage />} />
             <Route path="/manager/:botId/payment-settings/livepix" element={<BotLivepixPage />} />
+            <Route path="/manager/:botId/payment-settings/deliverables" element={<BotDeliverablesPage />} />
             <Route path="/utils/file-id" element={<UtilsGetFileId />} />
           </Route>
         </Route>
