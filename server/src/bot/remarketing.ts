@@ -191,9 +191,9 @@ function cleanString(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-export function normalizeTimeCompliments(value: unknown): TimeComplimentConfig {
-  if (!isRecord(value)) return defaultTimeCompliments();
-  const timezone = cleanString(value.timezone) ?? "America/Sao_Paulo";
+export function normalizeTimeCompliments(value: unknown, botTimezone?: string): TimeComplimentConfig {
+  if (!isRecord(value)) return defaultTimeCompliments(botTimezone);
+  const timezone = cleanString(value.timezone) ?? botTimezone ?? "America/Sao_Paulo";
   const fallback = cleanString(value.fallback) ?? "";
   const rawPresets = value.presets;
   const presets: TimeComplimentPreset[] = [];
@@ -206,9 +206,9 @@ export function normalizeTimeCompliments(value: unknown): TimeComplimentConfig {
   return { timezone, fallback, presets };
 }
 
-export function defaultTimeCompliments(): TimeComplimentConfig {
+export function defaultTimeCompliments(botTimezone?: string): TimeComplimentConfig {
   return {
-    timezone: "America/Sao_Paulo",
+    timezone: botTimezone ?? "America/Sao_Paulo",
     fallback: "",
     presets: []
   };

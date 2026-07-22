@@ -8,6 +8,7 @@ import { webhookDispatcher } from "./middleware/webhook.js";
 import { apiRouter } from "./routes/api.js";
 import { chatRouter } from "./routes/chat.js";
 import { facebookPixelRouter } from "./routes/facebookPixel.js";
+import { botSettingsRouter } from "./routes/botSettings.js";
 import { loadEnv } from "./utils/env.js";
 import { HttpError } from "./utils/errors.js";
 import { prisma } from "./services/prisma.js";
@@ -36,6 +37,7 @@ app.get("/api/health", async (_req, res) => {
 app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
 app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
+app.use("/api", adminAuth(env.adminPassword), botSettingsRouter());
 
 app.use(express.static(publicDir));
 app.get(/^\/(?!api|webhook).*/, (_req, res) => {

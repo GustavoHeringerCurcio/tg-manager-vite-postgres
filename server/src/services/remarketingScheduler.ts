@@ -6,6 +6,7 @@ import type { MessageStep } from "../bot/messageFlow.js";
 import { BUTTON_STYLE_MAP, getAudioFileId } from "../bot/messageFlow.js";
 import { normalizeRemarketing, getDiscountPercentage, resolveDiscountLabel, normalizeTimeCompliments } from "../bot/remarketing.js";
 import type { TimeComplimentConfig } from "../bot/remarketing.js";
+import { normalizeBotSettings } from "../bot/botSettings.js";
 import { resolveAllPlaceholders } from "../bot/placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
@@ -99,7 +100,9 @@ async function processOne(
   const manager = getBotManager(state.botId);
   if (!manager) return;
 
-  const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments);
+  const botSettings = normalizeBotSettings(botConfig.settings);
+  const botTimezone = botSettings.timezone;
+  const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments, botTimezone);
 
   const index = state.nextIndex % config.messages.length;
   const step = config.messages[index];
@@ -193,7 +196,7 @@ async function sendRemarketingStep(
     return;
   }
 
-  const remarketingAudioFileId = step.type === "AUDIO" ? getAudioFileId(step) : null;
+  const remarketingAudioFileId = step.type === "AUDIO" ? getAudioFileId(step, timeCompliments.timezone) : null;
   if (step.type === "AUDIO" && remarketingAudioFileId) {
     await withTimeout(telegram.sendVoice(chatId, remarketingAudioFileId, { caption: resolvedText, ...options }), 10000);
     logInteraction({ botId, userId, type: "message", direction: "outgoing", content: `remarketing:${step.title}`, logPayloads: false });
@@ -227,7 +230,7 @@ function buildInlineKeyboard(
   discountPercentage: number = 0,
   labelTemplate: string = "",
   firstName: string | null = null,
-  timezone: string = "America/Sao_Paulo"
+  timezone: string
 ): { inline_keyboard: Array<Array<{ text: string; style?: string; callback_data?: string; url?: string }>> } | undefined {
   if (step.buttons.length === 0) return undefined;
   return {

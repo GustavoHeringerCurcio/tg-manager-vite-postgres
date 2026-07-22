@@ -24,6 +24,7 @@ import {
   Moon,
   CreditCard,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -95,6 +96,16 @@ export default function AppSidebar() {
                 >
                   <LayoutDashboard className="size-4 text-sky-400" />
                   <span>Dashboard</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Settings"
+                  isActive={location.pathname === `/manager/${botId}/settings`}
+                  render={<Link to={`/manager/${botId}/settings`} />}
+                >
+                  <Settings className="size-4 text-slate-400" />
+                  <span>Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

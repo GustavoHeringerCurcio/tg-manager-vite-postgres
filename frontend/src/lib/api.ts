@@ -51,6 +51,13 @@ export type MessageStep = {
   dailyAudios?: DailyAudioConfig;
 };
 
+export type BotSettings = {
+  timezone?: string;
+  language?: string;
+  maxDailyPixGenerations?: number;
+  resetPixAfterStart?: boolean;
+};
+
 export type Bot = {
   id: string;
   name: string;
@@ -59,6 +66,7 @@ export type Bot = {
   remarketing: RemarketingConfig;
   paymentFlow: PaymentFlow;
   timeCompliments?: TimeComplimentConfig;
+  settings?: BotSettings;
   livepixConfigured?: boolean;
   fbPixelId?: string | null;
   status: BotStatus;
@@ -242,4 +250,6 @@ export const api = {
   updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string; enabled?: boolean }) => request<{ pixelId: string; hasToken: boolean; enabled: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
   deletePixelConfig: (botId: string) => request<void>(`/api/bots/${botId}/pixel`, { method: "DELETE" }),
   testPixelEvent: (botId: string) => request<FacebookPixelTestResult>(`/api/bots/${botId}/pixel/test`, { method: "POST" }),
+  getBotSettings: (botId: string) => request<BotSettings>(`/api/bots/${botId}/settings`),
+  updateBotSettings: (botId: string, settings: BotSettings) => request<BotSettings>(`/api/bots/${botId}/settings`, { method: "PUT", body: JSON.stringify(settings) }),
 };

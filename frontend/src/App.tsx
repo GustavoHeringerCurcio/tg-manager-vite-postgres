@@ -15,6 +15,7 @@ import BotChatPreviewPage from "@/pages/BotChatPreviewPage";
 import BotPaymentPage from "@/pages/BotPaymentPage";
 import BotLivepixPage from "@/pages/BotLivepixPage";
 import BotPaymentAudioPage from "@/pages/BotPaymentAudioPage";
+import BotSettingsPage from "@/pages/BotSettingsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/manager" element={<ManagerPage />} />
             <Route path="/manager/new" element={<CreateBotPage />} />
             <Route path="/manager/:botId/dashboard" element={<BotDashboardPage />} />
+            <Route path="/manager/:botId/settings" element={<BotSettingsPage />} />
             <Route path="/manager/:botId/messages" element={<BotMessagesPage />} />
             <Route path="/manager/:botId/remarketing" element={<BotRemarketingPage />} />
             <Route path="/manager/:botId/remarketing-status" element={<BotRemarketingStatusPage />} />

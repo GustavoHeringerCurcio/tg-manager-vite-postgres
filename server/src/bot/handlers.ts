@@ -14,6 +14,7 @@ import { normalizePaymentFlow } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js";
 import type { TimeComplimentConfig } from "./remarketing.js";
+import { normalizeBotSettings } from "./botSettings.js";
 import { resolveAllPlaceholders } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
@@ -236,7 +237,7 @@ async function sendStep(
     });
     return;
   }
-  const audioFileId = step.type === "AUDIO" ? getAudioFileId(step) : null;
+  const audioFileId = step.type === "AUDIO" ? getAudioFileId(step, timeCompliments.timezone) : null;
   if (step.type === "AUDIO" && audioFileId) {
     await ctx.replyWithVoice(audioFileId, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({
@@ -339,7 +340,8 @@ async function sendLivePixPayment(
 
     let pixCode: string | undefined;
     const currentCount = user.pixGenerations;
-    if (currentCount < services.env.maxPixGenerations) {
+    const maxGenerations = normalizeBotSettings(botConfig.settings).maxDailyPixGenerations ?? services.env.maxPixGenerations;
+    if (currentCount < maxGenerations) {
       pixCode = await services.livePix.extractPixCode(payment.checkoutUrl);
       if (pixCode) {
         await prisma.user.update({
@@ -348,7 +350,7 @@ async function sendLivePixPayment(
         });
       }
     } else {
-      console.warn(`[bot:${botConfig.id}] user ${user.id} pix limit reached (${currentCount}/${services.env.maxPixGenerations})`);
+      console.warn(`[bot:${botConfig.id}] user ${user.id} pix limit reached (${currentCount}/${maxGenerations})`);
     }
 
     await prisma.user.update({
@@ -446,8 +448,8 @@ async function sendLivePixPayment(
           } else if (resolvedStep.type === "VIDEO" && resolvedStep.mediaUrls.length === 1) {
             const resolvedVideo = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
             await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText ?? undefined, ...kbParam } as object);
-          } else if (resolvedStep.type === "AUDIO" && getAudioFileId(resolvedStep)) {
-            await ctx.replyWithVoice(getAudioFileId(resolvedStep)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
+          } else if (resolvedStep.type === "AUDIO" && getAudioFileId(resolvedStep, timeCompliments.timezone)) {
+            await ctx.replyWithVoice(getAudioFileId(resolvedStep, timeCompliments.timezone)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
           } else {
             await sendStep(ctx, botConfig, user, sessionId, resolvedStep, -1 - index, services.env, timeCompliments, "HTML");
           }
@@ -503,7 +505,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
   const messageFlow = normalizeMessageFlow(botConfig.messageFlow);
   const remarketing = normalizeRemarketing(botConfig.remarketing);
   const paymentFlow = normalizePaymentFlow(botConfig.paymentFlow);
-  const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments);
+  const botSettings = normalizeBotSettings(botConfig.settings);
+  const botTimezone = botSettings.timezone;
+  const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments, botTimezone);
   const activeStarts = new Set<number>();
 
   telegraf.start(async (ctx) => {
@@ -519,10 +523,12 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         return;
       }
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { pixGenerations: 0 }
-      });
+      if (botSettings.resetPixAfterStart !== false) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { pixGenerations: 0 }
+        });
+      }
 
       const isNewUser = user.totalInteractions === 0;
       const pixelEventName = isNewUser ? "CompleteRegistration" : "StartTrial";

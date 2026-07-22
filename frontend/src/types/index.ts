@@ -22,4 +22,5 @@ export type {
   DiscountOfferConfig,
   TimeComplimentPreset,
   TimeComplimentConfig,
+  BotSettings,
 } from "../lib/api";

@@ -26,6 +26,7 @@ model Bot {
   remarketing     Json      @default("{}")
   paymentFlow     Json      @default("{}")
   timeCompliments Json      @default("{}")
+  settings        Json      @default("{}")
   photoUrl        String?
   status          BotStatus @default(ACTIVE)
   fbPixelId       String?

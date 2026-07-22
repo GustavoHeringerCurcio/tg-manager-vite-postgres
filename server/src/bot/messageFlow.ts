@@ -185,9 +185,10 @@ function resolveDayOfWeek(timezone?: string): string {
   }
 }
 
-export function getAudioFileId(step: MessageStep): string | null {
+export function getAudioFileId(step: MessageStep, botTimezone?: string): string | null {
   if (step.dailyAudios?.enabled) {
-    const today = resolveDayOfWeek(step.dailyAudios.timezone);
+    const tz = step.dailyAudios.timezone ?? botTimezone;
+    const today = resolveDayOfWeek(tz);
     const daily = step.dailyAudios.audios[today];
     if (daily) return daily;
     if (step.dailyAudios.fallback) return step.dailyAudios.fallback;
