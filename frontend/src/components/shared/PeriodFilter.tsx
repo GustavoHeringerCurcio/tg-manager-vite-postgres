@@ -2,9 +2,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, RefreshCw } from "lucide-react";
 import type { DashboardPeriod, Granularity } from "@/lib/api";
+
+function computeGranularity(from?: string, to?: string): Granularity {
+  if (!from) return "daily";
+  const fromDate = new Date(from);
+  const toDate = to ? new Date(to) : new Date();
+  const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
+  if (diffDays <= 60) return "daily";
+  if (diffDays <= 365) return "weekly";
+  return "monthly";
+}
 
 type TimePreset = "7d" | "30d" | "month" | "year" | "all" | "custom";
 
@@ -15,28 +24,31 @@ interface PeriodFilterProps {
   onAutoRefreshChange: (enabled: boolean) => void;
 }
 
-function presetToPeriod(preset: TimePreset, granularity: Granularity): DashboardPeriod {
+function presetToPeriod(preset: TimePreset): DashboardPeriod {
   const now = new Date();
   const to = now.toISOString();
+  let from: string;
 
   switch (preset) {
     case "7d":
-      return { from: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), to, granularity };
+      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      break;
     case "30d":
-      return { from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(), to, granularity };
-    case "month": {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { from: start.toISOString(), to, granularity };
-    }
-    case "year": {
-      const start = new Date(now.getFullYear(), 0, 1);
-      return { from: start.toISOString(), to, granularity };
-    }
+      from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      break;
+    case "month":
+      from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      break;
+    case "year":
+      from = new Date(now.getFullYear(), 0, 1).toISOString();
+      break;
     case "all":
-      return { from: "2020-01-01T00:00:00.000Z", granularity };
+      return { from: "2020-01-01T00:00:00.000Z", granularity: "monthly" };
     case "custom":
-      return { granularity };
+      return { granularity: "daily" };
   }
+
+  return { from, to, granularity: computeGranularity(from, to) };
 }
 
 function detectPreset(period: DashboardPeriod): TimePreset {
@@ -89,21 +101,19 @@ export default function PeriodFilter({
   function handlePresetChange(preset: TimePreset) {
     setActivePreset(preset);
     if (preset !== "custom") {
-      onPeriodChange(presetToPeriod(preset, value.granularity));
+      onPeriodChange(presetToPeriod(preset));
     }
   }
 
   function handleCustomApply() {
+    const from = customFrom ? new Date(customFrom).toISOString() : undefined;
+    const to = customTo ? new Date(customTo + "T23:59:59.999Z").toISOString() : undefined;
     const period: DashboardPeriod = {
-      from: customFrom ? new Date(customFrom).toISOString() : undefined,
-      to: customTo ? new Date(customTo + "T23:59:59.999Z").toISOString() : undefined,
-      granularity: value.granularity,
+      from,
+      to,
+      granularity: computeGranularity(from, to),
     };
     onPeriodChange(period);
-  }
-
-  function handleGranularityChange(g: string) {
-    onPeriodChange({ ...value, granularity: g as Granularity });
   }
 
   return (
@@ -157,14 +167,6 @@ export default function PeriodFilter({
       )}
 
       <div className="flex items-center gap-3 ml-auto">
-        <Tabs value={value.granularity} onValueChange={handleGranularityChange}>
-          <TabsList className="h-7">
-            <TabsTrigger value="daily" className="text-[11px] px-2.5">Daily</TabsTrigger>
-            <TabsTrigger value="weekly" className="text-[11px] px-2.5">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly" className="text-[11px] px-2.5">Monthly</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
         <div className="flex items-center gap-1.5">
           <Switch
             checked={autoRefresh}
