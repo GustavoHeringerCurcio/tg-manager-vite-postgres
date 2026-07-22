@@ -46,6 +46,13 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
       ? ((value as Record<string, unknown>).isCopyPixAudioEnabled as boolean)
       : false;
 
+  const record = value as Record<string, unknown>;
+  const verifyPaymentAudiosRaw = normalizeStringArray(record.verifyPaymentAudios);
+  const verifyPaymentAudios = verifyPaymentAudiosRaw.length ? verifyPaymentAudiosRaw : unpaidAudioFileIds;
+  const copyPixAudios = normalizeStringArray(record.copyPixAudios);
+  const isCopyPixAudioEnabled =
+    typeof record.isCopyPixAudioEnabled === "boolean" ? (record.isCopyPixAudioEnabled as boolean) : false;
+
   return {
     steps,
     verifyLabel,

@@ -269,6 +269,8 @@ export const api = {
   updateBot: (id: string, payload: BotPayload) => request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
   updatePaymentFlow: (id: string, paymentFlow: PaymentFlow) =>
     request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify({ paymentFlow }) }),
+  notifyPixCopied: (botId: string, sessionId: string) =>
+    request<{ ok: boolean }>(`/api/bots/${botId}/payment/pix-copied`, { method: "POST", body: JSON.stringify({ sessionId }) }),
   setStatus: (id: string, status: BotStatus) => request<Bot>(`/api/bots/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteBot: (id: string) => request<void>(`/api/bots/${id}`, { method: "DELETE" }),
   transactions: (id: string, page: number) => request<Paginated<Transaction>>(`/api/bots/${id}/transactions?page=${page}&pageSize=10`),
