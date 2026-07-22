@@ -25,6 +25,7 @@ import {
   CreditCard,
   MessageSquare,
   Settings,
+  Wrench,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -79,6 +80,16 @@ export default function AppSidebar() {
               >
                 <Bot className="size-4" />
                 <span>All Bots</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Utils"
+                isActive={location.pathname.startsWith("/utils")}
+                render={<Link to="/utils/file-id" />}
+              >
+                <Wrench className="size-4 text-purple-400" />
+                <span>Utils</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
