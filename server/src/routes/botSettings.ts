@@ -1,8 +1,11 @@
 import { Router } from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { BotStatus } from "@prisma/client";
+import type { AppEnv } from "../utils/env.js";
 import { HttpError } from "../utils/errors.js";
 import { prisma } from "../services/prisma.js";
 import { serializeJson } from "../utils/serialize.js";
+import { startBot, stopBot } from "../services/botLifecycle.js";
 import { normalizeBotSettings, type BotSettings } from "../bot/botSettings.js";
 
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<void>;
@@ -19,7 +22,7 @@ function routeParam(req: Request, name: string): string {
   return value ?? "";
 }
 
-export function botSettingsRouter(): Router {
+export function botSettingsRouter(env: AppEnv): Router {
   const router = Router();
 
   router.get("/bots/:id/settings", route(async (req, res) => {
@@ -35,7 +38,11 @@ export function botSettingsRouter(): Router {
     if (!existing) throw new HttpError(404, "Bot not found");
 
     const settings = normalizeBotSettings(req.body);
-    await prisma.bot.update({ where: { id: botId }, data: { settings } });
+    const updated = await prisma.bot.update({ where: { id: botId }, data: { settings } });
+    if (updated.status === BotStatus.ACTIVE) {
+      await stopBot(updated.id);
+      await startBot(updated, env);
+    }
     res.json(serializeJson(settings));
   }));
 

@@ -37,7 +37,7 @@ app.get("/api/health", async (_req, res) => {
 app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
 app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
-app.use("/api", adminAuth(env.adminPassword), botSettingsRouter());
+app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
 
 app.use(express.static(publicDir));
 app.get(/^\/(?!api|webhook).*/, (_req, res) => {
