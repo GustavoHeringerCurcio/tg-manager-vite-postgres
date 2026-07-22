@@ -33,6 +33,7 @@ export type DailyAudioConfig = {
   enabled: boolean;
   audios: Record<string, string>;
   fallback?: string;
+  timezone?: string;
 };
 
 export type MessageStep = {

@@ -429,6 +429,48 @@ function MessageStepCardInner({
                 </div>
                 {step.dailyAudios?.enabled && (
                   <div className="space-y-2 animate-fade-in pl-2 border-l-2 border-amber-500/20">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-[11px] w-20">Timezone</Label>
+                      <Select
+                        value={step.dailyAudios.timezone ?? ""}
+                        onValueChange={(v) =>
+                          update({
+                            dailyAudios: {
+                              ...step.dailyAudios!,
+                              timezone: v || undefined,
+                            },
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-sm flex-1">
+                          <SelectValue placeholder="Server time (default)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Server time</SelectItem>
+                          <SelectItem value="America/Sao_Paulo">America/Sao_Paulo (UTC-3)</SelectItem>
+                          <SelectItem value="America/New_York">America/New_York (UTC-5)</SelectItem>
+                          <SelectItem value="America/Chicago">America/Chicago (UTC-6)</SelectItem>
+                          <SelectItem value="America/Denver">America/Denver (UTC-7)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">America/Los_Angeles (UTC-8)</SelectItem>
+                          <SelectItem value="America/Argentina/Buenos_Aires">America/Argentina/Buenos_Aires (UTC-3)</SelectItem>
+                          <SelectItem value="America/Mexico_City">America/Mexico_City (UTC-6)</SelectItem>
+                          <SelectItem value="America/Bogota">America/Bogota (UTC-5)</SelectItem>
+                          <SelectItem value="America/Lima">America/Lima (UTC-5)</SelectItem>
+                          <SelectItem value="America/Santiago">America/Santiago (UTC-4)</SelectItem>
+                          <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+                          <SelectItem value="Europe/Paris">Europe/Paris (UTC+1)</SelectItem>
+                          <SelectItem value="Europe/Madrid">Europe/Madrid (UTC+1)</SelectItem>
+                          <SelectItem value="Europe/Lisbon">Europe/Lisbon (UTC+0)</SelectItem>
+                          <SelectItem value="Africa/Lagos">Africa/Lagos (UTC+1)</SelectItem>
+                          <SelectItem value="Asia/Tokyo">Asia/Tokyo (UTC+9)</SelectItem>
+                          <SelectItem value="Asia/Shanghai">Asia/Shanghai (UTC+8)</SelectItem>
+                          <SelectItem value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</SelectItem>
+                          <SelectItem value="Asia/Dubai">Asia/Dubai (UTC+4)</SelectItem>
+                          <SelectItem value="Australia/Sydney">Australia/Sydney (UTC+10)</SelectItem>
+                          <SelectItem value="Pacific/Auckland">Pacific/Auckland (UTC+12)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     {(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const).map(
                       (day) => (
                         <div key={day} className="flex items-center gap-2">

@@ -37,6 +37,7 @@ export type DailyAudioConfig = {
   enabled: boolean;
   audios: Record<string, string>;
   fallback?: string;
+  timezone?: string;
 };
 
 export type MessageStep = {
@@ -149,8 +150,9 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
         }
       }
       const fallback = cleanString(item.dailyAudios.fallback as string | undefined);
+      const timezone = cleanString(item.dailyAudios.timezone as string | undefined);
       if (enabled || Object.keys(audios).length > 0 || fallback) {
-        dailyAudios = { enabled, audios, ...(fallback ? { fallback } : {}) };
+        dailyAudios = { enabled, audios, ...(fallback ? { fallback } : {}), ...(timezone ? { timezone } : {}) };
       }
     }
 
@@ -173,9 +175,19 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
 
 const WEEK_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 
+function resolveDayOfWeek(timezone?: string): string {
+  if (!timezone) return WEEK_DAYS[new Date().getDay()];
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: timezone });
+    return formatter.format(new Date()).toLowerCase();
+  } catch {
+    return WEEK_DAYS[new Date().getDay()];
+  }
+}
+
 export function getAudioFileId(step: MessageStep): string | null {
   if (step.dailyAudios?.enabled) {
-    const today = WEEK_DAYS[new Date().getDay()];
+    const today = resolveDayOfWeek(step.dailyAudios.timezone);
     const daily = step.dailyAudios.audios[today];
     if (daily) return daily;
     if (step.dailyAudios.fallback) return step.dailyAudios.fallback;
