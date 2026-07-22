@@ -271,6 +271,11 @@ export const api = {
     request<Bot>(`/api/bots/${id}`, { method: "PUT", body: JSON.stringify({ paymentFlow }) }),
   notifyPixCopied: (botId: string, sessionId: string) =>
     request<{ ok: boolean }>(`/api/bots/${botId}/payment/pix-copied`, { method: "POST", body: JSON.stringify({ sessionId }) }),
+  getFileIdFromUrl: (botId: string, chatId: string, url: string) =>
+    request<{ ok: boolean; fileId: string; fileUniqueId?: string }>(`/api/utils/file-id`, {
+      method: "POST",
+      body: JSON.stringify({ botId, chatId, url })
+    }),
   setStatus: (id: string, status: BotStatus) => request<Bot>(`/api/bots/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteBot: (id: string) => request<void>(`/api/bots/${id}`, { method: "DELETE" }),
   transactions: (id: string, page: number) => request<Paginated<Transaction>>(`/api/bots/${id}/transactions?page=${page}&pageSize=10`),
