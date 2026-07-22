@@ -7,21 +7,13 @@ import AppHeader from "./AppHeader";
 export default function AppShell() {
   return (
     <TooltipProvider delay={300}>
-      <SidebarProvider
-        style={
-          {
-            "--sidebar-top": "var(--header-height)",
-          } as React.CSSProperties
-        }
-      >
-        <AppHeader />
+      <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <div className="flex flex-1 flex-col pt-[var(--header-height)]">
-            <div className="flex-1 overflow-auto scrollbar-thin">
-              <div className="container mx-auto p-6">
-                <Outlet />
-              </div>
+          <AppHeader />
+          <div className="flex-1 overflow-auto scrollbar-thin">
+            <div className="container mx-auto p-6">
+              <Outlet />
             </div>
           </div>
         </SidebarInset>

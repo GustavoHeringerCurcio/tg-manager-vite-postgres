@@ -40,7 +40,6 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 240 5.9% 88%;
     --sidebar-ring: 235 70% 60%;
-    --header-height: 3.5rem;
   }
 
   .dark {
@@ -76,7 +75,6 @@
     --sidebar-accent-foreground: 228 24% 92%;
     --sidebar-border: 228 10% 14%;
     --sidebar-ring: 235 65% 58%;
-    --header-height: 3.5rem;
   }
 
   * {
