@@ -86,14 +86,14 @@ export default function BotDeliverablesPage() {
 
   if (!botId) {
     return (
-      <main className="container mx-auto p-6">
+      <main className="p-6">
         <p className="text-sm text-muted-foreground">Bot ID missing.</p>
       </main>
     );
   }
 
   return (
-    <main className="container mx-auto p-6 space-y-6">
+    <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Deliverables</h1>
         <div className="flex gap-2">

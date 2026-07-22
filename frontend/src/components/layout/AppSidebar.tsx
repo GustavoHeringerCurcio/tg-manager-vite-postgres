@@ -63,13 +63,13 @@ export default function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="px-3 py-4">
+      <SidebarHeader className="px-2 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
               render={<Link to="/manager" />}
-              className="px-3 py-5 data-active:!bg-transparent -ml-1"
+              className="px-2 py-4 data-active:!bg-transparent -ml-1"
             >
               <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover/menu-button:scale-105">
                 <Bot className="size-5" />
@@ -87,11 +87,11 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <div className="px-2 pb-1">
+      <div className="px-2 pb-0.5">
         <Button
           variant="default"
           size="sm"
-          className="w-full justify-start gap-2 h-9 rounded-lg"
+          className="w-full justify-start gap-2 h-8 rounded-md"
           render={<Link to="/manager/new" />}
         >
           <Plus className="size-4" />
@@ -341,19 +341,14 @@ export default function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter className="border-t border-sidebar-border gap-1.5">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="sm" className="h-auto py-3">
+            <SidebarMenuButton size="sm" className="h-auto py-2.5">
               <Avatar size="sm">
                 <AvatarFallback className="text-[10px]">A</AvatarFallback>
               </Avatar>
-              <div className="flex flex-col leading-tight">
-                <span className="text-sm font-medium">Admin</span>
-                <span className="text-xs text-sidebar-foreground/40">
-                  admin@botflix
-                </span>
-              </div>
+              <span className="text-sm font-medium">Admin</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

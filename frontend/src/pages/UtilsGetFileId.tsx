@@ -162,7 +162,7 @@ export default function UtilsGetFileId() {
     || (sourceMode === "url" ? !fileUrl.trim() : !file);
 
   return (
-    <main className="container mx-auto p-6 space-y-6">
+    <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Utils — Get File ID</h1>
       </div>
