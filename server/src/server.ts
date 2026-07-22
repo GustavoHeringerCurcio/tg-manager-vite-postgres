@@ -16,6 +16,7 @@ import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
+import multer from "multer";
 
 const env = loadEnv();
 const app = express();
@@ -40,15 +41,24 @@ app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
 app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
 
-app.post("/api/utils/file-id", adminAuth(env.adminPassword), async (req: Request, res: Response) => {
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+app.post("/api/utils/file-id", adminAuth(env.adminPassword), upload.single("file"), async (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
     const botId = typeof body.botId === "string" ? body.botId.trim() : "";
     const chatId = typeof body.chatId === "string" ? body.chatId.trim() : "";
-    const url = typeof body.url === "string" ? body.url.trim() : "";
+    const file = (req as any).file as { buffer: Buffer; originalname: string; mimetype: string } | undefined;
 
-    if (!botId || !chatId || !url) {
-      res.status(400).json({ error: "Missing botId, chatId or url" });
+    if (!botId || !chatId) {
+      res.status(400).json({ error: "Missing botId or chatId" });
+      return;
+    }
+    if (!file || !file.buffer) {
+      res.status(400).json({ error: "Missing file" });
       return;
     }
 
@@ -62,12 +72,16 @@ app.post("/api/utils/file-id", adminAuth(env.adminPassword), async (req: Request
       return;
     }
 
-    let tgResp: globalThis.Response;
+    const form = new (globalThis as any).FormData();
+    form.append("chat_id", chatId);
+    const blob = new (globalThis as any).Blob([file.buffer], { type: file.mimetype || "application/octet-stream" });
+    form.append("document", blob, file.originalname || "upload.bin");
+
+    let tgResp: any;
     try {
       tgResp = await fetch(`https://api.telegram.org/bot${bot.token}/sendDocument`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, document: url })
+        body: form as any
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

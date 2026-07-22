@@ -276,6 +276,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ botId, chatId, url })
     }),
+  getFileIdFromFile: async (botId: string, chatId: string, file: File): Promise<{ ok: boolean; fileId: string; fileUniqueId?: string }> => {
+    const form = new FormData();
+    form.set("botId", botId);
+    form.set("chatId", chatId);
+    form.set("file", file, file.name);
+
+    const response = await fetch("/api/utils/file-id", {
+      method: "POST",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+      body: form
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({ error: "Request failed" }))) as { error?: string };
+      throw new Error(body.error ?? "Request failed");
+    }
+
+    return (await response.json()) as { ok: boolean; fileId: string; fileUniqueId?: string };
+  },
   setStatus: (id: string, status: BotStatus) => request<Bot>(`/api/bots/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteBot: (id: string) => request<void>(`/api/bots/${id}`, { method: "DELETE" }),
   transactions: (id: string, page: number) => request<Paginated<Transaction>>(`/api/bots/${id}/transactions?page=${page}&pageSize=10`),
