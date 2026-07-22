@@ -30,6 +30,7 @@ import {
   Power,
   PowerOff,
   Calendar,
+  Settings,
 } from "lucide-react";
 import { useState } from "react";
 import type { Bot } from "@/types";
@@ -84,20 +85,30 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
     }
   }
 
+  const avatarRing = cn(
+    "size-24 rounded-2xl ring-2 shadow-md shrink-0 transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg",
+    isActive &&
+      "ring-emerald-500/30 shadow-emerald-500/10 group-hover:ring-emerald-500/50 group-hover:shadow-emerald-500/20",
+    isSuspended &&
+      "ring-destructive/30 shadow-destructive/10 group-hover:ring-destructive/50 group-hover:shadow-destructive/20",
+    !isActive && !isSuspended &&
+      "ring-border shadow-transparent group-hover:ring-muted-foreground/30"
+  );
+
   return (
-    <Card className="group relative flex flex-col shadow-sm transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
-      {/* ---- Zone 1: status accent bar ---- */}
+    <Card className="group relative flex flex-col aspect-square !p-0 shadow-sm transition-all duration-200 hover:shadow-card-hover hover:-translate-y-1 animate-fade-up">
+      {/* ---- accent bar ---- */}
       <div
         className={cn(
-          "absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r",
+          "absolute top-0 left-0 right-0 h-1 rounded-t-xl z-10 bg-gradient-to-r pointer-events-none",
           isActive && "from-emerald-500/60 to-emerald-500/5",
           isSuspended && "from-destructive/60 to-destructive/5",
-          !isActive && !isSuspended && "from-border to-transparent"
+          !isActive && !isSuspended && "from-border to-transparent",
         )}
       />
 
-      {/* ---- Zone 2: action buttons ---- */}
-      <div className="absolute top-3 right-3 flex items-center gap-0.5 z-10">
+      {/* ---- action buttons ---- */}
+      <div className="absolute top-3 right-3 flex items-center gap-0.5 z-20">
         <Button
           variant="ghost"
           size="icon-xs"
@@ -124,11 +135,16 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               </Button>
             }
           />
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onSelect={() => navigate(`/manager/${bot.id}/messages`)}>
               <Pencil className="mr-2 size-4" />
               Edit Messages
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => navigate(`/manager/${bot.id}/settings`)}>
+              <Settings className="mr-2 size-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={handleStatusToggle}>
               {isActive ? (
                 <>
@@ -141,7 +157,13 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteConfirmText(""); }}>
+            <Dialog
+              open={deleteOpen}
+              onOpenChange={(open) => {
+                setDeleteOpen(open);
+                if (!open) setDeleteConfirmText("");
+              }}
+            >
               <DialogTrigger
                 render={
                   <DropdownMenuItem
@@ -158,10 +180,16 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
                   <DialogTitle>Delete Bot</DialogTitle>
                   <DialogDescription className="space-y-3 pt-2">
                     <p>
-                      This action <strong>cannot be undone</strong>. All data including users, messages, transactions, and sessions will be permanently deleted.
+                      This action <strong>cannot be undone</strong>. All data
+                      including users, messages, transactions, and sessions will be
+                      permanently deleted.
                     </p>
                     <p className="text-destructive font-medium">
-                      Type <code className="px-1 py-0.5 rounded bg-muted text-destructive text-xs font-mono">{requiredText}</code> to confirm:
+                      Type{" "}
+                      <code className="px-1 py-0.5 rounded bg-muted text-destructive text-xs font-mono">
+                        {requiredText}
+                      </code>{" "}
+                      to confirm:
                     </p>
                     <Input
                       value={deleteConfirmText}
@@ -173,7 +201,15 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => { setDeleteOpen(false); setDeleteConfirmText(""); }}>Cancel</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteOpen(false);
+                      setDeleteConfirmText("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
                   <Button
                     variant="destructive"
                     disabled={deleteConfirmText !== requiredText}
@@ -192,63 +228,66 @@ export default function BotCard({ bot, stats, onStatusChange, onDelete }: BotCar
         </DropdownMenu>
       </div>
 
-      {/* ---- Zone 3: avatar + metadata ---- */}
+      {/* ---- main content ---- */}
       <Link
         to={`/manager/${bot.id}/dashboard`}
-        className="flex items-center gap-4 p-5"
+        className="flex flex-col items-center h-full px-4 pt-5"
       >
-        <Avatar
-          className={cn(
-            "size-16 rounded-2xl ring-2 shrink-0 transition-all duration-200 group-hover:scale-105",
-            isActive && "ring-emerald-500/20 group-hover:ring-emerald-500/40",
-            isSuspended && "ring-destructive/20 group-hover:ring-destructive/40",
-            !isActive && !isSuspended && "ring-border group-hover:ring-muted-foreground/30"
-          )}
-          size="lg"
-        >
-          {bot.photoUrl ? (
-            <AvatarImage src={bot.photoUrl} className="rounded-2xl object-cover" />
-          ) : null}
-          <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-xl">
-            {bot.name.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        {/* centered avatar */}
+        <div className="flex-1 flex items-center justify-center w-full pb-3">
+          <Avatar className={avatarRing} size="lg">
+            {bot.photoUrl ? (
+              <AvatarImage
+                src={bot.photoUrl}
+                className="rounded-2xl object-cover"
+              />
+            ) : null}
+            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-4xl">
+              {bot.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </div>
 
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-base leading-tight truncate">
-            {bot.name}
-          </h3>
+        {/* name */}
+        <h3 className="font-semibold text-sm leading-tight truncate max-w-full">
+          {bot.name}
+        </h3>
+
+        {/* status */}
+        <div className="mt-1">
           <StatusBadge status={bot.status} />
-          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground/60">
-            <Calendar className="size-2.5" />
-            {relativeTime(bot.createdAt)}
-          </p>
+        </div>
+
+        {/* date */}
+        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/60">
+          <Calendar className="size-2.5" />
+          {relativeTime(bot.createdAt)}
+        </p>
+
+        {/* stats footer */}
+        <div className="w-full mt-2.5 border-t border-border/40 bg-muted/30 -mx-4 px-4 py-2.5">
+          <div className="flex items-center justify-around">
+            <div className="text-center">
+              <p className="text-sm font-bold tabular-nums leading-none">
+                {stats?.totalUsers?.toLocaleString() ?? "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+                <Users className="size-3" />
+                Users
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold tabular-nums leading-none">
+                {stats?.messageCount?.toLocaleString() ?? "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+                <MessageSquare className="size-3" />
+                Msgs
+              </p>
+            </div>
+          </div>
         </div>
       </Link>
-
-      {/* ---- Zone 4: stats footer ---- */}
-      <div className="border-t border-border/40 bg-muted/30 rounded-b-xl px-5 py-3">
-        <div className="flex items-center justify-around">
-          <div className="text-center">
-            <p className="text-base font-bold tabular-nums leading-none">
-              {stats?.totalUsers?.toLocaleString() ?? "—"}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-              <Users className="size-3" />
-              Users
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-base font-bold tabular-nums leading-none">
-              {stats?.messageCount?.toLocaleString() ?? "—"}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-              <MessageSquare className="size-3" />
-              Msgs
-            </p>
-          </div>
-        </div>
-      </div>
     </Card>
   );
 }
