@@ -120,6 +120,18 @@ function botData(body: BotBody, env: AppEnv, requireToken: boolean): Prisma.BotC
   return data;
 }
 
+async function getAdminUserIds(botId: string): Promise<string[]> {
+  const bot = await prisma.bot.findUnique({ where: { id: botId }, select: { settings: true } });
+  if (!bot) return [];
+  const adminTelegramIds = normalizeBotSettings(bot.settings).adminTelegramIds ?? [];
+  if (adminTelegramIds.length === 0) return [];
+  const adminUsers = await prisma.user.findMany({
+    where: { botId, telegramId: { in: adminTelegramIds.map(id => BigInt(id)) } },
+    select: { id: true }
+  });
+  return adminUsers.map(u => u.id);
+}
+
 export function apiRouter(env: AppEnv): Router {
   const router = Router();
 
@@ -231,11 +243,13 @@ export function apiRouter(env: AppEnv): Router {
     const botId = routeParam(req, "id");
     const pagination = parsePagination(req.query as Record<string, string | undefined>);
     const query = req.query as Record<string, string | undefined>;
+    const adminUserIds = await getAdminUserIds(botId);
     const where: Prisma.InteractionWhereInput = {
       botId,
       ...(cleanString(query.userId) ? { userId: cleanString(query.userId) } : {}),
       ...(cleanString(query.type) ? { type: cleanString(query.type) } : {}),
-      ...((cleanString(query.from) || cleanString(query.to)) ? { createdAt: { gte: cleanString(query.from) ? new Date(String(query.from)) : undefined, lte: cleanString(query.to) ? new Date(String(query.to)) : undefined } } : {})
+      ...((cleanString(query.from) || cleanString(query.to)) ? { createdAt: { gte: cleanString(query.from) ? new Date(String(query.from)) : undefined, lte: cleanString(query.to) ? new Date(String(query.to)) : undefined } } : {}),
+      ...(adminUserIds.length > 0 ? { userId: { notIn: adminUserIds } } : {})
     };
     const [items, total] = await Promise.all([
       prisma.interaction.findMany({ where, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.take, include: { user: true } }),
@@ -246,13 +260,19 @@ export function apiRouter(env: AppEnv): Router {
 
   router.get("/bots/:id/interactions/stats", route(async (req, res) => {
     const botId = routeParam(req, "id");
+    const adminUserIds = await getAdminUserIds(botId);
+    const hasAdmins = adminUserIds.length > 0;
+    const interactionWhere: Prisma.InteractionWhereInput = {
+      botId,
+      ...(hasAdmins ? { userId: { notIn: adminUserIds } } : {})
+    };
     const [totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers] = await Promise.all([
-      prisma.interaction.count({ where: { botId } }),
-      prisma.user.count({ where: { botId } }),
-      prisma.interaction.count({ where: { botId, type: "callback_query", content: { startsWith: "livepix_payment:" } } }),
-      prisma.interaction.count({ where: { botId, type: "message" } }),
-      prisma.interaction.count({ where: { botId, type: "callback_query" } }),
-      prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
+      prisma.interaction.count({ where: interactionWhere }),
+      prisma.user.count({ where: { botId, ...(hasAdmins ? { id: { notIn: adminUserIds } } : {}) } }),
+      prisma.interaction.count({ where: { ...interactionWhere, type: "callback_query", content: { startsWith: "livepix_payment:" } } }),
+      prisma.interaction.count({ where: { ...interactionWhere, type: "message" } }),
+      prisma.interaction.count({ where: { ...interactionWhere, type: "callback_query" } }),
+      prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, ...(hasAdmins ? { id: { notIn: adminUserIds } } : {}) } })
     ]);
     res.json({ totalInteractions, totalUsers, checkoutClicks, messageCount, callbackCount, dailyActiveUsers });
   }));
@@ -274,9 +294,21 @@ export function apiRouter(env: AppEnv): Router {
 
     const dateFilter = (start: Date, end: Date) => ({ gte: start, lte: end });
 
+    const adminUserIds = await getAdminUserIds(botId);
+    const hasAdmins = adminUserIds.length > 0;
+
     async function fetchAggregates(start: Date, end: Date) {
-      const interactionWhere = { botId, createdAt: dateFilter(start, end) };
-      const txnWhere = { botId, status: "COMPLETED", createdAt: dateFilter(start, end) };
+      const interactionWhere: Prisma.InteractionWhereInput = {
+        botId,
+        createdAt: dateFilter(start, end),
+        ...(hasAdmins ? { userId: { notIn: adminUserIds } } : {})
+      };
+      const txnWhere = {
+        botId,
+        status: "COMPLETED",
+        createdAt: dateFilter(start, end),
+        ...(hasAdmins ? { userId: { notIn: adminUserIds } } : {})
+      };
 
       const [totalInteractions, checkoutClicks, messageCount, callbackCount, totalRevenue, orders, activeUsers] = await Promise.all([
         prisma.interaction.count({ where: interactionWhere }),
@@ -285,7 +317,7 @@ export function apiRouter(env: AppEnv): Router {
         prisma.interaction.count({ where: { ...interactionWhere, type: "callback_query" } }),
         prisma.transaction.aggregate({ where: txnWhere, _sum: { amount: true } }),
         prisma.transaction.count({ where: txnWhere }),
-        prisma.user.count({ where: { botId, lastInteraction: dateFilter(start, end) } }),
+        prisma.user.count({ where: { botId, lastInteraction: dateFilter(start, end), ...(hasAdmins ? { id: { notIn: adminUserIds } } : {}) } }),
       ]);
 
       const conversionRate = totalInteractions > 0 ? (checkoutClicks / totalInteractions) * 100 : 0;
@@ -305,27 +337,32 @@ export function apiRouter(env: AppEnv): Router {
     async function fetchTimeline(start: Date, end: Date) {
       const dateTrunc = granularity === "week" ? "week" : granularity === "month" ? "month" : "day";
 
+      const intNotIn = hasAdmins
+        ? ` AND ("userId" IS NULL OR "userId" NOT IN (${adminUserIds.map((_: string, i: number) => `$${5 + i}::text`).join(", ")}))`
+        : "";
+      const txnNotIn = hasAdmins
+        ? ` AND "userId" NOT IN (${adminUserIds.map((_: string, i: number) => `$${5 + i}::text`).join(", ")})`
+        : "";
+      const userNotIn = hasAdmins
+        ? ` AND "id" NOT IN (${adminUserIds.map((_: string, i: number) => `$${5 + i}::text`).join(", ")})`
+        : "";
+
+      const sqlParams: (string | Date)[] = hasAdmins
+        ? [dateTrunc, botId, start, end, ...adminUserIds]
+        : [dateTrunc, botId, start, end];
+
       const [txnRows, interactionRows, userRows] = await Promise.all([
         prisma.$queryRawUnsafe<Array<{ date: string; revenue: number; transactions: number }>>(
-          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END), 0)::float AS revenue, COUNT(*)::int AS transactions FROM "transactions" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
-          dateTrunc,
-          botId,
-          start,
-          end,
+          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END), 0)::float AS revenue, COUNT(*)::int AS transactions FROM "transactions" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp${txnNotIn} GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
+          ...sqlParams
         ),
         prisma.$queryRawUnsafe<Array<{ date: string; interactions: number }>>(
-          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COUNT(*)::int AS interactions FROM "interactions" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
-          dateTrunc,
-          botId,
-          start,
-          end,
+          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COUNT(*)::int AS interactions FROM "interactions" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp${intNotIn} GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
+          ...sqlParams
         ),
         prisma.$queryRawUnsafe<Array<{ date: string; newUsers: number }>>(
-          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COUNT(*)::int AS "newUsers" FROM "users" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
-          dateTrunc,
-          botId,
-          start,
-          end,
+          `SELECT DATE_TRUNC($1::text, "createdAt")::date::text AS date, COUNT(*)::int AS "newUsers" FROM "users" WHERE "botId" = $2 AND "createdAt" >= $3::timestamp AND "createdAt" <= $4::timestamp${userNotIn} GROUP BY DATE_TRUNC($1::text, "createdAt") ORDER BY date ASC`,
+          ...sqlParams
         ),
       ]);
 
@@ -351,7 +388,7 @@ export function apiRouter(env: AppEnv): Router {
     const [stats, previousStats, dailyActiveUsers, timeline] = await Promise.all([
       fetchAggregates(from, to),
       fetchAggregates(prevFrom, prevTo),
-      prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } }),
+      prisma.user.count({ where: { botId, lastInteraction: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, ...(hasAdmins ? { id: { notIn: adminUserIds } } : {}) } }),
       fetchTimeline(from, to),
     ]);
 
