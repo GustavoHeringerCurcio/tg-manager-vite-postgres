@@ -639,10 +639,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
     if (data.startsWith(LIVEPIX_VERIFY_PREFIX)) {
       const reference = data.slice(LIVEPIX_VERIFY_PREFIX.length);
-      await ctx.answerCbQuery("Verificando pagamento...");
       try {
         const payment = await services.livePix.checkPayment(reference);
         if (payment && payment.amount != null && payment.amount > 0) {
+          await ctx.answerCbQuery();
           await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`, { parse_mode: "HTML" });
           await prisma.transaction.updateMany({
             where: { livepixReference: reference },
@@ -669,12 +669,31 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             );
           }
         } else {
-          await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
+          const unpaidList = paymentFlow.unpaidAudioFileIds ?? [];
+          if (unpaidList.length > 0) {
+            await ctx.answerCbQuery();
+            const index = Math.floor(Math.random() * unpaidList.length);
+            const fileId = unpaidList[index];
+            if (fileId && chatId) {
+              try {
+                await ctx.telegram.sendVoice(chatId, fileId);
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.warn(`[bot:${botConfig.id}] sendVoice failed: ${msg}`);
+              }
+            }
+          } else {
+            await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "payment verification failed";
         console.error(`[bot:${botConfig.id}] ${message}`);
-        await ctx.answerCbQuery("Falha ao verificar pagamento. Tente novamente.", { show_alert: true });
+        try {
+          await ctx.answerCbQuery("Falha ao verificar pagamento. Tente novamente.", { show_alert: true });
+        } catch {
+          // answerCbQuery may fail if already answered
+        }
       }
       return;
     }
