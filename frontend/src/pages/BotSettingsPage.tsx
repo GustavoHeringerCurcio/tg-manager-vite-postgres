@@ -109,7 +109,7 @@ export default function BotSettingsPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="space-y-6 pt-6 pb-6">
           <div className="space-y-2">
             <Label>Timezone</Label>
             <p className="text-[11px] text-muted-foreground">
