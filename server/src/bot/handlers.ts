@@ -679,21 +679,20 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       });
 
       if (user && remarketing.enabled && remarketing.messages.length > 0) {
-        await prisma.remarketingState.upsert({
-          where: { userId_botId: { userId: user.id, botId: botConfig.id } },
-          create: {
-            botId: botConfig.id,
-            userId: user.id,
-            nextIndex: 0,
-            totalSent: 0,
-            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
-          },
-          update: {
-            nextIndex: 0,
-            totalSent: 0,
-            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
-          }
+        const existing = await prisma.remarketingState.findUnique({
+          where: { userId_botId: { userId: user.id, botId: botConfig.id } }
         });
+        if (!existing) {
+          await prisma.remarketingState.create({
+            data: {
+              botId: botConfig.id,
+              userId: user.id,
+              nextIndex: 0,
+              totalSent: 0,
+              nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
+            }
+          });
+        }
       }
     } finally {
       activeStarts.delete(chatId);
