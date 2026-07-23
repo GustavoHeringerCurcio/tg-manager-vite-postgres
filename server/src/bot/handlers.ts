@@ -442,11 +442,12 @@ async function sendLivePixPayment(
     const finalButtons: KeyboardButton[][] = [[
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
-    if (pixCode) {
+    const copyText = pixCode ?? payment.checkoutUrl;
+    if (copyText) {
       finalButtons.push([{
         text: paymentFlow.pixCopyLabel,
         callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
-        copy_text: { text: pixCode }
+        copy_text: { text: copyText }
       }]);
     }
 
@@ -821,7 +822,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments);
             }
           } else {
-            await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
+            await ctx.reply("❌ Pagamento ainda não identificado. Tente novamente após efetuar o pagamento.", { parse_mode: "HTML" });
           }
         }
       } catch (error) {
