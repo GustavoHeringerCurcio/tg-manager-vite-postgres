@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { prisma } from "../services/prisma.js";
+import { adminAuth } from "../middleware/auth.js";
+import { getBotManager } from "../services/botRegistry.js";
 
 type AsyncRoute = (req: Request, res: ExpressResponse, next: NextFunction) => Promise<void>;
 
@@ -169,6 +171,140 @@ export function utilsRouter(): Router {
       console.error(`[utils:file-id] ${message}`);
       res.status(500).json({ error: message });
     }
+  }));
+
+  router.post("/utils/simulate-load", adminAuth(process.env.ADMIN_PASSWORD ?? ""), route(async (req, res) => {
+    const body = req.body as {
+      botId?: string;
+      concurrentUsers?: number;
+      actions?: string[];
+    };
+
+    const botId = typeof body.botId === "string" ? body.botId.trim() : "";
+    const concurrentUsersRaw = typeof body.concurrentUsers === "number" ? body.concurrentUsers : Number(body.concurrentUsers);
+    const concurrentUsers = Number.isFinite(concurrentUsersRaw) ? Math.max(1, Math.floor(concurrentUsersRaw)) : 1;
+    const actions = Array.isArray(body.actions) ? body.actions.filter(a => typeof a === "string") as string[] : [];
+
+    if (!botId) {
+      res.status(400).json({ error: "botId is required" });
+      return;
+    }
+
+    const allowed = new Set(["start", "copy_pix", "check_payment"]);
+    const selectedActions = actions.length > 0 ? actions.filter(a => allowed.has(a)) : ["start"];
+    if (selectedActions.length === 0) {
+      res.status(400).json({ error: "No valid actions provided" });
+      return;
+    }
+
+    const manager = getBotManager(botId);
+    if (!manager) {
+      res.status(404).json({ error: "Bot not found" });
+      return;
+    }
+
+    const middleware = manager.webhookMiddleware();
+
+    function buildUpdate(action: string, chatId: number, username: string) {
+      const date = Math.floor(Date.now() / 1000);
+      if (action === "start") {
+        return {
+          update_id: Math.floor(Math.random() * 1_000_000_000),
+          message: {
+            message_id: 1,
+            date,
+            chat: { id: chatId, type: "private", username },
+            from: { id: chatId, is_bot: false, first_name: "Load", username },
+            text: "/start",
+            entities: [{ offset: 0, length: 6, type: "bot_command" }]
+          }
+        };
+      }
+      const data = action === "copy_pix" ? "livepix_payment:copy" : "livepix_payment:verify";
+      return {
+        update_id: Math.floor(Math.random() * 1_000_000_000),
+        callback_query: {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+          from: { id: chatId, is_bot: false, first_name: "Load", username },
+          data,
+          message: {
+            message_id: 1,
+            date,
+            chat: { id: chatId, type: "private", username }
+          }
+        }
+      };
+    }
+
+    function dispatchUpdate(update: unknown): Promise<void> {
+      return new Promise((resolve, reject) => {
+        try {
+          const mockRes: Partial<ExpressResponse> = {
+            end: () => mockRes as ExpressResponse,
+            writeHead: () => mockRes as ExpressResponse,
+            setHeader: () => mockRes as ExpressResponse,
+            getHeader: () => undefined,
+            removeHeader: () => {},
+            headersSent: true,
+            statusCode: 200,
+          };
+          const mockReq = {
+            method: "POST",
+            headers: {},
+            body: update,
+            query: {},
+            params: {},
+            get: () => "",
+            header: () => "",
+            url: "/simulate-load"
+          } as unknown as Request;
+
+          middleware(mockReq as unknown as Request, mockRes as ExpressResponse, () => {});
+          resolve();
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          reject(new Error(message));
+        }
+      });
+    }
+
+    const startedAt = new Date();
+    let succeeded = 0;
+    let failed = 0;
+    const errors: Array<{ index: number; userId: string; action: string; error: string }> = [];
+
+    const tasks = Array.from({ length: concurrentUsers }).map(async (_v, i) => {
+      const base = 2_000_000_000;
+      const chatId = base + Math.floor(Math.random() * 1_000_000_000) + i;
+      const username = `load_user_${chatId}`;
+      for (const action of selectedActions) {
+        try {
+          const update = buildUpdate(action, chatId, username);
+          await dispatchUpdate(update);
+          succeeded += 1;
+        } catch (e) {
+          failed += 1;
+          const message = e instanceof Error ? e.message : String(e);
+          errors.push({ index: i, userId: String(chatId), action, error: message });
+        }
+      }
+    });
+
+    await Promise.all(tasks);
+    const finishedAt = new Date();
+    const durationMs = finishedAt.getTime() - startedAt.getTime();
+
+    res.json({
+      ok: true,
+      requested: { botId, concurrentUsers, actions: selectedActions },
+      startedAt: startedAt.toISOString(),
+      finishedAt: finishedAt.toISOString(),
+      durationMs,
+      totalSent: concurrentUsers * selectedActions.length,
+      succeeded,
+      failed,
+      errors,
+    });
   }));
 
   return router;
