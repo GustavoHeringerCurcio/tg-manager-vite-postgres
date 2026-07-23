@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { prisma } from "../services/prisma.js";
-import { authenticate } from "../middleware/auth.js";
+import { adminAuth } from "../middleware/auth.js";
 import { getBotManager } from "../services/botRegistry.js";
 
 type AsyncRoute = (req: Request, res: ExpressResponse, next: NextFunction) => Promise<void>;
@@ -173,7 +173,7 @@ export function utilsRouter(): Router {
     }
   }));
 
-  router.post("/utils/simulate-load", authenticate, route(async (req, res) => {
+  router.post("/utils/simulate-load", adminAuth(process.env.ADMIN_PASSWORD ?? ""), route(async (req, res) => {
     const body = req.body as {
       botId?: string;
       concurrentUsers?: number;
