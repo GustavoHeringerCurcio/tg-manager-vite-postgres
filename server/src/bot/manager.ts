@@ -5,6 +5,7 @@ import type { Context } from "telegraf";
 import { registerHandlers } from "./handlers.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
+import { applyRateLimit } from "../utils/rateLimiter.js";
 
 export class BotManager {
   readonly botId: string;
@@ -19,6 +20,11 @@ export class BotManager {
     this.path = `/webhook/${config.id}`;
     this.secretToken = randomBytes(32).toString("hex");
     this.telegraf = new Telegraf(token, { telegram: { webhookReply: false } });
+    applyRateLimit(
+      this.telegraf.telegram,
+      Number(process.env.TELEGRAM_RATE_LIMIT ?? "25"),
+      Number(process.env.TELEGRAM_RATE_BURST ?? "30")
+    );
     this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
     this.webhookHandler = this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
     registerHandlers(this.telegraf, config, { env, livePix: this.livePix });
