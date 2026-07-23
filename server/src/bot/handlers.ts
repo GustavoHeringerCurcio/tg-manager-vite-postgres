@@ -559,7 +559,7 @@ async function sendLivePixPayment(
       });
     }
 
-    if (paymentFlow.isCopyPixAudioEnabled && paymentFlow.copyPixAudios.length > 0) {
+    if (pixCode && paymentFlow.isCopyPixAudioEnabled && paymentFlow.copyPixAudios.length > 0) {
       const audioIndex = Math.floor(Math.random() * paymentFlow.copyPixAudios.length);
       const audioId = paymentFlow.copyPixAudios[audioIndex];
       if (audioId && chatId) {
