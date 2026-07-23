@@ -1,5 +1,11 @@
 import { PrismaClient, BotStatus, PaymentMethod } from "@prisma/client";
-import "dotenv/config";
+import { config } from "dotenv";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+config({ path: resolve(rootDir, ".env.test") });
+config({ path: resolve(rootDir, "server", ".env") });
 
 const prisma = new PrismaClient();
 

@@ -193,7 +193,8 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 const server = app.listen(env.appPort, async () => {
   try {
-    await loadActiveBots(env, !isPrimaryWorker);
+    const skipWebhook = !isPrimaryWorker || process.env.SKIP_WEBHOOK === "true";
+    await loadActiveBots(env, skipWebhook);
     if (isPrimaryWorker) {
       startRemarketingPoller();
       startPaymentPoller();
