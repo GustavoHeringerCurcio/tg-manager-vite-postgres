@@ -1,6 +1,8 @@
+import { logger } from "../utils/logger.js";
 import type { Transaction, User } from "@prisma/client";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
+import { paymentsConfirmed } from "../utils/metrics.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const POLL_WINDOW_MINUTES = Number(process.env.PAYMENT_POLL_WINDOW_MINUTES ?? "30");
@@ -15,7 +17,7 @@ export function startPaymentPoller(): void {
       void processPendingPayments();
     } catch (error) {
       const message = error instanceof Error ? error.message : "payment poller tick failed";
-      console.error(`[payment-poller] ${message}`);
+      logger.error(`[payment-poller] ${message}`);
     }
   }, POLL_INTERVAL_MS);
 }
@@ -49,12 +51,12 @@ async function processPendingPayments(): Promise<void> {
         await verifyOne(txn);
       } catch (error) {
         const message = error instanceof Error ? error.message : "payment poller verify failed";
-        console.error(`[payment-poller:${txn.botId}] ${message}`);
+        logger.error(`[payment-poller:${txn.botId}] ${message}`);
       }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "payment poller batch failed";
-    console.error(`[payment-poller] ${message}`);
+    logger.error(`[payment-poller] ${message}`);
   }
 }
 
@@ -68,7 +70,7 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
     payment = await manager.livepix.checkPayment(txn.livepixReference!);
   } catch (error) {
     const message = error instanceof Error ? error.message : "check payment failed";
-    console.error(`[payment-poller:${txn.botId}] ${message}`);
+    logger.error(`[payment-poller:${txn.botId}] ${message}`);
     return;
   }
   if (!payment || !payment.amount || payment.amount <= 0) return;
@@ -77,6 +79,8 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
     where: { id: txn.id },
     data: { status: "COMPLETED" }
   });
+
+  paymentsConfirmed.inc({ bot_id: txn.botId, source: "poller" });
 
   const amountBrl = (payment.amount / 100).toFixed(2);
   const chatId = String(txn.user.telegramId);
@@ -93,7 +97,7 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
     ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "send confirmation failed";
-    console.error(`[payment-poller:${txn.botId}] ${message}`);
+    logger.error(`[payment-poller:${txn.botId}] ${message}`);
   }
 
   logInteraction({

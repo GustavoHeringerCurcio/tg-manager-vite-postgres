@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { createHmac } from "node:crypto";
 import type { Bot } from "@prisma/client";
 import { Telegraf } from "telegraf";
@@ -30,7 +31,7 @@ export class BotManager {
     registerHandlers(this.telegraf, config, { env, livePix: this.livePix });
     this.telegraf.catch((error) => {
       const message = error instanceof Error ? error.message : "bot handler failed";
-      console.error(`[bot:${config.id}] ${message}`);
+      logger.error(`[bot:${config.id}] ${message}`);
     });
   }
 
@@ -65,7 +66,7 @@ export class BotManager {
       await this.telegraf.telegram.deleteWebhook();
     } catch (error) {
       const message = error instanceof Error ? error.message : "delete webhook failed";
-      console.error(`[bot:${this.botId}] ${message}`);
+      logger.error(`[bot:${this.botId}] ${message}`);
     }
   }
 

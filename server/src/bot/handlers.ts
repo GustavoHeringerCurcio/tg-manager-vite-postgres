@@ -1,3 +1,5 @@
+import { logger } from "../utils/logger.js";
+import { messagesSent, messagesFailed, paymentsCreated, paymentsConfirmed } from "../utils/metrics.js";
 import type { Bot, User } from "@prisma/client";
 import { PaymentMethod } from "@prisma/client";
 import type { Context, Telegraf } from "telegraf";
@@ -365,7 +367,7 @@ export async function cancelRemarketingForUser(botId: string, userId: string): P
     where: { botId, userId }
   });
   if (cancelled.count > 0) {
-    console.info(`[bot:${botId}] cancelled ${cancelled.count} pending remarketing task(s) for user ${userId}`);
+    logger.info(`[bot:${botId}] cancelled ${cancelled.count} pending remarketing task(s) for user ${userId}`);
   }
   return cancelled.count;
 }
@@ -400,7 +402,7 @@ async function sendLivePixPayment(
         });
       }
     } else {
-      console.warn(`[bot:${botConfig.id}] user ${user.id} pix limit reached (${currentCount}/${maxGenerations})`);
+      logger.warn(`[bot:${botConfig.id}] user ${user.id} pix limit reached (${currentCount}/${maxGenerations})`);
     }
 
     await prisma.user.update({
@@ -408,20 +410,22 @@ async function sendLivePixPayment(
       data: { lastInteraction: new Date() }
     });
 
-    await prisma.transaction.create({
-      data: {
-        botId: botConfig.id,
-        userId: user.id,
-        amount,
-        paymentMethod: PaymentMethod.PIX,
-        status: "PENDING",
-        pixCode,
-        checkoutUrl: payment.checkoutUrl,
-        livepixReference: payment.reference
-      }
-    });
+        await prisma.transaction.create({
+          data: {
+            botId: botConfig.id,
+            userId: user.id,
+            amount,
+            paymentMethod: PaymentMethod.PIX,
+            status: "PENDING",
+            pixCode,
+            checkoutUrl: payment.checkoutUrl,
+            livepixReference: payment.reference
+          }
+        });
 
-    await incrementUserStats(user.id, "totalPayments", amount);
+        paymentsCreated.inc({ bot_id: botConfig.id, status: "ok" });
+
+        await incrementUserStats(user.id, "totalPayments", amount);
 
     sendPixelEvent(
       botConfig.id, user.id, ctx.from?.id ? BigInt(ctx.from.id) : undefined,
@@ -571,7 +575,7 @@ async function sendLivePixPayment(
               logPayloads: services.env.logPayloads
             });
           } catch (error) {
-            console.error(`[bot:${botConfig.id}] QR code generation failed`, error instanceof Error ? error.message : error);
+            logger.error(`[bot:${botConfig.id}] QR code generation failed`, error instanceof Error ? error.message : error);
             await ctx.reply("QR Code não disponível no momento.", { parse_mode: "HTML" });
           }
         }
@@ -596,8 +600,9 @@ async function sendLivePixPayment(
       logPayloads: services.env.logPayloads
     });
   } catch (error) {
+    paymentsCreated.inc({ bot_id: botConfig.id, status: "error" });
     const message = error instanceof Error ? error.message : "payment flow failed";
-    console.error(`[bot:${botConfig.id}] ${message}`);
+    logger.error(`[bot:${botConfig.id}] ${message}`);
     const userMessage = classifyLivePixError(error);
     await ctx.reply(userMessage, { parse_mode: "HTML" });
     logInteraction({
@@ -773,12 +778,14 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             data: { status: "COMPLETED" }
           });
 
+          paymentsConfirmed.inc({ bot_id: botConfig.id, source: "callback" });
+
           if (user) {
             try {
               await cancelRemarketingForUser(botConfig.id, user.id);
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
-              console.error(
+              logger.error(
                 `[bot:${botConfig.id}] remarketing cancellation failed after payment (userId=${user?.id}, reference=${reference}): ${msg}`
               );
             }
@@ -827,7 +834,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "payment verification failed";
-        console.error(`[bot:${botConfig.id}] ${message}`);
+        logger.error(`[bot:${botConfig.id}] ${message}`);
         try {
           await ctx.answerCbQuery("Falha ao verificar pagamento. Tente novamente.", { show_alert: true });
         } catch {
@@ -859,7 +866,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[bot:${botConfig.id}] copy-pix callback failed: ${msg}`);
+        logger.warn(`[bot:${botConfig.id}] copy-pix callback failed: ${msg}`);
       }
       return;
     }

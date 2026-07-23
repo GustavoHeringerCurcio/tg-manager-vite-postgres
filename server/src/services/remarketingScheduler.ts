@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import type { Bot, RemarketingState } from "@prisma/client";
 import { BotStatus } from "@prisma/client";
 import type { Telegram } from "telegraf";
@@ -24,7 +25,7 @@ export function startRemarketingPoller(): void {
       void processRemarketingBatch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "remarketing tick failed";
-      console.error(`[remarketing] ${message}`);
+      logger.error(`[remarketing] ${message}`);
     }
   }, 30_000);
 }
@@ -54,12 +55,12 @@ async function processRemarketingBatch(): Promise<void> {
         await processOne(state, state.bot, state.user.telegramId);
       } catch (error) {
         const message = error instanceof Error ? error.message : "remarketing send failed";
-        console.error(`[remarketing:${state.botId}] ${message}`);
+        logger.error(`[remarketing:${state.botId}] ${message}`);
       }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing poller batch failed";
-    console.error(`[remarketing] ${message}`);
+    logger.error(`[remarketing] ${message}`);
   }
 }
 
@@ -94,7 +95,7 @@ async function processOne(
           nextSendAt: new Date(now + config.intervalMs)
         }
       });
-      console.warn(`[remarketing:${state.botId}] skipped stale message (nextSendAt was ${state.nextSendAt.toISOString()}), advancing to next interval`);
+      logger.warn(`[remarketing:${state.botId}] skipped stale message (nextSendAt was ${state.nextSendAt.toISOString()}), advancing to next interval`);
       return;
     }
   }
@@ -124,7 +125,7 @@ async function processOne(
     await sendRemarketingStep(manager.telegram, chatId, step, state.botId, state.userId, sessionId, state.user.firstName, timeCompliments, applyDiscount, discountPercentage, config.discountOffer.labelTemplate, config.discountOffer.showOriginalPrice);
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
-    console.error(`[remarketing:${state.botId}] ${message}`);
+    logger.error(`[remarketing:${state.botId}] ${message}`);
   }
 
   const newTotalSent = state.totalSent + 1;

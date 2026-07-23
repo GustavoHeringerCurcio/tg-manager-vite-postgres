@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { randomUUID } from "node:crypto";
 import QRCode from "qrcode";
 import { delay } from "../utils/async.js";
@@ -102,7 +103,7 @@ export class LivePixService {
     if (isMockMode()) return mockPixCode();
     const checkoutId = extractCheckoutId(checkoutUrl);
     if (!checkoutId) {
-      console.warn("[livepix] Failed to extract checkout ID from URL:", checkoutUrl);
+      logger.warn({ checkoutUrl }, `[livepix] Failed to extract checkout ID from URL: ${checkoutUrl}`);
       return undefined;
     }
     await delay(1500);
@@ -173,19 +174,19 @@ export async function fetchPixCodeViaWebservice(checkoutId: string): Promise<str
       const contentType = response.headers.get("content-type") ?? "";
       if (!response.ok) {
         if (shouldRetry(response.status, contentType) && attempt < delays.length - 1) continue;
-        console.warn(`[livepix] webservice returned status ${response.status} for checkout ${checkoutId}`);
+        logger.warn(`[livepix] webservice returned status ${response.status} for checkout ${checkoutId}`);
         return undefined;
       }
       if (!contentType.includes("application/json")) {
         if (attempt < delays.length - 1) continue;
-        console.warn(`[livepix] webservice returned non-JSON content-type "${contentType}" for checkout ${checkoutId}`);
+        logger.warn(`[livepix] webservice returned non-JSON content-type "${contentType}" for checkout ${checkoutId}`);
         return undefined;
       }
       const data = (await response.json()) as PixResponse;
       return data.code ?? data.pixCode;
     } catch (error) {
       if (attempt === delays.length - 1) {
-        console.warn(`[livepix] webservice exhausted ${delays.length} retries for checkout ${checkoutId}: ${error instanceof Error ? error.message : String(error)}`);
+        logger.warn(`[livepix] webservice exhausted ${delays.length} retries for checkout ${checkoutId}: ${error instanceof Error ? error.message : String(error)}`);
         return undefined;
       }
     }

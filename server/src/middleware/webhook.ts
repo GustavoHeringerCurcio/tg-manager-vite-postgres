@@ -1,15 +1,19 @@
+import { logger } from "../utils/logger.js";
 import type { Request, Response } from "express";
 import { getBotManager } from "../services/botRegistry.js";
+import { webhooksTotal } from "../utils/metrics.js";
 
 export function webhookDispatcher(req: Request, res: Response): void {
   const botId = String(req.params.botId);
   const manager = getBotManager(botId);
   if (!manager) {
-    console.warn(`[webhook] Unknown bot webhook attempt: ${botId}`);
+    webhooksTotal.inc({ bot_id: botId, status: "not_found" });
+    logger.warn(`[webhook] Unknown bot webhook attempt: ${botId}`);
     res.status(404).json({ error: "Bot not found" });
     return;
   }
 
+  webhooksTotal.inc({ bot_id: botId, status: "ok" });
   res.status(200).json({ ok: true });
 
   setImmediate(() => {
@@ -25,8 +29,9 @@ export function webhookDispatcher(req: Request, res: Response): void {
       };
       manager.webhookMiddleware()(req, mockRes as Response, () => {});
     } catch (error) {
+      webhooksTotal.inc({ bot_id: botId, status: "error" });
       const message = error instanceof Error ? error.message : "webhook background error";
-      console.error(`[webhook:${botId}] ${message}`);
+      logger.error(`[webhook:${botId}] ${message}`);
     }
   });
 }

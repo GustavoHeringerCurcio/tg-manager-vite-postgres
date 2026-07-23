@@ -1,3 +1,4 @@
+import { logger } from "./logger.js";
 import { delay } from "./async.js";
 
 type TelegramErrorLike = {
@@ -69,8 +70,7 @@ export async function telegramCallWithRetry<T>(
       const canRetry = isRetriable(err) && attempt < maxAttempts;
 
       if (!canRetry) {
-        console.error(
-          `[telegram][${meta.action}] failed`,
+        logger.error(
           {
             botId: meta.botId,
             chatId: meta.chatId ?? null,
@@ -79,7 +79,8 @@ export async function telegramCallWithRetry<T>(
             maxAttempts,
             code,
             description: desc
-          }
+          },
+          `[telegram][${meta.action}] failed`
         );
         throw err;
       }
@@ -90,15 +91,15 @@ export async function telegramCallWithRetry<T>(
       const jitter = Math.floor(Math.random() * 100);
       const waitMs = backoff + jitter;
 
-      console.warn(
-        `[telegram][${meta.action}] retrying after ${waitMs}ms (attempt ${attempt + 1}/${maxAttempts})`,
+      logger.warn(
         {
           botId: meta.botId,
           chatId: meta.chatId ?? null,
           fileId: meta.fileId ?? null,
           code,
           description: desc
-        }
+        },
+        `[telegram][${meta.action}] retrying after ${waitMs}ms (attempt ${attempt + 1}/${maxAttempts})`
       );
 
       await delay(waitMs);

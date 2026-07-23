@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { BotStatus, type Bot } from "@prisma/client";
 import type { AppEnv } from "../utils/env.js";
 import { prisma } from "./prisma.js";
@@ -32,10 +33,10 @@ export async function loadActiveBots(env: AppEnv, skipWebhook = false): Promise<
       started += 1;
     } else {
       const message = result.reason instanceof Error ? result.reason.message : "bot startup failed";
-      console.error(`[bot:${bots[i].id}] ${message}`);
+      logger.error(`[bot:${bots[i].id}] ${message}`);
     }
   }
-  console.log(`[bots] Started ${started}/${bots.length} active bots`);
+  logger.info(`[bots] Started ${started}/${bots.length} active bots`);
 }
 
 export async function shutdownAllBots(): Promise<void> {

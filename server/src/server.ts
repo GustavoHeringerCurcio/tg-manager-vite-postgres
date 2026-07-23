@@ -13,6 +13,8 @@ import { facebookPixelRouter } from "./routes/facebookPixel.js";
 import { botSettingsRouter } from "./routes/botSettings.js";
 import { loadEnv } from "./utils/env.js";
 import { HttpError } from "./utils/errors.js";
+import { logger } from "./utils/logger.js";
+import { metricsResponse } from "./utils/metrics.js";
 import { prisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
@@ -27,14 +29,14 @@ const effectiveWorkers = env.workerCount === 0 ? availableParallelism() : env.wo
 let app: ReturnType<typeof express>;
 
 if (effectiveWorkers > 1 && cluster.isPrimary) {
-  console.log(`[cluster] Primary ${process.pid} forking ${effectiveWorkers} workers`);
+  logger.info(`[cluster] Primary ${process.pid} forking ${effectiveWorkers} workers`);
 
   for (let i = 0; i < effectiveWorkers; i++) {
     cluster.fork({ WORKER_ID: String(i) });
   }
 
   cluster.on("exit", (worker, code, signal) => {
-    console.warn(`[cluster] Worker ${worker.process.pid} died (${signal ?? code}), restarting`);
+    logger.warn(`[cluster] Worker ${worker.process.pid} died (${signal ?? code}), restarting`);
     cluster.fork();
   });
 
@@ -66,6 +68,15 @@ app.get("/api/health", async (_req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "healthcheck failed";
     res.status(500).json({ error: message, ok: false });
+  }
+});
+
+app.get("/metrics", async (_req, res) => {
+  try {
+    res.set("Content-Type", "text/plain");
+    res.end(await metricsResponse());
+  } catch (error) {
+    res.status(500).end();
   }
 });
 
@@ -159,7 +170,7 @@ app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPasswor
 
       if (!tgResp.ok) {
         const errBody = await tgResp.text().catch(() => "");
-        console.error(`[simulate-confirm] Telegram ${method} failed: ${tgResp.status} - ${errBody}`);
+        logger.error(`[simulate-confirm] Telegram ${method} failed: ${tgResp.status} - ${errBody}`);
       } else {
         delivered++;
       }
@@ -168,7 +179,7 @@ app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPasswor
     res.json({ ok: true, status: "COMPLETED", delivered });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unexpected error";
-    console.error(`[simulate-confirm] ${message}`);
+    logger.error(`[simulate-confirm] ${message}`);
     res.status(500).json({ error: message });
   }
 });
@@ -187,7 +198,7 @@ app.use("/api", (_req, res) => {
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = error instanceof HttpError ? error.status : 500;
   const message = status === 500 && env.nodeEnv === "production" ? "Internal server error" : error.message;
-  if (status === 500) console.error(`[${label}] ${error.message}`);
+  if (status === 500) logger.error(`[${label}] ${error.message}`);
   res.status(status).json({ error: message });
 });
 
@@ -199,17 +210,17 @@ const server = app.listen(env.appPort, async () => {
       startRemarketingPoller();
       startPaymentPoller();
     }
-    console.log(`[${label}] Listening on ${env.appPort}`);
+    logger.info(`[${label}] Listening on ${env.appPort}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "startup failed";
-    console.error(`[${label}] ${message}`);
+    logger.error(`[${label}] ${message}`);
     process.exitCode = 1;
     server.close();
   }
 });
 
 async function shutdown(signal: string): Promise<void> {
-  console.log(`[${label}] Received ${signal}, shutting down`);
+  logger.info(`[${label}] Received ${signal}, shutting down`);
   if (isPrimaryWorker) {
     stopRemarketingPoller();
     stopPaymentPoller();
@@ -220,7 +231,7 @@ async function shutdown(signal: string): Promise<void> {
       await prisma.$disconnect();
     } catch (error) {
       const message = error instanceof Error ? error.message : "shutdown failed";
-      console.error(`[${label}] ${message}`);
+      logger.error(`[${label}] ${message}`);
     } finally {
       process.exit(0);
     }

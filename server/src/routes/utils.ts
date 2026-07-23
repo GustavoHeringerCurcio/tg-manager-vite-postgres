@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { Router } from "express";
 import type { NextFunction, Request, RequestHandler, Response as ExpressResponse } from "express";
 import multer from "multer";
@@ -41,7 +42,7 @@ export function utilsRouter(): Router {
         upload.single("file")(req, res, async (uploadErr) => {
           if (uploadErr) {
             const message = uploadErr instanceof Error ? uploadErr.message : "upload_error";
-            console.error(`[utils:file-id] upload error: ${message}`);
+            logger.error(`[utils:file-id] upload error: ${message}`);
             res.status(400).json({ error: "upload_error", message });
             return;
           }
@@ -85,7 +86,7 @@ export function utilsRouter(): Router {
 
             const text = await tgResp.text().catch(() => "");
             if (!tgResp.ok) {
-              console.error(`[utils:file-id] Telegram API error ${tgResp.status}: ${text}`);
+              logger.error(`[utils:file-id] Telegram API error ${tgResp.status}: ${text}`);
               res.status(502).json({ error: "telegram_error", status: tgResp.status });
               return;
             }
@@ -94,7 +95,7 @@ export function utilsRouter(): Router {
             const result = extractFileIds(payload?.result);
 
             if (!result.fileId) {
-              console.error("[utils:file-id] Could not extract file_id from Telegram result");
+              logger.error("[utils:file-id] Could not extract file_id from Telegram result");
               res.status(502).json({ error: "file_id_not_found" });
               return;
             }
@@ -136,14 +137,14 @@ export function utilsRouter(): Router {
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        console.error(`[utils:file-id] Telegram request failed: ${message}`);
+        logger.error(`[utils:file-id] Telegram request failed: ${message}`);
         res.status(502).json({ error: "telegram_request_failed" });
         return;
       }
 
       const text = await tgResp.text().catch(() => "");
       if (!tgResp.ok) {
-        console.error(`[utils:file-id] Telegram API error ${tgResp.status}: ${text}`);
+        logger.error(`[utils:file-id] Telegram API error ${tgResp.status}: ${text}`);
         res.status(502).json({ error: "telegram_error", status: tgResp.status });
         return;
       }
@@ -152,7 +153,7 @@ export function utilsRouter(): Router {
       try {
         payload = JSON.parse(text) as Record<string, unknown>;
       } catch {
-        console.error("[utils:file-id] Invalid JSON from Telegram");
+        logger.error("[utils:file-id] Invalid JSON from Telegram");
         res.status(502).json({ error: "invalid_telegram_response" });
         return;
       }
@@ -160,7 +161,7 @@ export function utilsRouter(): Router {
       const result = extractFileIds(payload?.result as Record<string, unknown> | undefined);
 
       if (!result.fileId) {
-        console.error("[utils:file-id] Could not extract file_id from Telegram result");
+        logger.error("[utils:file-id] Could not extract file_id from Telegram result");
         res.status(502).json({ error: "file_id_not_found" });
         return;
       }
@@ -168,7 +169,7 @@ export function utilsRouter(): Router {
       res.json({ ok: true, fileId: result.fileId, fileUniqueId: result.fileUniqueId });
     } catch (error) {
       const message = error instanceof Error ? error.message : "unexpected error";
-      console.error(`[utils:file-id] ${message}`);
+      logger.error(`[utils:file-id] ${message}`);
       res.status(500).json({ error: message });
     }
   }));
@@ -330,6 +331,6 @@ function extractFileIds(result: Record<string, unknown> | undefined): { fileId?:
 
 function cleanupFile(filePath: string): void {
   fs.unlink(filePath, (err) => {
-    if (err) console.error(`[utils:file-id] cleanup error: ${err.message}`);
+    if (err) logger.error(`[utils:file-id] cleanup error: ${err.message}`);
   });
 }

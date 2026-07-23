@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import type { Prisma } from "@prisma/client";
 import { Router } from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
@@ -209,7 +210,7 @@ export function chatRouter(): Router {
 
       const cancelled = await cancelRemarketingForUser(botId, user.id).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[utils:test-cancel] cancellation failed`, { botId, userId: user?.id, targetId, error: msg });
+        logger.error({ botId, userId: user?.id, targetId, error: msg }, `[utils:test-cancel] cancellation failed`);
         return -1;
       });
 
@@ -228,7 +229,7 @@ export function chatRouter(): Router {
       }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "test cancellation failed";
-      console.error(`[utils:test-cancel] ${message}`, { botId, targetId });
+      logger.error({ botId, targetId }, `[utils:test-cancel] ${message}`);
       res.status(500).json(serializeJson({ ok: false, error: message, botId, targetId }));
     }
   }));

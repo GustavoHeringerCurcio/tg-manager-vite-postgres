@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { BotStatus, Prisma } from "@prisma/client";
 import { Router } from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
@@ -169,7 +170,7 @@ export function apiRouter(env: AppEnv): Router {
       if (created) {
         const isLocalhost = env.domain === "localhost" || env.domain === "127.0.0.1" || env.domain.startsWith("localhost:");
         if (isLocalhost) {
-          console.warn(`[api] Bot "${created.name}" created but webhook skipped: DOMAIN is set to localhost. Use a public domain for Telegram webhooks.`);
+          logger.warn(`[api] Bot "${created.name}" created but webhook skipped: DOMAIN is set to localhost. Use a public domain for Telegram webhooks.`);
           const cFlow = normalizePaymentFlow(created.paymentFlow);
           res.status(201).json(serializeJson(sanitizeBot({ ...created, livepixConfigured: isPaymentFlowConfigured(cFlow) })));
           return;

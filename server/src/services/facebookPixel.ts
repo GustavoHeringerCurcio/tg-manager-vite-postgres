@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
@@ -39,7 +40,7 @@ async function logPixelEvent(
       error
     }
   }).catch((err: Error) => {
-    console.error(`[facebook-pixel] Failed to write pixel event log: ${err.message}`);
+    logger.error(`[facebook-pixel] Failed to write pixel event log: ${err.message}`);
   });
 }
 
@@ -63,13 +64,13 @@ function postToCapi(
   }).then(async (response) => {
     const body = await response.text().catch(() => "");
     if (!response.ok) {
-      console.error(`[facebook-pixel] CAPI responded ${response.status}: ${body}`);
+      logger.error(`[facebook-pixel] CAPI responded ${response.status}: ${body}`);
       await logPixelEvent(botId, userId, eventName, eventId, customData, false, response.status, body.slice(0, 1000));
     } else {
       await logPixelEvent(botId, userId, eventName, eventId, customData, true, response.status);
     }
   }).catch(async (err: Error) => {
-    console.error(`[facebook-pixel] CAPI request failed: ${err.message}`);
+    logger.error(`[facebook-pixel] CAPI request failed: ${err.message}`);
     await logPixelEvent(botId, userId, eventName, eventId, customData, false, undefined, err.message);
   });
 }

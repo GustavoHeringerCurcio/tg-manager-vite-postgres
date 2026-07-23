@@ -1,3 +1,4 @@
+import { logger } from "./logger.js";
 const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024;
 
 function isWebUrl(raw: string): boolean {
@@ -25,36 +26,36 @@ export async function resolveMediaUrl(url: string): Promise<{ source: Buffer } |
     });
 
     if (!response.ok) {
-      console.warn(`[media] Failed to download ${url}: status ${response.status}`);
+      logger.warn(`[media] Failed to download ${url}: status ${response.status}`);
       return url;
     }
 
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) {
-      console.warn(`[media] Unexpected content type for ${url}: "${contentType}"`);
+      logger.warn(`[media] Unexpected content type for ${url}: "${contentType}"`);
       return url;
     }
 
     const contentLength = response.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > MAX_DOWNLOAD_BYTES) {
-      console.warn(`[media] Skipping download of ${url}: exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
+      logger.warn(`[media] Skipping download of ${url}: exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
       return url;
     }
 
     const arrayBuffer = await response.arrayBuffer();
     if (arrayBuffer.byteLength === 0) {
-      console.warn(`[media] Empty response body for ${url}`);
+      logger.warn(`[media] Empty response body for ${url}`);
       return url;
     }
 
     if (arrayBuffer.byteLength > MAX_DOWNLOAD_BYTES) {
-      console.warn(`[media] Skipping download of ${url}: body exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
+      logger.warn(`[media] Skipping download of ${url}: body exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
       return url;
     }
 
     return { source: Buffer.from(arrayBuffer) };
   } catch (error) {
-    console.warn(`[media] Download error for ${url}: ${error instanceof Error ? error.message : String(error)}`);
+    logger.warn(`[media] Download error for ${url}: ${error instanceof Error ? error.message : String(error)}`);
     return url;
   } finally {
     clearTimeout(timeout);

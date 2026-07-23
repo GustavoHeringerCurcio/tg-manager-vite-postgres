@@ -1,5 +1,7 @@
+import { logger } from "../utils/logger.js";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { interactionsLogged, interactionsFailed } from "../utils/metrics.js";
 
 export type LogInteractionInput = {
   botId: string;
@@ -23,12 +25,12 @@ export function logInteraction(input: LogInteractionInput): void {
   try {
     messageIdBigInt = input.messageId != null ? BigInt(input.messageId) : undefined;
   } catch {
-    console.error(`[logger] Invalid messageId for BigInt conversion: ${String(input.messageId)}`);
+    logger.error(`[logger] Invalid messageId for BigInt conversion: ${String(input.messageId)}`);
   }
   try {
     chatIdBigInt = input.chatId != null ? BigInt(input.chatId) : undefined;
   } catch {
-    console.error(`[logger] Invalid chatId for BigInt conversion: ${String(input.chatId)}`);
+    logger.error(`[logger] Invalid chatId for BigInt conversion: ${String(input.chatId)}`);
   }
   void prisma.interaction.create({
     data: {
@@ -45,7 +47,10 @@ export function logInteraction(input: LogInteractionInput): void {
       chatId: chatIdBigInt,
       metadata: input.metadata as Prisma.InputJsonValue | undefined
     }
+  }).then(() => {
+    interactionsLogged.inc({ bot_id: input.botId, direction: input.direction });
   }).catch((error: Error) => {
-    console.error(`[logger] Failed to write interaction: ${error.message}`);
+    interactionsFailed.inc({ bot_id: input.botId });
+    logger.error(`[logger] Failed to write interaction: ${error.message}`);
   });
 }
