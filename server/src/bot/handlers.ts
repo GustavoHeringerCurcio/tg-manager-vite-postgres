@@ -24,6 +24,20 @@ const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
 
 const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+const USER_CACHE_TTL_MS = 60_000;
+
+const userCache = new Map<string, { user: User; timestamp: number }>();
+
+function getCachedUser(key: string): User | null {
+  const entry = userCache.get(key);
+  if (entry && Date.now() - entry.timestamp < USER_CACHE_TTL_MS) return entry.user;
+  userCache.delete(key);
+  return null;
+}
+
+function setCachedUser(key: string, user: User): void {
+  userCache.set(key, { user, timestamp: Date.now() });
+}
 
 type HandlerServices = {
   env: AppEnv;
@@ -36,11 +50,17 @@ function textFromMessage(message: Message): string {
 
 async function upsertTelegramUser(botId: string, ctx: Context): Promise<User | null> {
   if (!ctx.from) return null;
-  return prisma.user.upsert({
-    where: { botId_telegramId: { botId, telegramId: BigInt(ctx.from.id) } },
+  const telegramId = BigInt(ctx.from.id);
+  const cacheKey = `${botId}:${telegramId}`;
+
+  const cached = getCachedUser(cacheKey);
+  if (cached) return cached;
+
+  const user = await prisma.user.upsert({
+    where: { botId_telegramId: { botId, telegramId } },
     create: {
       botId,
-      telegramId: BigInt(ctx.from.id),
+      telegramId,
       username: ctx.from.username,
       firstName: ctx.from.first_name,
       lastName: ctx.from.last_name,
@@ -53,6 +73,9 @@ async function upsertTelegramUser(botId: string, ctx: Context): Promise<User | n
       lastInteraction: new Date()
     }
   });
+
+  setCachedUser(cacheKey, user);
+  return user;
 }
 
 async function createOrResumeSession(botId: string, userId: string, stepIndex?: number): Promise<string> {
