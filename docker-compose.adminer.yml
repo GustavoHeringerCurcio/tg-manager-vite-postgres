@@ -1,8 +1,0 @@
-services:
-  adminer:
-    image: adminer:4-standalone
-    restart: unless-stopped
-    ports:
-      - "8082:8080"
-    networks:
-      - default
