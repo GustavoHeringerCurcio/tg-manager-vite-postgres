@@ -1,0 +1,26 @@
+import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+
+const prisma = new PrismaClient();
+
+async function main(): Promise<void> {
+  const botId = process.env.TEST_BOT_ID || "test-bot-load";
+
+  console.log(`[reset-test-db] Clearing test data for bot "${botId}"...`);
+
+  await prisma.pixelEvent.deleteMany({ where: { botId } });
+  await prisma.remarketingState.deleteMany({ where: { botId } });
+  await prisma.interaction.deleteMany({ where: { botId } });
+  await prisma.transaction.deleteMany({ where: { botId } });
+  await prisma.userSession.deleteMany({ where: { botId } });
+  await prisma.user.deleteMany({ where: { botId } });
+
+  console.log(`[reset-test-db] All test data cleared for bot "${botId}".`);
+
+  await prisma.$disconnect();
+}
+
+main().catch((error) => {
+  console.error("[reset-test-db] Fatal error:", error);
+  process.exit(1);
+});
