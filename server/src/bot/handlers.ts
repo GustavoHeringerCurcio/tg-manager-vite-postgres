@@ -443,7 +443,11 @@ async function sendLivePixPayment(
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
     if (pixCode) {
-      finalButtons.push([{ text: paymentFlow.pixCopyLabel, callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}` }]);
+      finalButtons.push([{
+        text: paymentFlow.pixCopyLabel,
+        callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
+        copy_text: { text: pixCode }
+      }]);
     }
 
     function paymentKeyboard(step: MessageStep): Keyboard {
@@ -865,20 +869,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               console.warn(`[bot:${botConfig.id}] copy-pix sendVoice failed: ${msg}`);
             }
           }
-        }
-
-        const pixCode = transaction?.pixCode;
-        if (pixCode && chatId) {
-          await ctx.telegram.sendMessage(chatId,
-            `<code>${pixCode}</code>`,
-            { parse_mode: "HTML" }
-          );
-          logInteraction({
-            botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
-            content: pixCode, chatId,
-            metadata: { title: "PIX code sent via copy callback" },
-            logPayloads: services.env.logPayloads
-          });
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
