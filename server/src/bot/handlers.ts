@@ -22,6 +22,7 @@ import { sendPixelEvent } from "../services/facebookPixel.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
+const LIVEPIX_COPY_PREFIX = "livepix_copy:";
 
 const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const USER_CACHE_TTL_MS = 60_000;
@@ -436,14 +437,13 @@ async function sendLivePixPayment(
 
     // WARNING: These two final buttons are MANDATORY — both always appear and their function
     // MUST NOT be replaced. The "Verify Payment" button is always a callback; the "Copy PIX"
-    // button is always a native copy_text so the user can copy the PIX code in one tap.
-    // Audio features (toggled via paymentFlow.isVerifyPaymentAudioEnabled / isCopyPixAudioEnabled)
-    // layer on top by sending voice messages alongside the buttons — never by replacing them.
+    // button triggers a callback that sends audio (if enabled) and replies with the PIX code
+    // alongside a native copy_text button for one-tap copy.
     const finalButtons: KeyboardButton[][] = [[
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
     if (pixCode) {
-      finalButtons.push([{ text: paymentFlow.pixCopyLabel, copy_text: { text: pixCode } }]);
+      finalButtons.push([{ text: paymentFlow.pixCopyLabel, callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}` }]);
     }
 
     function paymentKeyboard(step: MessageStep): Keyboard {
@@ -580,25 +580,6 @@ async function sendLivePixPayment(
         },
         logPayloads: services.env.logPayloads
       });
-    }
-
-    if (paymentFlow.isCopyPixAudioEnabled && paymentFlow.copyPixAudios.length > 0) {
-      const audioIndex = Math.floor(Math.random() * paymentFlow.copyPixAudios.length);
-      const audioId = paymentFlow.copyPixAudios[audioIndex];
-      if (audioId && chatId) {
-        try {
-          await ctx.telegram.sendVoice(chatId, audioId);
-          logInteraction({
-            botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
-            content: "audio:Áudio de pagamento", chatId, messageId,
-            metadata: { mediaType: "AUDIO", title: "Áudio de pagamento" },
-            logPayloads: services.env.logPayloads
-          });
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.warn(`[bot:${botConfig.id}] copy-pix sendVoice failed: ${msg}`);
-        }
-      }
     }
 
     logInteraction({
@@ -854,6 +835,54 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         } catch {
           // answerCbQuery may fail if already answered
         }
+      }
+      return;
+    }
+
+    if (data.startsWith(LIVEPIX_COPY_PREFIX)) {
+      const reference = data.slice(LIVEPIX_COPY_PREFIX.length);
+      try {
+        const transaction = await prisma.transaction.findFirst({
+          where: { livepixReference: reference },
+          select: { pixCode: true }
+        });
+        await ctx.answerCbQuery();
+
+        if (paymentFlow.isCopyPixAudioEnabled && paymentFlow.copyPixAudios.length > 0) {
+          const audioIndex = Math.floor(Math.random() * paymentFlow.copyPixAudios.length);
+          const audioId = paymentFlow.copyPixAudios[audioIndex];
+          if (audioId && chatId) {
+            try {
+              await ctx.telegram.sendVoice(chatId, audioId);
+              logInteraction({
+                botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
+                content: "audio:Áudio copy-pix", chatId,
+                metadata: { mediaType: "AUDIO", title: "Áudio copy-pix" },
+                logPayloads: services.env.logPayloads
+              });
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.warn(`[bot:${botConfig.id}] copy-pix sendVoice failed: ${msg}`);
+            }
+          }
+        }
+
+        const pixCode = transaction?.pixCode;
+        if (pixCode && chatId) {
+          await ctx.telegram.sendMessage(chatId,
+            `<code>${pixCode}</code>`,
+            { parse_mode: "HTML" }
+          );
+          logInteraction({
+            botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
+            content: pixCode, chatId,
+            metadata: { title: "PIX code sent via copy callback" },
+            logPayloads: services.env.logPayloads
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[bot:${botConfig.id}] copy-pix callback failed: ${msg}`);
       }
       return;
     }
