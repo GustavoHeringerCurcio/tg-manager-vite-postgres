@@ -19,6 +19,7 @@ import { resolveAllPlaceholders } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
 import { sendPixelEvent } from "../services/facebookPixel.js";
+import { telegramCallWithRetry } from "../utils/telegram.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -757,7 +758,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             const fileId = paymentFlow.verifyPaymentSuccessAudios[index];
             if (fileId && chatId) {
               try {
-                await ctx.telegram.sendVoice(chatId, fileId);
+                await telegramCallWithRetry(
+                  () => ctx.telegram.sendVoice(chatId, fileId),
+                  { botId: botConfig.id, chatId, action: "sendVoice:verify_success", fileId }
+                );
                 logInteraction({
                   botId: botConfig.id, userId: user?.id ?? null, sessionId: null, type: "message", direction: "outgoing",
                   content: "audio:Pagamento confirmado", chatId,
@@ -766,7 +770,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
                 });
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
-                console.warn(`[bot:${botConfig.id}] sendVoice failed: ${msg}`);
+                console.error(`[bot:${botConfig.id}] sendVoice verify_success failed: ${msg} (chatId=${chatId}, fileId=${fileId})`);
               }
             }
           } else {
@@ -815,7 +819,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             const fileId = paymentFlow.verifyPaymentFailAudios[index];
             if (fileId && chatId) {
               try {
-                await ctx.telegram.sendVoice(chatId, fileId);
+                await telegramCallWithRetry(
+                  () => ctx.telegram.sendVoice(chatId, fileId),
+                  { botId: botConfig.id, chatId, action: "sendVoice:verify_fail", fileId }
+                );
                 logInteraction({
                   botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
                   content: "audio:Pagamento não identificado", chatId,
@@ -824,7 +831,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
                 });
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
-                console.warn(`[bot:${botConfig.id}] sendVoice failed: ${msg}`);
+                console.error(`[bot:${botConfig.id}] sendVoice verify_fail failed: ${msg} (chatId=${chatId}, fileId=${fileId})`);
               }
             }
           } else {
@@ -857,7 +864,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           const audioId = paymentFlow.copyPixAudios[audioIndex];
           if (audioId && chatId) {
             try {
-              await ctx.telegram.sendVoice(chatId, audioId);
+              await telegramCallWithRetry(
+                () => ctx.telegram.sendVoice(chatId, audioId),
+                { botId: botConfig.id, chatId, action: "sendVoice:copy_pix", fileId: audioId }
+              );
               logInteraction({
                 botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
                 content: "audio:Áudio copy-pix", chatId,
@@ -866,7 +876,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               });
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
-              console.warn(`[bot:${botConfig.id}] copy-pix sendVoice failed: ${msg}`);
+              console.error(`[bot:${botConfig.id}] sendVoice copy_pix failed: ${msg} (chatId=${chatId}, fileId=${audioId})`);
             }
           }
         }
