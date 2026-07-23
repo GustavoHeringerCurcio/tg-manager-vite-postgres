@@ -77,6 +77,20 @@
     --sidebar-ring: 235 65% 58%;
   }
 
+  [data-active="true"][data-slot="sidebar-menu-button"] {
+    position: relative;
+  }
+  [data-active="true"][data-slot="sidebar-menu-button"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: hsl(var(--sidebar-primary));
+  }
+
   * {
     @apply border-border;
   }
