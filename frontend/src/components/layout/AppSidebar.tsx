@@ -285,16 +285,17 @@ export default function AppSidebar() {
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           isActive={
-                            location.pathname ===
-                            `/manager/${botId}/payment-settings/livepix`
+                            location.pathname.startsWith(
+                              `/manager/${botId}/payment-settings/gateways`
+                            )
                           }
                           render={
                             <Link
-                              to={`/manager/${botId}/payment-settings/livepix`}
+                              to={`/manager/${botId}/payment-settings/gateways`}
                             />
                           }
                         >
-                          LivePix
+                          Gateways
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>

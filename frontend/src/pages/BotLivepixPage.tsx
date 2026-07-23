@@ -74,15 +74,15 @@ export default function BotLivepixPage() {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(`/manager/${botId}/payment-settings/gateways`)}
           className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-          title="Back to Payment Settings"
+          title="Back to Gateways"
         >
           <ArrowLeft className="size-5 text-emerald-400" />
         </button>
         <div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
-            <span>Payment Settings</span>
+            <span>Gateways</span>
             <span className="text-muted-foreground/40">/</span>
             <span className="text-foreground/70">Livepix</span>
           </div>
@@ -112,7 +112,7 @@ export default function BotLivepixPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+          <Button type="button" variant="outline" onClick={() => navigate(`/manager/${botId}/payment-settings/gateways`)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving || !isDirty} className="min-w-32 shadow-glow-primary">

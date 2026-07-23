@@ -44,6 +44,7 @@ export default function AppHeader() {
       transactions: "Transactions",
       interactions: "Interactions",
       "payment-settings": "Payment Settings",
+      gateways: "Gateways",
       livepix: "LivePix",
       "payment-buttons": "Payment Buttons",
       deliverables: "Deliverables",
