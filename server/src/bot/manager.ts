@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import type { Bot } from "@prisma/client";
 import { Telegraf } from "telegraf";
 import type { Context } from "telegraf";
@@ -18,7 +18,7 @@ export class BotManager {
   constructor(config: Bot, token: string, env: AppEnv) {
     this.botId = config.id;
     this.path = `/webhook/${config.id}`;
-    this.secretToken = randomBytes(32).toString("hex");
+    this.secretToken = createHmac("sha256", token).update("webhook").digest("hex");
     this.telegraf = new Telegraf(token, { telegram: { webhookReply: false } });
     applyRateLimit(
       this.telegraf.telegram,

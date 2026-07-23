@@ -7,7 +7,7 @@ function resolvePoolLimit(): number {
   const workers = (Number.isFinite(configured) && configured > 0)
     ? configured
     : (configured === 0 ? cpus().length : 1);
-  return Math.max(workers * 10, 10);
+  return Math.min(Math.max(workers * 10, 10), 20);
 }
 
 function withPoolConfig(envUrl: string | undefined): string {
