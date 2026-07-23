@@ -103,7 +103,6 @@ export default function BotPaymentButtonsPage() {
         },
       });
       setBot(updated);
-      navigate(`/manager/${botId}/payment-settings`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to save settings";
       setError(message);

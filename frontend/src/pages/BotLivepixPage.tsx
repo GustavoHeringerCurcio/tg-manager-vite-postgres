@@ -74,7 +74,7 @@ export default function BotLivepixPage() {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate(`/manager/${botId}/payment-settings`)}
+          onClick={() => navigate(-1)}
           className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
           title="Back to Payment Settings"
         >
@@ -112,7 +112,7 @@ export default function BotLivepixPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate(`/manager/${botId}/payment-settings`)}>
+          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving || !isDirty} className="min-w-32 shadow-glow-primary">

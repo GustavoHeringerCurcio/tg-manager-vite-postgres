@@ -29,9 +29,6 @@ import {
   MessageSquare,
   Settings,
   Wrench,
-  Smartphone,
-  Package,
-  ClipboardCheck,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -285,21 +282,6 @@ export default function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          isActive={
-                            location.pathname ===
-                            `/manager/${botId}/payment-settings`
-                          }
-                          render={
-                            <Link
-                              to={`/manager/${botId}/payment-settings`}
-                            />
-                          }
-                        >
-                          Overview
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           isActive={
