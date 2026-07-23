@@ -125,7 +125,6 @@ async function processOne(
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
     console.error(`[remarketing:${state.botId}] ${message}`);
-    throw error;
   }
 
   const newTotalSent = state.totalSent + 1;
