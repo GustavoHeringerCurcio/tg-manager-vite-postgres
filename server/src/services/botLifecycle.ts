@@ -22,14 +22,17 @@ export async function stopBot(botId: string): Promise<void> {
 
 export async function loadActiveBots(env: AppEnv): Promise<void> {
   const bots = await prisma.bot.findMany({ where: { status: BotStatus.ACTIVE } });
+  const results = await Promise.allSettled(
+    bots.map((bot) => startBot(bot, env))
+  );
   let started = 0;
-  for (const bot of bots) {
-    try {
-      await startBot(bot, env);
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === "fulfilled") {
       started += 1;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "bot startup failed";
-      console.error(`[bot:${bot.id}] ${message}`);
+    } else {
+      const message = result.reason instanceof Error ? result.reason.message : "bot startup failed";
+      console.error(`[bot:${bots[i].id}] ${message}`);
     }
   }
   console.log(`[bots] Started ${started}/${bots.length} active bots`);
