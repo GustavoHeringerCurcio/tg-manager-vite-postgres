@@ -218,6 +218,18 @@ export type DashboardStatsResponse = {
 export type UserSession = { id: string; botId: string; userId: string; status: string; currentStepIndex: number | null; stepsCompleted: number[]; messageCount: number; metadata: Record<string, unknown>; startedAt: string; endedAt: string | null; createdAt: string; updatedAt: string; user: UserSummary };
 export type ChatTimelineItem = { id: string; direction: string; type: string; content: string | null; stepIndex: number | null; buttonId: string | null; messageId: string | null; chatId: string | null; metadata: Record<string, unknown> | null; createdAt: string };
 
+export type RemarketingCancelTestResponse = {
+  ok: boolean;
+  error?: string;
+  botId?: string;
+  userId?: string;
+  telegramId?: string | null;
+  createdMock?: boolean;
+  cancelledCount?: number;
+  remainingExists?: boolean;
+  cancelled?: boolean;
+};
+
 let authToken = localStorage.getItem("botflix_admin_password") ?? "";
 
 export function setAuthToken(token: string): void {
@@ -299,6 +311,11 @@ export const api = {
 
     return (await response.json()) as { ok: boolean; fileId: string; fileUniqueId?: string };
   },
+  testRemarketingCancel: (botId: string, userOrChatId: string) =>
+    request<RemarketingCancelTestResponse>("/api/utils/test-remarketing-cancel", {
+      method: "POST",
+      body: JSON.stringify({ botId, userOrChatId })
+    }),
   users: (botId: string, page: number, search?: string) =>
     request<Paginated<User>>(`/api/bots/${botId}/users?page=${page}&pageSize=20${search ? `&search=${encodeURIComponent(search)}` : ""}`),
   setStatus: (id: string, status: BotStatus) => request<Bot>(`/api/bots/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
