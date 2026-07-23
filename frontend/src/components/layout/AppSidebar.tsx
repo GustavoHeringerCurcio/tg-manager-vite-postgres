@@ -48,9 +48,9 @@ export default function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const [bots, setBots] = useState<BotType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [botsOpen, setBotsOpen] = useState(true);
-  const [remarketingOpen, setRemarketingOpen] = useState(true);
-  const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(true);
+  const [botsOpen, setBotsOpen] = useState(false);
+  const [remarketingOpen, setRemarketingOpen] = useState(false);
+  const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(false);
 
   useEffect(() => {
     api
