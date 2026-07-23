@@ -1,7 +1,7 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { getBotManager } from "../services/botRegistry.js";
 
-export function webhookDispatcher(req: Request, res: Response, next: NextFunction): void {
+export function webhookDispatcher(req: Request, res: Response): void {
   const botId = String(req.params.botId);
   const manager = getBotManager(botId);
   if (!manager) {
@@ -9,9 +9,24 @@ export function webhookDispatcher(req: Request, res: Response, next: NextFunctio
     res.status(404).json({ error: "Bot not found" });
     return;
   }
-  try {
-    manager.webhookMiddleware()(req, res, next);
-  } catch (error) {
-    next(error);
-  }
+
+  res.status(200).json({ ok: true });
+
+  setImmediate(() => {
+    try {
+      const mockRes: Partial<Response> = {
+        end: () => mockRes as Response,
+        writeHead: () => mockRes as Response,
+        setHeader: () => mockRes as Response,
+        getHeader: () => undefined,
+        removeHeader: () => {},
+        headersSent: true,
+        statusCode: 200,
+      };
+      manager.webhookMiddleware()(req, mockRes as Response, () => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "webhook background error";
+      console.error(`[webhook:${botId}] ${message}`);
+    }
+  });
 }

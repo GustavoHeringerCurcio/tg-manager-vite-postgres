@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Bot } from "@prisma/client";
-import { Composer, Telegraf } from "telegraf";
+import { Telegraf } from "telegraf";
 import type { Context } from "telegraf";
 import { registerHandlers } from "./handlers.js";
 import type { AppEnv } from "../utils/env.js";
@@ -18,13 +18,9 @@ export class BotManager {
     this.botId = config.id;
     this.path = `/webhook/${config.id}`;
     this.secretToken = randomBytes(32).toString("hex");
-    this.telegraf = new Telegraf(token);
+    this.telegraf = new Telegraf(token, { telegram: { webhookReply: false } });
     this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
     this.webhookHandler = this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });
-    this.telegraf.use(Composer.fork(async (ctx) => {
-      ctx.telegram.webhookReply = false;
-      return Promise.resolve();
-    }));
     registerHandlers(this.telegraf, config, { env, livePix: this.livePix });
     this.telegraf.catch((error) => {
       const message = error instanceof Error ? error.message : "bot handler failed";
