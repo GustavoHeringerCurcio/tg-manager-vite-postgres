@@ -178,7 +178,7 @@ export default function BotPaymentButtonsPage() {
 
       <div className="grid grid-cols-2 gap-6">
         {/* Left column — Verify Payment */}
-        <div className="space-y-4">
+        <div className="rounded-lg border border-border/40 bg-card p-4 space-y-4">
           <div className="flex items-center gap-2">
             <span className="flex size-3 items-center justify-center rounded bg-sky-500 text-[8px] font-bold text-white">
               &#x2713;
@@ -227,7 +227,7 @@ export default function BotPaymentButtonsPage() {
         </div>
 
         {/* Right column — Copy PIX */}
-        <div className="space-y-4">
+        <div className="rounded-lg border border-border/40 bg-card p-4 space-y-4">
           <div className="flex items-center gap-2">
             <span className="flex size-3 items-center justify-center rounded bg-green-500 text-[8px] font-bold text-white">
               &#x1F4CB;
