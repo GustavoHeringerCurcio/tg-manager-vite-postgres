@@ -371,6 +371,16 @@ function classifyLivePixError(error: unknown): string {
   return `❌ Não foi possível gerar o pagamento.\nTente novamente em instantes.\n\n<code>${escapeHtml(message)}</code>`;
 }
 
+export async function cancelRemarketingForUser(botId: string, userId: string): Promise<number> {
+  const cancelled = await prisma.remarketingState.deleteMany({
+    where: { botId, userId }
+  });
+  if (cancelled.count > 0) {
+    console.info(`[bot:${botId}] cancelled ${cancelled.count} pending remarketing task(s) for user ${userId}`);
+  }
+  return cancelled.count;
+}
+
 async function sendLivePixPayment(
   ctx: Context,
   botConfig: Bot,
@@ -785,12 +795,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           // Cancel any pending remarketing for this user upon successful payment
           if (user) {
             try {
-              const cancelled = await prisma.remarketingState.deleteMany({
-                where: { botId: botConfig.id, userId: user.id }
-              });
-              if (cancelled.count > 0) {
-                console.info(`[bot:${botConfig.id}] cancelled ${cancelled.count} pending remarketing task(s) for user ${user.id}`);
-              }
+              await cancelRemarketingForUser(botConfig.id, user.id);
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               console.error(

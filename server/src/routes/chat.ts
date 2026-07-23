@@ -4,6 +4,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { HttpError } from "../utils/errors.js";
 import { parsePagination, serializeJson } from "../utils/serialize.js";
 import { prisma } from "../services/prisma.js";
+import { cancelRemarketingForUser } from "../bot/handlers.js";
 
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<void>;
 
@@ -175,6 +176,61 @@ export function chatRouter(): Router {
 
     const updated = await prisma.user.update({ where: { id: userId }, data });
     res.json(serializeJson(updated));
+  }));
+
+  router.post("/utils/test-remarketing-cancel", route(async (req, res) => {
+    const body = req.body as Record<string, unknown>;
+    const botId = typeof body.botId === "string" ? body.botId.trim() : "";
+    const targetId = typeof body.userOrChatId === "string" ? body.userOrChatId.trim() : "";
+
+    if (!botId || !targetId) {
+      res.status(400).json(serializeJson({ ok: false, error: "botId and userOrChatId are required" }));
+      return;
+    }
+
+    try {
+      let user = await prisma.user.findFirst({ where: { botId, id: targetId } });
+      if (!user && /^\d+$/.test(targetId)) {
+        const telegramId = BigInt(targetId);
+        user = await prisma.user.findFirst({ where: { botId, telegramId } });
+      }
+      if (!user) {
+        res.status(404).json(serializeJson({ ok: false, error: "User not found for provided identifiers", botId, targetId }));
+        return;
+      }
+
+      // Upsert a pending remarketing state for this user (mock)
+      const nextSendAt = new Date(Date.now() + 60_000);
+      await prisma.remarketingState.upsert({
+        where: { userId_botId: { userId: user.id, botId } },
+        update: { nextIndex: 0, nextSendAt },
+        create: { botId, userId: user.id, nextIndex: 0, totalSent: 0, nextSendAt }
+      });
+
+      const cancelled = await cancelRemarketingForUser(botId, user.id).catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[utils:test-cancel] cancellation failed`, { botId, userId: user?.id, targetId, error: msg });
+        return -1;
+      });
+
+      const remaining = await prisma.remarketingState.findFirst({ where: { botId, userId: user.id } });
+      const wasCancelled = cancelled > 0 && !remaining;
+
+      res.json(serializeJson({
+        ok: true,
+        botId,
+        userId: user.id,
+        telegramId: user.telegramId?.toString() ?? null,
+        createdMock: true,
+        cancelledCount: cancelled,
+        remainingExists: Boolean(remaining),
+        cancelled: wasCancelled
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "test cancellation failed";
+      console.error(`[utils:test-cancel] ${message}`, { botId, targetId });
+      res.status(500).json(serializeJson({ ok: false, error: message, botId, targetId }));
+    }
   }));
 
   return router;
