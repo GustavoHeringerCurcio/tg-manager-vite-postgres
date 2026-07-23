@@ -18,7 +18,7 @@ import BotPaymentAudioPage from "@/pages/BotPaymentAudioPage";
 import BotDeliverablesPage from "@/pages/BotDeliverablesPage";
 import BotSettingsPage from "@/pages/BotSettingsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
-import UtilsGetFileId from "@/pages/UtilsGetFileId";
+import UtilsPage from "@/pages/UtilsPage";
 
 export default function App() {
   return (
@@ -42,7 +42,8 @@ export default function App() {
             <Route path="/manager/:botId/payment-settings/audio" element={<BotPaymentAudioPage />} />
             <Route path="/manager/:botId/payment-settings/livepix" element={<BotLivepixPage />} />
             <Route path="/manager/:botId/payment-settings/deliverables" element={<BotDeliverablesPage />} />
-            <Route path="/utils/file-id" element={<UtilsGetFileId />} />
+            <Route path="/utils" element={<UtilsPage />} />
+            <Route path="/utils/file-id" element={<Navigate to="/utils?tool=file-id" replace />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />
