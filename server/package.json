@@ -19,7 +19,16 @@
     "test:load:callback": "k6 run tests/load/scenarios/callback-query.ts",
     "test:load:mixed": "k6 run tests/load/scenarios/mixed.ts",
     "test:load:smoke": "k6 run tests/load/scenarios/mixed.ts --vus 2 --duration 15s",
-    "test:load": "k6 run tests/load/scenarios/mixed.ts --vus 20 --duration 4m"
+    "test:load": "k6 run tests/load/scenarios/mixed.ts --vus 20 --duration 4m",
+    "test:load:payment": "k6 run tests/load/scenarios/payment-concurrency.ts --vus 20 --duration 2m",
+    "test:load:payment:50": "k6 run tests/load/scenarios/payment-concurrency.ts --vus 50 --duration 2m",
+    "test:load:stress": "k6 run tests/load/scenarios/stress.ts --vus 20 --duration 2m",
+    "test:load:stress:50": "k6 run tests/load/scenarios/stress.ts --vus 50 --duration 2m",
+    "test:load:stress:100": "k6 run tests/load/scenarios/stress.ts --vus 100 --duration 2m",
+    "test:load:stress:200": "k6 run tests/load/scenarios/stress.ts --vus 200 --duration 2m",
+    "test:load:stress:300": "k6 run tests/load/scenarios/stress.ts --vus 300 --duration 1m30s",
+    "test:load:dbpool": "k6 run tests/load/scenarios/payment-concurrency.ts --vus 50 --duration 2m",
+    "test:load:cluster": "k6 run tests/load/scenarios/mixed.ts --vus 50 --duration 2m"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
