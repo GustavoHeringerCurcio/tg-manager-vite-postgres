@@ -9,6 +9,7 @@ export type AppEnv = {
   maxPixGenerations: number;
   interactionRetentionDays: number;
   logPayloads: boolean;
+  workerCount: number;
 };
 
 type EnvSource = Record<string, string | undefined>;
@@ -62,6 +63,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     livepixRedirectUrl: source.LIVEPIX_REDIRECT_URL ?? `https://t.me/${domain}`,
     maxPixGenerations: numberValue(source, "MAX_PIX_GENERATIONS", 5),
     interactionRetentionDays: numberValue(source, "INTERACTION_RETENTION_DAYS", 90),
-    logPayloads: booleanValue(source, "LOG_PAYLOADS", false)
+    logPayloads: booleanValue(source, "LOG_PAYLOADS", false),
+    workerCount: numberValue(source, "WORKER_COUNT", 1)
   };
 }

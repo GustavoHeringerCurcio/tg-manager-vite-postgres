@@ -20,7 +20,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://botflix:change-me@db:5432/botflix?schema=public&connection_limit=5&pool_timeout=10}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://botflix:change-me@db:5432/botflix?schema=public&pool_timeout=10}
     command: ["npx", "prisma", "migrate", "deploy"]
     restart: "no"
 
@@ -44,8 +44,9 @@ services:
       MAX_PIX_GENERATIONS: ${MAX_PIX_GENERATIONS:-5}
       INTERACTION_RETENTION_DAYS: ${INTERACTION_RETENTION_DAYS:-90}
       LOG_PAYLOADS: ${LOG_PAYLOADS:-false}
+      WORKER_COUNT: ${WORKER_COUNT:-0}
       PAYMENT_POLL_WINDOW_MINUTES: ${PAYMENT_POLL_WINDOW_MINUTES:-30}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://botflix:change-me@db:5432/botflix?schema=public&connection_limit=20&pool_timeout=10}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://botflix:change-me@db:5432/botflix?schema=public&pool_timeout=10}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.APP_PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s

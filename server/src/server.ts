@@ -1,4 +1,6 @@
 import "dotenv/config";
+import cluster from "node:cluster";
+import { availableParallelism } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -20,9 +22,39 @@ import type { MessageButton } from "./bot/messageFlow.js";
 import { utilsRouter } from "./routes/utils.js";
 
 const env = loadEnv();
-const app = express();
-const dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.resolve(dirname, "../public");
+const effectiveWorkers = env.workerCount === 0 ? availableParallelism() : env.workerCount;
+
+let app: ReturnType<typeof express>;
+
+if (effectiveWorkers > 1 && cluster.isPrimary) {
+  console.log(`[cluster] Primary ${process.pid} forking ${effectiveWorkers} workers`);
+
+  for (let i = 0; i < effectiveWorkers; i++) {
+    cluster.fork({ WORKER_ID: String(i) });
+  }
+
+  cluster.on("exit", (worker, code, signal) => {
+    console.warn(`[cluster] Worker ${worker.process.pid} died (${signal ?? code}), restarting`);
+    cluster.fork();
+  });
+
+  for (const sig of ["SIGINT", "SIGTERM"] as const) {
+    process.on(sig, () => {
+      for (const id in cluster.workers) {
+        cluster.workers[id]?.kill(sig);
+      }
+    });
+  }
+
+  app = undefined as unknown as ReturnType<typeof express>;
+  // Primary process stays alive to supervise workers — do not start Express.
+} else {
+  const workerId = process.env.WORKER_ID ? Number(process.env.WORKER_ID) : 0;
+  const isPrimaryWorker = workerId === 0;
+  const label = effectiveWorkers > 1 ? `worker:${workerId}` : "server";
+  app = express();
+  const dirname = path.dirname(fileURLToPath(import.meta.url));
+  const publicDir = path.resolve(dirname, "../public");
 
 app.use(express.json({ limit: "50mb" }));
 app.post("/webhook/:botId", webhookDispatcher);
@@ -155,35 +187,39 @@ app.use("/api", (_req, res) => {
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = error instanceof HttpError ? error.status : 500;
   const message = status === 500 && env.nodeEnv === "production" ? "Internal server error" : error.message;
-  if (status === 500) console.error(`[server] ${error.message}`);
+  if (status === 500) console.error(`[${label}] ${error.message}`);
   res.status(status).json({ error: message });
 });
 
 const server = app.listen(env.appPort, async () => {
   try {
-    await loadActiveBots(env);
-    startRemarketingPoller();
-    startPaymentPoller();
-    console.log(`[server] Listening on ${env.appPort}`);
+    await loadActiveBots(env, !isPrimaryWorker);
+    if (isPrimaryWorker) {
+      startRemarketingPoller();
+      startPaymentPoller();
+    }
+    console.log(`[${label}] Listening on ${env.appPort}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "startup failed";
-    console.error(`[server] ${message}`);
+    console.error(`[${label}] ${message}`);
     process.exitCode = 1;
     server.close();
   }
 });
 
 async function shutdown(signal: string): Promise<void> {
-  console.log(`[server] Received ${signal}, shutting down`);
-  stopRemarketingPoller();
-  stopPaymentPoller();
+  console.log(`[${label}] Received ${signal}, shutting down`);
+  if (isPrimaryWorker) {
+    stopRemarketingPoller();
+    stopPaymentPoller();
+  }
   server.close(async () => {
     try {
       await shutdownAllBots();
       await prisma.$disconnect();
     } catch (error) {
       const message = error instanceof Error ? error.message : "shutdown failed";
-      console.error(`[server] ${message}`);
+      console.error(`[${label}] ${message}`);
     } finally {
       process.exit(0);
     }
@@ -192,5 +228,6 @@ async function shutdown(signal: string): Promise<void> {
 
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
+}
 
 export { app };

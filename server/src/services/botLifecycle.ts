@@ -4,12 +4,12 @@ import { prisma } from "./prisma.js";
 import { BotManager } from "../bot/manager.js";
 import { getBotManager, listBotManagers, registerBotManager, removeBotManager } from "./botRegistry.js";
 
-export async function startBot(bot: Bot, env: AppEnv): Promise<void> {
+export async function startBot(bot: Bot, env: AppEnv, skipWebhook = false): Promise<void> {
   const existing = getBotManager(bot.id);
   if (existing) return;
   const manager = new BotManager(bot, bot.token, env);
   await manager.validateToken();
-  await manager.start(env.domain);
+  if (!skipWebhook) await manager.start(env.domain);
   await registerBotManager(bot.id, manager);
 }
 
@@ -20,10 +20,10 @@ export async function stopBot(botId: string): Promise<void> {
   removeBotManager(botId);
 }
 
-export async function loadActiveBots(env: AppEnv): Promise<void> {
+export async function loadActiveBots(env: AppEnv, skipWebhook = false): Promise<void> {
   const bots = await prisma.bot.findMany({ where: { status: BotStatus.ACTIVE } });
   const results = await Promise.allSettled(
-    bots.map((bot) => startBot(bot, env))
+    bots.map((bot) => startBot(bot, env, skipWebhook))
   );
   let started = 0;
   for (let i = 0; i < results.length; i++) {
