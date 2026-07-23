@@ -17,12 +17,9 @@ export type PaymentFlow = {
   steps: MessageStep[];
   verifyLabel: string;
   pixCopyLabel: string;
-  unpaidAudioFileIds: string[];
-  verifyPaymentFailAudios?: string[];
-  verifyPaymentSuccessAudios?: string[];
-  isVerifyPaymentAudioEnabled?: boolean;
-  copyPixAudios?: string[];
-  isCopyPixAudioEnabled?: boolean;
+  verifyPaymentSuccessFlow?: MessageStep[];
+  verifyPaymentFailFlow?: MessageStep[];
+  copyPixFlow?: MessageStep[];
   deliverables?: MessageStep[];
 };
 

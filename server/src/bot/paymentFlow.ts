@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { MessageStep } from "./messageFlow.js";
 import { normalizeMessageFlow } from "./messageFlow.js";
 
@@ -5,12 +6,9 @@ export type PaymentFlow = {
   steps: MessageStep[];
   verifyLabel: string;
   pixCopyLabel: string;
-  unpaidAudioFileIds: string[];
-  verifyPaymentFailAudios: string[];
-  verifyPaymentSuccessAudios: string[];
-  isVerifyPaymentAudioEnabled: boolean;
-  copyPixAudios: string[];
-  isCopyPixAudioEnabled: boolean;
+  verifyPaymentSuccessFlow: MessageStep[];
+  verifyPaymentFailFlow: MessageStep[];
+  copyPixFlow: MessageStep[];
   deliverables: MessageStep[];
 };
 
@@ -31,6 +29,19 @@ function normalizeStringArray(value: unknown): string[] {
     .filter((v): v is string => Boolean(v));
 }
 
+function audioStepFromFileId(fileId: string, title: string): MessageStep {
+  return {
+    id: randomUUID(),
+    title,
+    type: "AUDIO",
+    text: undefined,
+    mediaUrls: [fileId],
+    delayMs: 0,
+    buttons: [],
+    dailyAudios: undefined,
+  };
+}
+
 export function normalizePaymentFlow(value: unknown): PaymentFlow {
   if (value === undefined || value === null) return defaultPaymentFlow();
   if (Array.isArray(value)) throw new Error("paymentFlow must be an object, got an array");
@@ -40,27 +51,47 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
 
   const verifyLabel = cleanString(value.verifyLabel) ?? "Verificar pagamento";
   const pixCopyLabel = cleanString(value.pixCopyLabel) ?? "Copiar PIX";
-  const unpaidAudioFileIds = normalizeStringArray(value.unpaidAudioFileIds);
 
   const record = value as Record<string, unknown>;
 
-  const verifyPaymentFailAudiosRaw = normalizeStringArray(record.verifyPaymentFailAudios);
-  const verifyPaymentAudiosLegacy = normalizeStringArray(record.verifyPaymentAudios);
-  const verifyPaymentFailAudios =
-    verifyPaymentFailAudiosRaw.length
-      ? verifyPaymentFailAudiosRaw
-      : verifyPaymentAudiosLegacy.length
-        ? verifyPaymentAudiosLegacy
-        : unpaidAudioFileIds;
+  let verifyPaymentSuccessFlow = normalizeMessageFlow(record.verifyPaymentSuccessFlow);
+  let verifyPaymentFailFlow = normalizeMessageFlow(record.verifyPaymentFailFlow);
+  let copyPixFlow = normalizeMessageFlow(record.copyPixFlow);
 
-  const verifyPaymentSuccessAudios = normalizeStringArray(record.verifyPaymentSuccessAudios);
+  if (verifyPaymentSuccessFlow.length === 0) {
+    const successAudios = normalizeStringArray(record.verifyPaymentSuccessAudios);
+    if (successAudios.length > 0) {
+      verifyPaymentSuccessFlow = successAudios.map((fileId) =>
+        audioStepFromFileId(fileId, "Pagamento confirmado")
+      );
+    }
+  }
 
-  const isVerifyPaymentAudioEnabled =
-    typeof record.isVerifyPaymentAudioEnabled === "boolean" ? (record.isVerifyPaymentAudioEnabled as boolean) : false;
+  if (verifyPaymentFailFlow.length === 0) {
+    const failAudiosRaw = normalizeStringArray(record.verifyPaymentFailAudios);
+    const failAudiosLegacy = normalizeStringArray(record.verifyPaymentAudios);
+    const unpaidLegacy = normalizeStringArray(record.unpaidAudioFileIds);
+    const failAudios =
+      failAudiosRaw.length
+        ? failAudiosRaw
+        : failAudiosLegacy.length
+          ? failAudiosLegacy
+          : unpaidLegacy;
+    if (failAudios.length > 0) {
+      verifyPaymentFailFlow = failAudios.map((fileId) =>
+        audioStepFromFileId(fileId, "Pagamento não identificado")
+      );
+    }
+  }
 
-  const copyPixAudios = normalizeStringArray(record.copyPixAudios);
-  const isCopyPixAudioEnabled =
-    typeof record.isCopyPixAudioEnabled === "boolean" ? (record.isCopyPixAudioEnabled as boolean) : false;
+  if (copyPixFlow.length === 0) {
+    const copyAudios = normalizeStringArray(record.copyPixAudios);
+    if (copyAudios.length > 0) {
+      copyPixFlow = copyAudios.map((fileId) =>
+        audioStepFromFileId(fileId, "Áudio copy-pix")
+      );
+    }
+  }
 
   const deliverables = normalizeMessageFlow(record.deliverables);
 
@@ -68,13 +99,10 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
     steps,
     verifyLabel,
     pixCopyLabel,
-    unpaidAudioFileIds,
-    verifyPaymentFailAudios,
-    verifyPaymentSuccessAudios,
-    isVerifyPaymentAudioEnabled,
-    copyPixAudios,
-    isCopyPixAudioEnabled,
-    deliverables
+    verifyPaymentSuccessFlow,
+    verifyPaymentFailFlow,
+    copyPixFlow,
+    deliverables,
   };
 }
 
@@ -83,13 +111,10 @@ export function defaultPaymentFlow(): PaymentFlow {
     steps: [],
     verifyLabel: "Verificar pagamento",
     pixCopyLabel: "Copiar PIX",
-    unpaidAudioFileIds: [],
-    verifyPaymentFailAudios: [],
-    verifyPaymentSuccessAudios: [],
-    isVerifyPaymentAudioEnabled: false,
-    copyPixAudios: [],
-    isCopyPixAudioEnabled: false,
-    deliverables: []
+    verifyPaymentSuccessFlow: [],
+    verifyPaymentFailFlow: [],
+    copyPixFlow: [],
+    deliverables: [],
   };
 }
 

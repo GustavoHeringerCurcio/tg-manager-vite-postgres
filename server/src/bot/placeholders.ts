@@ -52,10 +52,21 @@ function isInRange(
   return current >= start || current <= end;
 }
 
+export type PaymentContext = {
+  amount?: number;
+  pixCode?: string;
+  checkoutUrl?: string;
+};
+
+export function formatPixCode(pixCode: string): string {
+  return `<blockquote><code>${pixCode}</code></blockquote>`;
+}
+
 export function resolveAllPlaceholders(
   text: string,
   user: { firstName: string | null },
-  timeCompliments?: TimeComplimentConfig | null
+  timeCompliments?: TimeComplimentConfig | null,
+  payment?: PaymentContext
 ): string {
   let result = text;
 
@@ -79,6 +90,20 @@ export function resolveAllPlaceholders(
   } else {
     result = result.replace(TIME_REGEX, () => formatTime("UTC"));
     result = result.replace(TIME_COMPLIMENT_REGEX, () => "");
+  }
+
+  if (payment) {
+    if (payment.amount !== undefined) {
+      result = result.replace(/\{amount\}/g, `R$ ${(payment.amount / 100).toFixed(2)}`);
+    }
+    if (payment.pixCode) {
+      result = result.replace(/\{pix_code\}/g, formatPixCode(payment.pixCode));
+    } else if (payment.checkoutUrl) {
+      result = result.replace(/\{pix_code\}/g, payment.checkoutUrl);
+    }
+    if (payment.checkoutUrl) {
+      result = result.replace(/\{checkout_url\}/g, payment.checkoutUrl);
+    }
   }
 
   return result;

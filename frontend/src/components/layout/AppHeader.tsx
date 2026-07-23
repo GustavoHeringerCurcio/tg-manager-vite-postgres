@@ -43,6 +43,10 @@ export default function AppHeader() {
       remarketing: "Remarketing",
       transactions: "Transactions",
       interactions: "Interactions",
+      "payment-settings": "Payment Settings",
+      livepix: "LivePix",
+      "payment-buttons": "Payment Buttons",
+      deliverables: "Deliverables",
     };
     return labels[segment] || segment;
   }

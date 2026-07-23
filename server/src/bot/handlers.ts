@@ -15,11 +15,10 @@ import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js";
 import type { TimeComplimentConfig } from "./remarketing.js";
 import { normalizeBotSettings } from "./botSettings.js";
-import { resolveAllPlaceholders } from "./placeholders.js";
+import { resolveAllPlaceholders, type PaymentContext, formatPixCode } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
 import { sendPixelEvent } from "../services/facebookPixel.js";
-import { telegramCallWithRetry } from "../utils/telegram.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -215,11 +214,12 @@ async function sendStep(
   stepIndex: number,
   env: AppEnv,
   timeCompliments: TimeComplimentConfig,
-  parseMode?: ParseMode
+  parseMode?: ParseMode,
+  payment?: PaymentContext
 ): Promise<void> {
 
   let resolvedText = step.text
-    ? resolveAllPlaceholders(step.text, { firstName: user?.firstName ?? null }, timeCompliments)
+    ? resolveAllPlaceholders(step.text, { firstName: user?.firstName ?? null }, timeCompliments, payment)
     : step.text;
   resolvedText = resolvedText ? markdownToHtml(resolvedText) : resolvedText;
   const replyMarkup = keyboard(step);
@@ -324,17 +324,6 @@ async function sendStep(
     } : undefined,
     logPayloads: env.logPayloads
   });
-}
-
-function formatPixCode(pixCode: string): string {
-  return `<blockquote><code>${pixCode}</code></blockquote>`;
-}
-
-function resolvePlaceholders(text: string, amount: number, pixCode: string | undefined, checkoutUrl: string): string {
-  return text
-    .replace(/\{amount\}/g, `R$ ${amount.toFixed(2)}`)
-    .replace(/\{pix_code\}/g, pixCode ? formatPixCode(pixCode) : checkoutUrl)
-    .replace(/\{checkout_url\}/g, checkoutUrl);
 }
 
 function escapeHtml(text: string): string {
@@ -478,9 +467,12 @@ async function sendLivePixPayment(
         } else if (step.delayMs > 0) {
           await delay(step.delayMs);
         }
-        let resolvedText = step.text ? resolvePlaceholders(step.text, amount, pixCode, payment.checkoutUrl) : undefined;
-        resolvedText = resolvedText
-          ? resolveAllPlaceholders(resolvedText, { firstName: user.firstName }, timeCompliments)
+        let resolvedText = step.text
+          ? resolveAllPlaceholders(step.text, { firstName: user.firstName }, timeCompliments, {
+              amount: amount * 100,
+              pixCode,
+              checkoutUrl: payment.checkoutUrl,
+            })
           : undefined;
         resolvedText = resolvedText ? markdownToHtml(resolvedText) : resolvedText;
 
@@ -762,37 +754,24 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         const payment = await services.livePix.checkPayment(reference);
         if (payment && payment.amount != null && payment.amount > 0) {
           const user = await upsertTelegramUser(botConfig.id, ctx);
-          if (paymentFlow.isVerifyPaymentAudioEnabled && paymentFlow.verifyPaymentSuccessAudios.length > 0) {
-            await ctx.answerCbQuery();
-            const index = Math.floor(Math.random() * paymentFlow.verifyPaymentSuccessAudios.length);
-            const fileId = paymentFlow.verifyPaymentSuccessAudios[index];
-            if (fileId && chatId) {
-              try {
-                await telegramCallWithRetry(
-                  () => ctx.telegram.sendVoice(chatId, fileId),
-                  { botId: botConfig.id, chatId, action: "sendVoice:verify_success", fileId }
-                );
-                logInteraction({
-                  botId: botConfig.id, userId: user?.id ?? null, sessionId: null, type: "message", direction: "outgoing",
-                  content: "audio:Pagamento confirmado", chatId,
-                  metadata: { mediaType: "AUDIO", title: "Pagamento confirmado" },
-                  logPayloads: services.env.logPayloads
-                });
-              } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                console.error(`[bot:${botConfig.id}] sendVoice verify_success failed: ${msg} (chatId=${chatId}, fileId=${fileId})`);
-              }
+          await ctx.answerCbQuery();
+
+          const successFlow = paymentFlow.verifyPaymentSuccessFlow ?? [];
+          if (successFlow.length > 0) {
+            const ptx: PaymentContext = { amount: payment.amount, pixCode: undefined, checkoutUrl: undefined };
+            for (const [i, step] of successFlow.entries()) {
+              if (step.delayMs > 0) await delay(step.delayMs);
+              await sendStep(ctx, botConfig, user, null, step, i, services.env, timeCompliments, undefined, ptx);
             }
           } else {
-            await ctx.answerCbQuery();
             await ctx.reply(`✅ Pagamento confirmado!\n\nValor: R$ ${(payment.amount / 100).toFixed(2)}\n\nObrigado pela sua compra!`, { parse_mode: "HTML" });
           }
+
           await prisma.transaction.updateMany({
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
           });
 
-          // Cancel any pending remarketing for this user upon successful payment
           if (user) {
             try {
               await cancelRemarketingForUser(botConfig.id, user.id);
@@ -803,7 +782,6 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               );
             }
           }
-          // user already fetched above
           if (user) {
             const sessionId = await createOrResumeSession(botConfig.id, user.id);
 
@@ -835,26 +813,12 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             );
           }
         } else {
-          if (paymentFlow.isVerifyPaymentAudioEnabled && paymentFlow.verifyPaymentFailAudios.length > 0) {
+          const failFlow = paymentFlow.verifyPaymentFailFlow ?? [];
+          if (failFlow.length > 0) {
             await ctx.answerCbQuery();
-            const index = Math.floor(Math.random() * paymentFlow.verifyPaymentFailAudios.length);
-            const fileId = paymentFlow.verifyPaymentFailAudios[index];
-            if (fileId && chatId) {
-              try {
-                await telegramCallWithRetry(
-                  () => ctx.telegram.sendVoice(chatId, fileId),
-                  { botId: botConfig.id, chatId, action: "sendVoice:verify_fail", fileId }
-                );
-                logInteraction({
-                  botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
-                  content: "audio:Pagamento não identificado", chatId,
-                  metadata: { mediaType: "AUDIO", title: "Pagamento não identificado" },
-                  logPayloads: services.env.logPayloads
-                });
-              } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                console.error(`[bot:${botConfig.id}] sendVoice verify_fail failed: ${msg} (chatId=${chatId}, fileId=${fileId})`);
-              }
+            for (const [i, step] of failFlow.entries()) {
+              if (step.delayMs > 0) await delay(step.delayMs);
+              await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments);
             }
           } else {
             await ctx.answerCbQuery("Pagamento ainda não identificado. Tente novamente após pagar.", { show_alert: true });
@@ -877,29 +841,19 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       try {
         const transaction = await prisma.transaction.findFirst({
           where: { livepixReference: reference },
-          select: { pixCode: true }
+          select: { pixCode: true, checkoutUrl: true }
         });
         await ctx.answerCbQuery();
 
-        if (paymentFlow.isCopyPixAudioEnabled && paymentFlow.copyPixAudios.length > 0) {
-          const audioIndex = Math.floor(Math.random() * paymentFlow.copyPixAudios.length);
-          const audioId = paymentFlow.copyPixAudios[audioIndex];
-          if (audioId && chatId) {
-            try {
-              await telegramCallWithRetry(
-                () => ctx.telegram.sendVoice(chatId, audioId),
-                { botId: botConfig.id, chatId, action: "sendVoice:copy_pix", fileId: audioId }
-              );
-              logInteraction({
-                botId: botConfig.id, userId: null, sessionId: null, type: "message", direction: "outgoing",
-                content: "audio:Áudio copy-pix", chatId,
-                metadata: { mediaType: "AUDIO", title: "Áudio copy-pix" },
-                logPayloads: services.env.logPayloads
-              });
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : String(err);
-              console.error(`[bot:${botConfig.id}] sendVoice copy_pix failed: ${msg} (chatId=${chatId}, fileId=${audioId})`);
-            }
+        const copyFlow = paymentFlow.copyPixFlow ?? [];
+        if (copyFlow.length > 0) {
+          const ptx: PaymentContext = {
+            pixCode: transaction?.pixCode ?? undefined,
+            checkoutUrl: transaction?.checkoutUrl ?? undefined,
+          };
+          for (const [i, step] of copyFlow.entries()) {
+            if (step.delayMs > 0) await delay(step.delayMs);
+            await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments, undefined, ptx);
           }
         }
       } catch (err) {

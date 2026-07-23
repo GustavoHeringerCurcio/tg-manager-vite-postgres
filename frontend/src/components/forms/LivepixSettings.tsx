@@ -1,11 +1,8 @@
-import { useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Info, ChevronDown, Smartphone, CreditCard } from "lucide-react";
 import type { PaymentFlow } from "@/types";
 import MessageFlowEditor from "./MessageFlowEditor";
+import { CollapsibleSection } from "@/components/shared/CollapsibleSection";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Info, ChevronDown, CreditCard } from "lucide-react";
 
 export const LIVEPIX_LOGO =
   "https://play-lh.googleusercontent.com/e061VhzWGsmeXKZVjuR6vqcQisXpHA6zhJm4HyTXWLxefkM8vsSYnRemtYod8r_oeuAwJCMtZj7ELJbTRM_rClo";
@@ -14,22 +11,15 @@ const defaultPaymentFlow: PaymentFlow = {
   steps: [],
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
-  unpaidAudioFileIds: [],
-  verifyPaymentFailAudios: [],
-  verifyPaymentSuccessAudios: [],
-  isVerifyPaymentAudioEnabled: false,
-  copyPixAudios: [],
-  isCopyPixAudioEnabled: false,
+  verifyPaymentSuccessFlow: [],
+  verifyPaymentFailFlow: [],
+  copyPixFlow: [],
   deliverables: [],
 };
 
 export function isLivepixConfigured(paymentFlow: PaymentFlow): boolean {
   const flow = paymentFlow ?? defaultPaymentFlow;
-  return (
-    flow.steps.length > 0 ||
-    flow.verifyLabel !== defaultPaymentFlow.verifyLabel ||
-    flow.pixCopyLabel !== defaultPaymentFlow.pixCopyLabel
-  );
+  return flow.steps.length > 0;
 }
 
 interface LivepixSettingsProps {
@@ -38,7 +28,6 @@ interface LivepixSettingsProps {
 }
 
 export default function LivepixSettings({ paymentFlow, onChange }: LivepixSettingsProps) {
-  const [buttonSettingsOpen, setButtonSettingsOpen] = useState(true);
   const flow = paymentFlow;
 
   function update(fields: Partial<PaymentFlow>) {
@@ -47,8 +36,6 @@ export default function LivepixSettings({ paymentFlow, onChange }: LivepixSettin
 
   return (
     <div className="space-y-4">
-      
-
       <PlaceholdersInfo />
 
       <CollapsibleSection
@@ -60,103 +47,6 @@ export default function LivepixSettings({ paymentFlow, onChange }: LivepixSettin
       >
         <div className="pt-4">
           <MessageFlowEditor steps={flow.steps} onChange={(steps) => update({ steps })} showPaymentOptions livepixConfigured={isLivepixConfigured(flow)} />
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Last Message Buttons"
-        summary={`"${flow.verifyLabel}" · "${flow.pixCopyLabel}"`}
-        icon={<Smartphone className="size-4 text-muted-foreground" />}
-        open={buttonSettingsOpen}
-        onOpenChange={setButtonSettingsOpen}
-      >
-        <div className="space-y-5 pt-4">
-          <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Telegram Preview
-            </p>
-
-            <div className="max-w-xs mx-auto">
-              <div className="rounded-xl border border-border/40 bg-background px-3 pt-2.5 pb-3 shadow-sm">
-                <div className="flex items-start gap-2">
-                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white">
-                    B
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold text-sky-500">
-                      Botflix Bot
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-2 rounded-xl bg-muted/40 px-3 py-2">
-                  <p className="text-xs text-foreground/80 leading-relaxed">
-                    Seu pagamento est&aacute; sendo processado...
-                  </p>
-                </div>
-
-                <div className="mt-2.5 flex gap-1.5">
-                  <div className="flex-1 rounded-lg bg-sky-500 px-1.5 py-2 text-center">
-                    <span className="text-[11px] font-medium text-white break-all leading-tight">
-                      {flow.verifyLabel}
-                    </span>
-                  </div>
-                  <div className="flex-1 rounded-lg bg-green-500 px-1.5 py-2 text-center">
-                    <span className="text-[11px] font-medium text-white break-all leading-tight">
-                      {flow.pixCopyLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-[10px] text-muted-foreground/60 text-center mt-3 italic">
-              These two buttons appear in the last message of your payment flow
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="verify-label" className="text-xs">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="flex size-4 items-center justify-center rounded bg-sky-500 text-[9px] font-bold text-white">
-                    &#x2713;
-                  </span>
-                  Verify Button
-                </span>
-              </Label>
-              <Input
-                id="verify-label"
-                value={flow.verifyLabel}
-                onChange={(e) => update({ verifyLabel: e.target.value })}
-                className="h-9 text-sm"
-                placeholder="Verificar pagamento"
-              />
-              <p className="text-[10px] text-muted-foreground/60">
-                Sent so the user can confirm their payment was made
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="copy-label" className="text-xs">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="flex size-4 items-center justify-center rounded bg-green-500 text-[9px] font-bold text-white">
-                    &#x1F4CB;
-                  </span>
-                  Copy PIX Button
-                </span>
-              </Label>
-              <Input
-                id="copy-label"
-                value={flow.pixCopyLabel}
-                onChange={(e) => update({ pixCopyLabel: e.target.value })}
-                className="h-9 text-sm"
-                placeholder="Copiar PIX"
-              />
-              <p className="text-[10px] text-muted-foreground/60">
-                Sent so the user can copy the PIX code to their clipboard
-              </p>
-            </div>
-          </div>
         </div>
       </CollapsibleSection>
     </div>

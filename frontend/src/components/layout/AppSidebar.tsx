@@ -29,6 +29,9 @@ import {
   MessageSquare,
   Settings,
   Wrench,
+  Smartphone,
+  Package,
+  ClipboardCheck,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -50,6 +53,7 @@ export default function AppSidebar() {
   const [loading, setLoading] = useState(true);
   const [botsOpen, setBotsOpen] = useState(true);
   const [remarketingOpen, setRemarketingOpen] = useState(true);
+  const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(true);
 
   useEffect(() => {
     api
@@ -259,20 +263,93 @@ export default function AppSidebar() {
                   <span>Chat Preview</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip="Payment Settings"
-                  isActive={isActive(
-                    `/manager/${botId}/payment-settings`
-                  )}
-                  render={
-                    <Link to={`/manager/${botId}/payment-settings`} />
-                  }
-                >
-                  <CreditCard />
-                  <span>Payment Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible
+                open={paymentSettingsOpen}
+                onOpenChange={setPaymentSettingsOpen}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger
+                    render={<button className="w-full" />}
+                  >
+                    <SidebarMenuButton
+                      tooltip="Payment Settings"
+                      isActive={isActive(
+                        `/manager/${botId}/payment-settings`
+                      )}
+                    >
+                      <CreditCard />
+                      <span>Payment Settings</span>
+                      <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={
+                            location.pathname ===
+                            `/manager/${botId}/payment-settings`
+                          }
+                          render={
+                            <Link
+                              to={`/manager/${botId}/payment-settings`}
+                            />
+                          }
+                        >
+                          Overview
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={
+                            location.pathname ===
+                            `/manager/${botId}/payment-settings/livepix`
+                          }
+                          render={
+                            <Link
+                              to={`/manager/${botId}/payment-settings/livepix`}
+                            />
+                          }
+                        >
+                          LivePix
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={
+                            location.pathname.startsWith(
+                              `/manager/${botId}/payment-settings/payment-buttons`
+                            )
+                          }
+                          render={
+                            <Link
+                              to={`/manager/${botId}/payment-settings/payment-buttons`}
+                            />
+                          }
+                        >
+                          Payment Buttons
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          isActive={
+                            location.pathname ===
+                            `/manager/${botId}/payment-settings/deliverables`
+                          }
+                          render={
+                            <Link
+                              to={`/manager/${botId}/payment-settings/deliverables`}
+                            />
+                          }
+                        >
+                          Deliverables
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroup>
         )}

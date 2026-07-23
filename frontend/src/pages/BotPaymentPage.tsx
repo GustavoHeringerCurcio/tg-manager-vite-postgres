@@ -91,10 +91,10 @@ export default function BotPaymentPage() {
 
         <button
           type="button"
-          onClick={() => navigate(`/manager/${botId}/payment-settings/audio`)}
+          onClick={() => navigate(`/manager/${botId}/payment-settings/payment-buttons`)}
           className="flex w-full items-center justify-between gap-2 rounded-xl border border-border/40 bg-card px-5 py-3 text-left shadow-sm hover:bg-muted/20 transition-colors"
         >
-          <span className="text-sm font-medium">Manage Payment Audios</span>
+          <span className="text-sm font-medium">Payment Buttons</span>
           <ChevronRight className="size-5 shrink-0 text-muted-foreground/50" />
         </button>
 

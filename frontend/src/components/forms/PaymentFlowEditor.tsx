@@ -18,12 +18,9 @@ const defaultPaymentFlow: PaymentFlow = {
   steps: [],
   verifyLabel: "Verificar pagamento",
   pixCopyLabel: "Copiar PIX",
-  unpaidAudioFileIds: [],
-  verifyPaymentFailAudios: [],
-  verifyPaymentSuccessAudios: [],
-  isVerifyPaymentAudioEnabled: false,
-  copyPixAudios: [],
-  isCopyPixAudioEnabled: false,
+  verifyPaymentSuccessFlow: [],
+  verifyPaymentFailFlow: [],
+  copyPixFlow: [],
   deliverables: [],
 };
 
