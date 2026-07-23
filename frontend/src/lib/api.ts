@@ -230,6 +230,24 @@ export type RemarketingCancelTestResponse = {
   cancelled?: boolean;
 };
 
+export type LoadSimulationPayload = {
+  botId: string;
+  concurrentUsers: number;
+  actions: Array<"start" | "copy_pix" | "check_payment">;
+};
+
+export type LoadSimulationResult = {
+  ok: boolean;
+  requested: { botId: string; concurrentUsers: number; actions: string[] };
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  totalSent: number;
+  succeeded: number;
+  failed: number;
+  errors: Array<{ index: number; userId: string; action: string; error: string }>;
+};
+
 let authToken = localStorage.getItem("botflix_admin_password") ?? "";
 
 export function setAuthToken(token: string): void {
@@ -315,6 +333,11 @@ export const api = {
     request<RemarketingCancelTestResponse>("/api/utils/test-remarketing-cancel", {
       method: "POST",
       body: JSON.stringify({ botId, userOrChatId })
+    }),
+  simulateLoad: (payload: LoadSimulationPayload) =>
+    request<LoadSimulationResult>("/api/utils/simulate-load", {
+      method: "POST",
+      body: JSON.stringify(payload)
     }),
   users: (botId: string, page: number, search?: string) =>
     request<Paginated<User>>(`/api/bots/${botId}/users?page=${page}&pageSize=20${search ? `&search=${encodeURIComponent(search)}` : ""}`),

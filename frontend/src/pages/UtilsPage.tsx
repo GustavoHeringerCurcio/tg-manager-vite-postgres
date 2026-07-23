@@ -2,8 +2,9 @@ import * as React from "react";
 import { useSearchParams } from "react-router-dom";
 import UtilsGetFileId from "@/pages/UtilsGetFileId";
 import RemarketingSimulator from "@/pages/utils/RemarketingSimulator";
+import LoadSimulator from "@/pages/utils/LoadSimulator";
 
-type ToolKey = "file-id" | "remarketing";
+type ToolKey = "file-id" | "remarketing" | "load-sim";
 
 const TOOLS: { key: ToolKey; label: string; description: string }[] = [
   {
@@ -15,6 +16,11 @@ const TOOLS: { key: ToolKey; label: string; description: string }[] = [
     key: "remarketing",
     label: "Simulador de Pagamento & Remarketing",
     description: "Simule um pagamento e verifique o cancelamento de remarketing.",
+  },
+  {
+    key: "load-sim",
+    label: "Simulador de Carga",
+    description: "Simule picos de usuários e ações para testar o bot.",
   },
 ];
 
@@ -87,6 +93,17 @@ export default function UtilsPage() {
                 </p>
                 <div className="border-t my-2" />
                 <RemarketingSimulator />
+              </div>
+            )}
+
+            {selected === "load-sim" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Simulador de Carga</h2>
+                <p className="text-sm text-muted-foreground">
+                  Selecione o bot, configure a quantidade de usuários concorrentes e ações para simular um pico de tráfego.
+                </p>
+                <div className="border-t my-2" />
+                <LoadSimulator />
               </div>
             )}
           </div>
