@@ -19,7 +19,6 @@ const FILTER_STORAGE_KEY = "botflix_dashboard_filter";
 
 interface SavedFilterState {
   period?: DashboardPeriod;
-  autoRefresh?: boolean;
 }
 
 function loadFilterState(botId: string): SavedFilterState {
@@ -33,11 +32,11 @@ function loadFilterState(botId: string): SavedFilterState {
   }
 }
 
-function saveFilterState(botId: string, period: DashboardPeriod, autoRefresh: boolean) {
+function saveFilterState(botId: string, period: DashboardPeriod) {
   try {
     const raw = localStorage.getItem(FILTER_STORAGE_KEY);
     const all: Record<string, SavedFilterState> = raw ? JSON.parse(raw) : {};
-    all[botId] = { period, autoRefresh };
+    all[botId] = { period };
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(all));
   } catch {
     // ignore quota errors
@@ -57,26 +56,23 @@ export default function BotDashboardPage() {
   const { botId } = useParams<{ botId: string }>();
 
   const initialFilter = useMemo(() => {
-    if (!botId) return { period: defaultPeriod(), autoRefresh: true };
+    if (!botId) return { period: defaultPeriod() };
     const saved = loadFilterState(botId);
     return {
       period: saved.period ?? defaultPeriod(),
-      autoRefresh: saved.autoRefresh ?? true,
     };
   }, [botId]);
 
   const { bot, loading: botLoading } = useBotDetail(botId);
   const [period, setPeriod] = useState<DashboardPeriod>(initialFilter.period);
-  const [autoRefresh, setAutoRefresh] = useState(initialFilter.autoRefresh);
 
   useEffect(() => {
-    if (botId) saveFilterState(botId, period, autoRefresh);
-  }, [botId, period, autoRefresh]);
+    if (botId) saveFilterState(botId, period);
+  }, [botId, period]);
 
-  const { stats, timeline, dailyActiveUsers, computeStat, loading: statsLoading, error } = useDashboardStats(
+  const { stats, timeline, dailyActiveUsers, computeStat, loading: statsLoading, error, refresh } = useDashboardStats(
     botId,
     period,
-    autoRefresh,
   );
 
   const loading = botLoading || (statsLoading && !stats);
@@ -253,9 +249,8 @@ export default function BotDashboardPage() {
 
       <PeriodFilter
         value={period}
-        autoRefresh={autoRefresh}
         onPeriodChange={setPeriod}
-        onAutoRefreshChange={setAutoRefresh}
+        onRefresh={refresh}
       />
 
       {error ? (

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Calendar, RefreshCw } from "lucide-react";
 import type { DashboardPeriod, Granularity } from "@/lib/api";
 
@@ -19,9 +18,8 @@ type TimePreset = "7d" | "30d" | "month" | "year" | "all" | "custom";
 
 interface PeriodFilterProps {
   value: DashboardPeriod;
-  autoRefresh: boolean;
   onPeriodChange: (period: DashboardPeriod) => void;
-  onAutoRefreshChange: (enabled: boolean) => void;
+  onRefresh: () => void;
 }
 
 function presetToPeriod(preset: TimePreset): DashboardPeriod {
@@ -90,9 +88,8 @@ const presets: { key: TimePreset; label: string }[] = [
 
 export default function PeriodFilter({
   value,
-  autoRefresh,
   onPeriodChange,
-  onAutoRefreshChange,
+  onRefresh,
 }: PeriodFilterProps) {
   const [activePreset, setActivePreset] = useState<TimePreset>(detectPreset(value));
   const [customFrom, setCustomFrom] = useState(value.from ? value.from.slice(0, 10) : "");
@@ -167,17 +164,10 @@ export default function PeriodFilter({
       )}
 
       <div className="flex items-center gap-3 ml-auto">
-        <div className="flex items-center gap-1.5">
-          <Switch
-            checked={autoRefresh}
-            onCheckedChange={onAutoRefreshChange}
-            className="scale-75"
-          />
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap flex items-center gap-1">
-            <RefreshCw className="size-3" />
-            Auto
-          </span>
-        </div>
+        <Button size="sm" variant="outline" className="h-8" onClick={onRefresh}>
+          <RefreshCw className="size-3.5 mr-1.5" />
+          Refresh
+        </Button>
       </div>
     </div>
   );

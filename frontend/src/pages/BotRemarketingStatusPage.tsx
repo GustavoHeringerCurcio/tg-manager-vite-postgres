@@ -31,10 +31,10 @@ import {
   AlertTriangle,
   Download,
   MessageSquare,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
-const POLL_INTERVAL_MS = 30_000;
 const TICK_INTERVAL_MS = 1_000;
 
 type StatusFilter = "all" | "active" | "cancelled";
@@ -96,7 +96,6 @@ export default function BotRemarketingStatusPage() {
   const [togglingUsers, setTogglingUsers] = useState<Set<string>>(new Set());
   const browserOffsetRef = useRef(0);
   const [now, setNow] = useState(Date.now());
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
@@ -128,17 +127,13 @@ export default function BotRemarketingStatusPage() {
   }, [fetchData, page, statusFilter]);
 
   useEffect(() => {
-    pollTimer.current = setInterval(() => {
-      fetchData(page, statusFilter);
-    }, POLL_INTERVAL_MS);
     tickTimer.current = setInterval(() => {
       setNow(Date.now() - browserOffsetRef.current);
     }, TICK_INTERVAL_MS);
     return () => {
-      if (pollTimer.current) clearInterval(pollTimer.current);
       if (tickTimer.current) clearInterval(tickTimer.current);
     };
-  }, [fetchData, page, statusFilter]);
+  }, [fetchData]);
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value as StatusFilter);
@@ -227,6 +222,9 @@ export default function BotRemarketingStatusPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchData(page, statusFilter)}>
+            <RefreshCw className="size-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="size-4" />
             Export CSV

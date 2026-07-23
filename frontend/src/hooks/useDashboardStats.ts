@@ -1,17 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { api, type DashboardPeriod, type DashboardStatsResponse } from "@/lib/api";
 
-const POLL_INTERVAL_MS = 30_000;
-
 export function useDashboardStats(
   botId: string | undefined,
-  period: DashboardPeriod,
-  autoRefresh: boolean
+  period: DashboardPeriod
 ) {
   const [data, setData] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const mounted = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -38,17 +34,6 @@ export function useDashboardStats(
       mounted.current = false;
     };
   }, [fetchData]);
-
-  useEffect(() => {
-    if (!autoRefresh || !botId) return;
-    pollTimer.current = setInterval(() => {
-      fetchData();
-    }, POLL_INTERVAL_MS);
-    return () => {
-      if (pollTimer.current) clearInterval(pollTimer.current);
-      pollTimer.current = null;
-    };
-  }, [autoRefresh, botId, fetchData]);
 
   function computeStat(key: keyof DashboardStatsResponse["stats"]): {
     value: number;
