@@ -781,6 +781,23 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
           });
+
+          // Cancel any pending remarketing for this user upon successful payment
+          if (user) {
+            try {
+              const cancelled = await prisma.remarketingState.deleteMany({
+                where: { botId: botConfig.id, userId: user.id }
+              });
+              if (cancelled.count > 0) {
+                console.info(`[bot:${botConfig.id}] cancelled ${cancelled.count} pending remarketing task(s) for user ${user.id}`);
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(
+                `[bot:${botConfig.id}] remarketing cancellation failed after payment (userId=${user?.id}, reference=${reference}): ${msg}`
+              );
+            }
+          }
           // user already fetched above
           if (user) {
             const sessionId = await createOrResumeSession(botConfig.id, user.id);
