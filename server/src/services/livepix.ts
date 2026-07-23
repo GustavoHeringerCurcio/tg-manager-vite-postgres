@@ -1,9 +1,24 @@
+import { randomUUID } from "node:crypto";
 import QRCode from "qrcode";
 import { delay } from "../utils/async.js";
 
 const OAUTH_URL = "https://oauth.livepix.gg/oauth2/token";
 const API_URL = "https://api.livepix.gg/v2";
 const WEBSERVICE_URL = "https://webservice.livepix.gg";
+
+function isMockMode(): boolean {
+  return ["true", "1", "yes"].includes((process.env.LIVEPIX_MOCK ?? "false").toLowerCase());
+}
+
+const mockStore = new Map<string, { amount: number; status: "PENDING" | "COMPLETED" }>();
+
+function mockPixCode(): string {
+  return "00020126580014BR.GOV.BCB.PIX0136123e4567e89b12d3a4567890123456404AC2016mock.example.com0303BR5901N6001C6014MOCK_CITY62070503***6304E3CA";
+}
+
+function mockCheckoutUrl(): string {
+  return `https://checkout.livepix.gg/mock/${randomUUID()}`;
+}
 
 const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -37,6 +52,7 @@ export class LivePixService {
   ) {}
 
   private async requestToken(): Promise<string> {
+    if (isMockMode()) return "mock_token";
     if (this.accessToken && Date.now() < this.expiresAt) return this.accessToken;
     const body = new URLSearchParams({
       grant_type: "client_credentials",
@@ -59,6 +75,12 @@ export class LivePixService {
   }
 
   async createPayment(amountBrl: number, redirectUrlOverride?: string): Promise<LivePixPayment> {
+    if (isMockMode()) {
+      const reference = `mock_${randomUUID()}`;
+      const checkoutUrl = mockCheckoutUrl();
+      mockStore.set(reference, { amount: Math.round(amountBrl * 100), status: "PENDING" });
+      return { reference, checkoutUrl };
+    }
     const token = await this.requestToken();
     const redirectUrl = redirectUrlOverride ?? this.redirectUrl;
     const response = await fetch(`${API_URL}/payments`, {
@@ -77,6 +99,7 @@ export class LivePixService {
   }
 
   async extractPixCode(checkoutUrl: string): Promise<string | undefined> {
+    if (isMockMode()) return mockPixCode();
     const checkoutId = extractCheckoutId(checkoutUrl);
     if (!checkoutId) {
       console.warn("[livepix] Failed to extract checkout ID from URL:", checkoutUrl);
@@ -87,6 +110,11 @@ export class LivePixService {
   }
 
   async checkPayment(reference: string): Promise<{ status: string; amount: number | undefined } | null> {
+    if (isMockMode()) {
+      const payment = mockStore.get(reference);
+      if (!payment) return null;
+      return { status: payment.status, amount: payment.amount };
+    }
     const token = await this.requestToken();
     const response = await fetch(`${API_URL}/payments?reference=${encodeURIComponent(reference)}`, {
       method: "GET",
