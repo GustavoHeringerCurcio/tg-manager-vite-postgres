@@ -511,16 +511,17 @@ async function sendLivePixPayment(
     const finalButtons: KeyboardButton[][] = [[
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
-    finalButtons.push([pixCode
-      ? {
-          text: paymentFlow.pixCopyLabel,
-          callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
-          copy_text: { text: pixCode }
-        }
-      : {
-          text: paymentFlow.pixCopyLabel,
-          callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`
-        }
+
+    // Ensure we always provide a copy_text payload when possible. If a PIX code was extracted
+    // include it; otherwise fall back to the checkout URL so clients that support copy_text can
+    // still copy useful data. Older clients that don't support copy_text will ignore this field.
+    const fallbackCopyText = pixCode ?? payment.checkoutUrl ?? undefined;
+    finalButtons.push([
+      {
+        text: paymentFlow.pixCopyLabel,
+        callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
+        ...(fallbackCopyText ? { copy_text: { text: fallbackCopyText } } : {})
+      }
     ]);
 
     function paymentKeyboard(step: MessageStep): Keyboard {
@@ -984,7 +985,20 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           where: { livepixReference: reference },
           select: { pixCode: true, checkoutUrl: true }
         });
-        await ctx.answerCbQuery("✅ PIX copiado!");
+
+        const textToCopy = transaction?.pixCode ?? transaction?.checkoutUrl ?? null;
+        if (textToCopy) {
+          // Show an alert containing the actual PIX/URL so the user can copy manually in case
+          // the client's native copy_text did not run. If alerts are not supported, fall back
+          // to a short toast message.
+          try {
+            await ctx.answerCbQuery(`PIX: ${textToCopy}`, { show_alert: true });
+          } catch {
+            try { await ctx.answerCbQuery("✅ PIX copiado!"); } catch {}
+          }
+        } else {
+          try { await ctx.answerCbQuery("✅ PIX copiado!"); } catch {}
+        }
 
         const copyFlow = paymentFlow.copyPixFlow ?? [];
         if (copyFlow.length > 0) {
