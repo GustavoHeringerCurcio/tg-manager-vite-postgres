@@ -498,19 +498,22 @@ async function sendLivePixPayment(
 
     // WARNING: These two final buttons are MANDATORY — both always appear and their function
     // MUST NOT be replaced. The "Verify Payment" button is always a callback; the "Copy PIX"
-    // button triggers a callback that sends audio (if enabled) and replies with the PIX code
-    // alongside a native copy_text button for one-tap copy.
+    // button triggers a callback that sends audio (if enabled) and uses Telegram's native
+    // copy_text for one-tap clipboard copy on supported clients.
     const finalButtons: KeyboardButton[][] = [[
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
-    const copyText = pixCode ?? payment.checkoutUrl;
-    if (copyText) {
-      finalButtons.push([{
-        text: paymentFlow.pixCopyLabel,
-        callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
-        copy_text: { text: copyText }
-      }]);
-    }
+    finalButtons.push([pixCode
+      ? {
+          text: paymentFlow.pixCopyLabel,
+          callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
+          copy_text: { text: pixCode }
+        }
+      : {
+          text: paymentFlow.pixCopyLabel,
+          callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`
+        }
+    ]);
 
     function paymentKeyboard(step: MessageStep): Keyboard {
       const stepButtons: KeyboardButton[][] = step.buttons.map((button) => [{
