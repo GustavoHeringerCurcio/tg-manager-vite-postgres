@@ -13,7 +13,7 @@ import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { BUTTON_STYLE_MAP, getAudioFileId, normalizeMessageFlow } from "./messageFlow.js";
 import type { MessageButton, MessageStep } from "./messageFlow.js";
-import { normalizePaymentFlow } from "./paymentFlow.js";
+import { normalizePaymentFlow, filterActiveSteps } from "./paymentFlow.js";
 import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js";
 import type { TimeComplimentConfig } from "./remarketing.js";
@@ -531,7 +531,7 @@ async function sendLivePixPayment(
       return { inline_keyboard: [...stepButtons, ...finalButtons] };
     }
 
-    const steps = paymentFlow.steps;
+    const steps = filterActiveSteps(paymentFlow.steps);
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
         if (step.chatAction && step.delayMs > 0) {
@@ -884,7 +884,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           const user = await upsertTelegramUser(botConfig.id, ctx);
           await ctx.answerCbQuery();
 
-          const successFlow = paymentFlow.verifyPaymentSuccessFlow ?? [];
+          const successFlow = filterActiveSteps(paymentFlow.verifyPaymentSuccessFlow ?? []);
           if (successFlow.length > 0) {
             const ptx: PaymentContext = { amount: payment.amount, pixCode: undefined, checkoutUrl: undefined };
             for (const [i, step] of successFlow.entries()) {
@@ -919,7 +919,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           if (user) {
             const sessionId = await createOrResumeSession(botConfig.id, user.id);
 
-            const deliverables = paymentFlow.deliverables ?? [];
+            const deliverables = filterActiveSteps(paymentFlow.deliverables ?? []);
             if (deliverables.length > 0) {
               for (const [index, step] of deliverables.entries()) {
                 if (step.chatAction && step.delayMs > 0) {
@@ -949,7 +949,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             );
           }
         } else {
-          const failFlow = paymentFlow.verifyPaymentFailFlow ?? [];
+          const failFlow = filterActiveSteps(paymentFlow.verifyPaymentFailFlow ?? []);
           if (failFlow.length > 0) {
             await ctx.answerCbQuery();
             for (const [i, step] of failFlow.entries()) {
@@ -989,7 +989,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         // callback to avoid popups on clients that fall back to callbacks.
         try { await ctx.answerCbQuery(); } catch {}
 
-        const copyFlow = paymentFlow.copyPixFlow ?? [];
+        const copyFlow = filterActiveSteps(paymentFlow.copyPixFlow ?? []);
         if (copyFlow.length > 0) {
           const ptx: PaymentContext = {
             pixCode: transaction?.pixCode ?? undefined,
