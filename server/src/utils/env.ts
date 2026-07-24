@@ -10,6 +10,7 @@ export type AppEnv = {
   interactionRetentionDays: number;
   logPayloads: boolean;
   workerCount: number;
+  dropPendingUpdates: boolean;
 };
 
 type EnvSource = Record<string, string | undefined>;
@@ -64,6 +65,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
     maxPixGenerations: numberValue(source, "MAX_PIX_GENERATIONS", 5),
     interactionRetentionDays: numberValue(source, "INTERACTION_RETENTION_DAYS", 90),
     logPayloads: booleanValue(source, "LOG_PAYLOADS", false),
-    workerCount: numberValue(source, "WORKER_COUNT", 1)
+    workerCount: numberValue(source, "WORKER_COUNT", 1),
+    dropPendingUpdates: booleanValue(source, "DROP_PENDING_UPDATES", false)
   };
 }

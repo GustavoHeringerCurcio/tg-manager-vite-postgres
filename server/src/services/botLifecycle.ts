@@ -10,7 +10,7 @@ export async function startBot(bot: Bot, env: AppEnv, skipWebhook = false): Prom
   if (existing) return;
   const manager = new BotManager(bot, bot.token, env);
   await manager.validateToken();
-  if (!skipWebhook) await manager.start(env.domain);
+  if (!skipWebhook) await manager.start(env.domain, env.dropPendingUpdates);
   await registerBotManager(bot.id, manager);
 }
 

@@ -1,3 +1,8 @@
+// NOTE: Telegram rate limits are per-bot across ALL connections. When running
+// multiple cluster workers each worker creates its own BotManager with its own
+// token bucket. If WORKER_COUNT > 1 you MUST divide telegramRateLimit
+// proportionally (e.g. rate=12 burst=15 for 2 workers) or the combined rate
+// will exceed the ~30 msg/s Telegram limit and cause 429 errors.
 function createTokenBucket(getRate: () => number, getBurst: () => number): () => Promise<void> {
   let tokens = getBurst();
   let lastRefill = Date.now();

@@ -8,30 +8,34 @@ import { getGlobalConfig } from "../bot/globalConfig.js";
 const POLL_INTERVAL_MS = 30_000;
 const BATCH_SIZE = 50;
 
-let pollerInterval: ReturnType<typeof setInterval> | null = null;
+let pollerTimeout: ReturnType<typeof setTimeout> | null = null;
+let running = false;
 
-export function startPaymentPoller(): void {
-  if (pollerInterval) return;
-  pollerInterval = setInterval(() => {
-    try {
-      void processPendingPayments();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "payment poller tick failed";
-      logger.error(`[payment-poller] ${message}`);
-    }
+function scheduleNext(): void {
+  if (running) return;
+  pollerTimeout = setTimeout(() => {
+    pollerTimeout = null;
+    void processPendingPayments();
   }, POLL_INTERVAL_MS);
 }
 
+export function startPaymentPoller(): void {
+  if (pollerTimeout || running) return;
+  scheduleNext();
+}
+
 export function stopPaymentPoller(): void {
-  if (pollerInterval) {
-    clearInterval(pollerInterval);
-    pollerInterval = null;
+  running = false;
+  if (pollerTimeout) {
+    clearTimeout(pollerTimeout);
+    pollerTimeout = null;
   }
 }
 
 type PendingTransaction = Transaction & { user: User };
 
 async function processPendingPayments(): Promise<void> {
+  running = true;
   const { prisma } = await import("./prisma.js");
   try {
     const since = new Date(Date.now() - getGlobalConfig().paymentPollWindowMinutes * 60_000);
@@ -57,6 +61,11 @@ async function processPendingPayments(): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "payment poller batch failed";
     logger.error(`[payment-poller] ${message}`);
+  } finally {
+    running = false;
+    if (!pollerTimeout) {
+      scheduleNext();
+    }
   }
 }
 

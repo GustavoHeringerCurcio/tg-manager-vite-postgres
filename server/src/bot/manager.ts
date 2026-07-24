@@ -47,12 +47,12 @@ export class BotManager {
     }
   }
 
-  async start(domain: string): Promise<void> {
+  async start(domain: string, dropPendingUpdates = true): Promise<void> {
     try {
       await Promise.race([
         this.telegraf.telegram.setWebhook(`https://${domain}${this.path}`, {
           secret_token: this.secretToken,
-          drop_pending_updates: true,
+          drop_pending_updates: dropPendingUpdates,
           allowed_updates: ["message", "callback_query"]
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error("telegram setWebhook timed out")), 10000))
