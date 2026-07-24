@@ -7,6 +7,9 @@ route:
   group_interval: 10s
   repeat_interval: 1h
   receiver: "discord"
+  routes:
+    - receiver: "bark"
+      continue: true
 
 receivers:
   - name: "discord"
@@ -18,3 +21,8 @@ receivers:
           **{{ .Annotations.summary }}**
           {{ .Annotations.description }}
           {{ end }}
+
+  - name: "bark"
+    webhook_configs:
+      - url: "https://{DOMAIN}/webhook/bark-alert"
+        send_resolved: false

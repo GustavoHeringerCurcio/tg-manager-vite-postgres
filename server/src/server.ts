@@ -21,6 +21,8 @@ import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs } from "./services/remarketingQueue.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
+import { notifyPurchaseConfirmed } from "./services/notifications.js";
+import { sendSystemAlert } from "./services/notifications.js";
 import { loadGlobalConfig } from "./bot/globalConfig.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
 import type { MessageButton } from "./bot/messageFlow.js";
@@ -68,6 +70,22 @@ app.use(compression());
 app.use(express.json({ limit: "50mb" }));
 app.post("/webhook/:botId", webhookDispatcher);
 
+app.post("/webhook/bark-alert", async (req: Request, res: Response) => {
+  res.status(200).json({ ok: true });
+  try {
+    const body = req.body as Record<string, unknown> | undefined;
+    const alerts = Array.isArray(body?.alerts) ? (body.alerts as Array<Record<string, unknown>>) : [];
+    for (const alert of alerts.slice(0, 5)) {
+      const annotations = (alert.annotations ?? {}) as Record<string, string>;
+      const summary = annotations.summary || "Alert";
+      const description = annotations.description || "";
+      sendSystemAlert(summary, description);
+    }
+  } catch {
+    // silently ignore
+  }
+});
+
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -106,7 +124,7 @@ app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPasswor
 
     const transaction = await prisma.transaction.findFirst({
       where: { botId, livepixReference: reference, status: "PENDING" },
-      select: { id: true, userId: true }
+      select: { id: true, userId: true, amount: true }
     });
 
     if (!transaction) {
@@ -121,13 +139,16 @@ app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPasswor
 
     const [bot, user] = await Promise.all([
       prisma.bot.findUnique({ where: { id: botId }, select: { token: true, paymentFlow: true } }),
-      prisma.user.findUnique({ where: { id: transaction.userId }, select: { telegramId: true } })
+      prisma.user.findUnique({ where: { id: transaction.userId }, select: { telegramId: true, firstName: true, username: true } })
     ]);
 
     if (!bot || !user) {
       res.status(404).json({ error: "Bot or user not found" });
       return;
     }
+
+    const displayName = user.firstName || user.username || undefined;
+    notifyPurchaseConfirmed(botId, transaction.amount, displayName);
 
     const token = bot.token;
     const chatId = String(user.telegramId);

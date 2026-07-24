@@ -5,6 +5,10 @@ export type BotSettings = {
   resetPixAfterStart?: boolean;
   adminTelegramIds?: string[];
   hideAdminFromDashboard?: boolean;
+  barkEnabled?: boolean;
+  barkDeviceKey?: string;
+  barkSound?: string;
+  barkServerUrl?: string;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -49,6 +53,19 @@ export function normalizeBotSettings(value: unknown): BotSettings {
   if (typeof value.hideAdminFromDashboard === "boolean") {
     settings.hideAdminFromDashboard = value.hideAdminFromDashboard;
   }
+
+  if (typeof value.barkEnabled === "boolean") {
+    settings.barkEnabled = value.barkEnabled;
+  }
+
+  const barkDeviceKey = cleanString(value.barkDeviceKey);
+  if (barkDeviceKey) settings.barkDeviceKey = barkDeviceKey;
+
+  const barkSound = cleanString(value.barkSound);
+  if (barkSound) settings.barkSound = barkSound;
+
+  const barkServerUrl = cleanString(value.barkServerUrl);
+  if (barkServerUrl) settings.barkServerUrl = barkServerUrl;
 
   if (Array.isArray(value.adminTelegramIds)) {
     const ids = (value.adminTelegramIds as unknown[]).filter(

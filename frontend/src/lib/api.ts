@@ -64,6 +64,10 @@ export type BotSettings = {
   resetPixAfterStart?: boolean;
   adminTelegramIds?: string[];
   hideAdminFromDashboard?: boolean;
+  barkEnabled?: boolean;
+  barkDeviceKey?: string;
+  barkSound?: string;
+  barkServerUrl?: string;
 };
 
 export type GlobalConfig = {
@@ -75,6 +79,8 @@ export type GlobalConfig = {
   interactionRetentionDays: number;
   userCacheTtlMs: number;
   userCacheMaxSize: number;
+  barkAlertEnabled?: boolean;
+  barkAlertDeviceKey?: string;
 };
 
 export type Bot = {

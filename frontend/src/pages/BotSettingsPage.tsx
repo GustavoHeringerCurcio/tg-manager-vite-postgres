@@ -84,6 +84,10 @@ export default function BotSettingsPage() {
         resetPixAfterStart: settings.resetPixAfterStart ?? undefined,
         adminTelegramIds: settings.adminTelegramIds?.length ? settings.adminTelegramIds : undefined,
         hideAdminFromDashboard: settings.hideAdminFromDashboard ?? undefined,
+        barkEnabled: settings.barkEnabled ?? undefined,
+        barkDeviceKey: settings.barkDeviceKey || undefined,
+        barkSound: settings.barkSound || undefined,
+        barkServerUrl: settings.barkServerUrl || undefined,
       };
       await api.updateBotSettings(botId, cleaned);
       setSettings(cleaned);
@@ -262,6 +266,76 @@ export default function BotSettingsPage() {
                 </Button>
               </div>
             </div>
+
+          <div className="border-t border-border pt-6">
+            <h3 className="text-sm font-medium mb-4">Bark Notifications</h3>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Get push notifications on your iPhone when a purchase is completed. Requires the{" "}
+              <a href="https://apps.apple.com/app/bark-custom-notifications/id1573035188" target="_blank" rel="noopener noreferrer" className="underline">Bark</a>{" "}
+              iOS app installed. Find your device key at the top of the Bark app.
+            </p>
+
+            <div className="flex items-center gap-3 mb-4">
+              <Switch
+                size="sm"
+                checked={settings.barkEnabled === true}
+                onCheckedChange={(v) => update({ barkEnabled: v })}
+              />
+              <div>
+                <Label className="text-sm">Enable Bark notifications</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Sends a push notification with a cash register sound when someone completes a purchase.
+                </p>
+              </div>
+            </div>
+
+            {settings.barkEnabled && (
+              <div className="space-y-4 ml-9">
+                <div className="space-y-2">
+                  <Label htmlFor="barkDeviceKey">Device Key</Label>
+                  <Input
+                    id="barkDeviceKey"
+                    type="text"
+                    placeholder="Paste your Bark device key"
+                    value={settings.barkDeviceKey ?? ""}
+                    onChange={(e) => update({ barkDeviceKey: e.target.value || undefined })}
+                    className="h-9 text-sm max-w-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="barkSound">Sound Name</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Name of the sound file uploaded to Bark (without .caf extension). Defaults to &quot;cashregister&quot;.
+                  </p>
+                  <Input
+                    id="barkSound"
+                    type="text"
+                    placeholder="cashregister"
+                    value={settings.barkSound ?? ""}
+                    onChange={(e) => update({ barkSound: e.target.value || undefined })}
+                    className="h-9 text-sm max-w-[200px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="barkServerUrl">Server URL</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Optional. Use this if you self-host Bark. Leave empty to use the public server.
+                  </p>
+                  <Input
+                    id="barkServerUrl"
+                    type="text"
+                    placeholder="https://api.day.app"
+                    value={settings.barkServerUrl ?? ""}
+                    onChange={(e) => update({ barkServerUrl: e.target.value || undefined })}
+                    className="h-9 text-sm max-w-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
         </CardContent>
       </Card>
 

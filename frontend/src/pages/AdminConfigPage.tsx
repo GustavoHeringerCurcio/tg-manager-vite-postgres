@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Save, ArrowLeft, Shield } from "lucide-react";
@@ -19,6 +20,8 @@ const DEFAULTS: GlobalConfig = {
   interactionRetentionDays: 90,
   userCacheTtlMs: 60000,
   userCacheMaxSize: 10000,
+  barkAlertEnabled: false,
+  barkAlertDeviceKey: "",
 };
 
 export default function AdminConfigPage() {
@@ -196,6 +199,46 @@ export default function AdminConfigPage() {
               "Maximum number of users kept in the in-memory cache. Least recently used entries are evicted when exceeded.",
               config.userCacheMaxSize,
               (v) => update({ userCacheMaxSize: v })
+            )}
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <h3 className="text-sm font-medium mb-4">Bark System Alerts</h3>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Forward all infrastructure alerts (webhook errors, payment failures, app down, etc.) to your iPhone via Bark.
+              Requires the{" "}
+              <a href="https://apps.apple.com/app/bark-custom-notifications/id1573035188" target="_blank" rel="noopener noreferrer" className="underline">Bark</a>{" "}
+              iOS app.
+            </p>
+
+            <div className="flex items-center gap-3 mb-4">
+              <Switch
+                size="sm"
+                checked={config.barkAlertEnabled === true}
+                onCheckedChange={(v) => update({ barkAlertEnabled: v })}
+              />
+              <div>
+                <Label className="text-sm">Enable Bark system alerts</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Prometheus/Alertmanager alerts will be pushed to your iPhone with an alarm sound.
+                </p>
+              </div>
+            </div>
+
+            {config.barkAlertEnabled && (
+              <div className="ml-9">
+                <div className="space-y-2">
+                  <Label htmlFor="barkAlertDeviceKey">Device Key</Label>
+                  <Input
+                    id="barkAlertDeviceKey"
+                    type="text"
+                    placeholder="Paste your Bark device key"
+                    value={config.barkAlertDeviceKey ?? ""}
+                    onChange={(e) => update({ barkAlertDeviceKey: e.target.value })}
+                    className="h-9 text-sm max-w-sm"
+                  />
+                </div>
+              </div>
             )}
           </div>
 

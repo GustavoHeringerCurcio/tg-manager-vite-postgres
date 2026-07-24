@@ -4,6 +4,7 @@ import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { paymentsConfirmed } from "../utils/metrics.js";
 import { getGlobalConfig } from "../bot/globalConfig.js";
+import { notifyPurchaseConfirmed } from "./notifications.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const BATCH_SIZE = 50;
@@ -92,6 +93,10 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
   paymentsConfirmed.inc({ bot_id: txn.botId, source: "poller" });
 
   const amountBrl = (payment.amount / 100).toFixed(2);
+  const displayName = txn.user.firstName || txn.user.username || undefined;
+
+  notifyPurchaseConfirmed(txn.botId, parseFloat(amountBrl), displayName);
+
   const chatId = String(txn.user.telegramId);
 
   try {

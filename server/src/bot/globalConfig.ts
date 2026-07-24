@@ -10,6 +10,8 @@ export type GlobalConfig = {
   interactionRetentionDays: number;
   userCacheTtlMs: number;
   userCacheMaxSize: number;
+  barkAlertEnabled: boolean;
+  barkAlertDeviceKey: string;
 };
 
 const GLOBAL_CONFIG_ID = "global";
@@ -23,6 +25,8 @@ const DEFAULTS: GlobalConfig = {
   interactionRetentionDays: 90,
   userCacheTtlMs: 60_000,
   userCacheMaxSize: 10_000,
+  barkAlertEnabled: false,
+  barkAlertDeviceKey: "",
 };
 
 let cachedConfig: GlobalConfig = { ...DEFAULTS };
@@ -67,6 +71,14 @@ export function normalizeGlobalConfig(value: unknown): GlobalConfig {
 
   const cacheSize = validInt(value.userCacheMaxSize);
   if (cacheSize) config.userCacheMaxSize = cacheSize;
+
+  if (typeof value.barkAlertEnabled === "boolean") {
+    config.barkAlertEnabled = value.barkAlertEnabled;
+  }
+
+  if (typeof value.barkAlertDeviceKey === "string" && value.barkAlertDeviceKey.trim()) {
+    config.barkAlertDeviceKey = value.barkAlertDeviceKey.trim();
+  }
 
   return config;
 }
