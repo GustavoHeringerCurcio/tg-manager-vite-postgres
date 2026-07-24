@@ -180,6 +180,7 @@ export function utilsRouter(): Router {
       botId?: string;
       concurrentUsers?: number;
       actions?: string[];
+      parallelism?: number;
     };
 
     const botId = typeof body.botId === "string" ? body.botId.trim() : "";
