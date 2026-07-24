@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger.js";
+import { webhooksTotal } from "../utils/metrics.js";
 import { Router } from "express";
 import type { NextFunction, Request, RequestHandler, Response as ExpressResponse } from "express";
 import multer from "multer";
@@ -282,8 +283,10 @@ export function utilsRouter(): Router {
         try {
           const update = buildUpdate(action, chatId, username);
           await dispatchUpdate(update);
+          webhooksTotal.inc({ bot_id: botId, status: "ok" });
           succeeded += 1;
         } catch (e) {
+          webhooksTotal.inc({ bot_id: botId, status: "error" });
           failed += 1;
           const message = e instanceof Error ? e.message : String(e);
           errors.push({ index: i, userId: String(chatId), action, error: message });
