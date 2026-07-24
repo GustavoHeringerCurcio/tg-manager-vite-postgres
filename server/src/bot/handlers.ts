@@ -534,6 +534,7 @@ async function sendLivePixPayment(
     const steps = filterActiveSteps(paymentFlow.steps);
     if (steps.length > 0) {
       for (const [index, step] of steps.entries()) {
+        if (step.isActive === false) continue;
         if (step.chatAction && step.delayMs > 0) {
           await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
         } else if (step.delayMs > 0) {
@@ -888,6 +889,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           if (successFlow.length > 0) {
             const ptx: PaymentContext = { amount: payment.amount, pixCode: undefined, checkoutUrl: undefined };
             for (const [i, step] of successFlow.entries()) {
+              if (step.isActive === false) continue;
               if (step.chatAction && step.delayMs > 0) {
                 await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
               } else if (step.delayMs > 0) {
@@ -922,6 +924,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             const deliverables = filterActiveSteps(paymentFlow.deliverables ?? []);
             if (deliverables.length > 0) {
               for (const [index, step] of deliverables.entries()) {
+                if (step.isActive === false) continue;
                 if (step.chatAction && step.delayMs > 0) {
                   await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
                 } else if (step.delayMs > 0) {
@@ -953,6 +956,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           if (failFlow.length > 0) {
             await ctx.answerCbQuery();
             for (const [i, step] of failFlow.entries()) {
+              if (step.isActive === false) continue;
               if (step.chatAction && step.delayMs > 0) {
                 await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
               } else if (step.delayMs > 0) {
@@ -996,6 +1000,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             checkoutUrl: transaction?.checkoutUrl ?? undefined,
           };
           for (const [i, step] of copyFlow.entries()) {
+            if (step.isActive === false) continue;
             if (step.chatAction && step.delayMs > 0) {
               await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
             } else if (step.delayMs > 0) {

@@ -52,6 +52,7 @@ export type MessageStep = {
   includeQrCode?: boolean;
   includePixCode?: boolean;
   includeCheckoutUrl?: boolean;
+  isActive?: boolean;
   dailyAudios?: DailyAudioConfig;
 };
 
@@ -168,6 +169,7 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       ...(typeof item.includeQrCode === "boolean" ? { includeQrCode: item.includeQrCode } : {}),
       ...(typeof item.includePixCode === "boolean" ? { includePixCode: item.includePixCode } : {}),
       ...(typeof item.includeCheckoutUrl === "boolean" ? { includeCheckoutUrl: item.includeCheckoutUrl } : {}),
+      ...(typeof item.isActive === "boolean" ? { isActive: item.isActive } : {}),
       ...(dailyAudios ? { dailyAudios } : {})
     };
   });
