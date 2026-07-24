@@ -1,3 +1,4 @@
+import React from "react";
 import { AudioMessageCard, VideoCard, ImageCard } from "@/components/shared/AudioMessageCard";
 import type { ChatTimelineItem } from "@/types";
 
@@ -62,6 +63,32 @@ export default function ChatMessageBubble({ item }: { item: ChatTimelineItem }) 
 
   const hasMediaCard = mediaType === "AUDIO" || mediaType === "VIDEO" || mediaType === "IMAGE";
 
+  const [copiedButtonId, setCopiedButtonId] = React.useState<string | null>(null);
+
+  async function copyToClipboard(text: string): Promise<boolean> {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "absolute";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
   const bubbleContent = (
     <>
       {isRemarketing && (
@@ -110,20 +137,55 @@ export default function ChatMessageBubble({ item }: { item: ChatTimelineItem }) 
 
       {buttons.length > 0 && !isCallback && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {buttons.map((btn) => (
-            <span
-              key={btn.id}
-              className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-medium ${
-                BUTTON_COLOR_MAP[btn.color] ?? BUTTON_COLOR_MAP["BLUE"]
-              }`}
-            >
-              {btn.discountedPrice != null
+          {buttons.map((btn) => {
+            const labelText =
+              btn.discountedPrice != null
                 ? `${btn.label} - R$${btn.discountedPrice.toFixed(2)} (${btn.discountPercentage}% OFF)`
                 : btn.price != null
-                  ? `${btn.label} - R$${btn.price.toFixed(2)}`
-                  : btn.label}
-            </span>
-          ))}
+                ? `${btn.label} - R$${btn.price.toFixed(2)}`
+                : btn.label;
+
+            const isCopyPix =
+              typeof btn.label === "string" &&
+              btn.label.toLowerCase().includes("copiar") &&
+              btn.label.toLowerCase().includes("pix");
+
+            return (
+              <button
+                key={btn.id}
+                type="button"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  if (isCopyPix) {
+                    const pix =
+                      (meta as any)?.pixCode ?? (meta as any)?.pix ?? (meta as any)?.checkoutUrl ?? "";
+                    if (!pix) {
+                      // no pix available to copy
+                      alert("PIX code not available");
+                      return;
+                    }
+                    const ok = await copyToClipboard(String(pix));
+                    if (ok) {
+                      setCopiedButtonId(btn.id);
+                      setTimeout(() => setCopiedButtonId((cur) => (cur === btn.id ? null : cur)), 1500);
+                    } else {
+                      alert("Unable to copy PIX code. Please copy manually.");
+                    }
+                    return;
+                  }
+
+                  // non-copy actions can be handled here later
+                }}
+                className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium ${
+                  BUTTON_COLOR_MAP[btn.color] ?? BUTTON_COLOR_MAP["BLUE"]
+                }`}
+              >
+                {copiedButtonId === btn.id ? "Copiado!" : labelText}
+              </button>
+            );
+          })}
         </div>
       )}
 
