@@ -13,6 +13,7 @@ COPY frontend/vite.config.ts frontend/vite.config.ts
 COPY frontend/index.html frontend/index.html
 COPY frontend/tailwind.config.js frontend/tailwind.config.js
 COPY frontend/postcss.config.js frontend/postcss.config.js
+COPY frontend/mockDevServer.ts frontend/mockDevServer.ts
 COPY server/prisma server/prisma
 RUN corepack pnpm prisma:generate
 COPY server/src server/src
