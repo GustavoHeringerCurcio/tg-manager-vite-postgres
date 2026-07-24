@@ -678,6 +678,18 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
   const timeCompliments = normalizeTimeCompliments(botConfig.timeCompliments, botTimezone);
   const activeStarts = new Set<number>();
 
+  const processedCallbacks = new Set<string>();
+  const lastCallbackAt = new Map<string, number>();
+  const CALLBACK_COOLDOWN_MS = 7_000;
+
+  setInterval(() => {
+    const cutoff = Date.now() - CALLBACK_COOLDOWN_MS;
+    for (const [key, ts] of lastCallbackAt) {
+      if (ts < cutoff) lastCallbackAt.delete(key);
+    }
+    processedCallbacks.clear();
+  }, 60_000).unref();
+
   telegraf.start(async (ctx) => {
     const chatId = ctx.chat?.id;
     if (!chatId || activeStarts.has(chatId)) return;
@@ -815,6 +827,22 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     const data = "data" in ctx.callbackQuery ? ctx.callbackQuery.data : "";
     const chatId = ctx.chat?.id;
 
+    const callbackId = ctx.callbackQuery.id;
+    if (processedCallbacks.has(callbackId)) {
+      try { await ctx.answerCbQuery(); } catch { /* already answered */ }
+      return;
+    }
+    processedCallbacks.add(callbackId);
+
+    const userId = ctx.callbackQuery.from.id;
+    const now = Date.now();
+    const lastAt = lastCallbackAt.get(String(userId));
+    if (lastAt && now - lastAt < CALLBACK_COOLDOWN_MS) {
+      try { await ctx.answerCbQuery(); } catch { /* already answered */ }
+      return;
+    }
+    lastCallbackAt.set(String(userId), now);
+
     if (data.startsWith(LIVEPIX_VERIFY_PREFIX)) {
       const reference = data.slice(LIVEPIX_VERIFY_PREFIX.length);
       try {
@@ -827,7 +855,11 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           if (successFlow.length > 0) {
             const ptx: PaymentContext = { amount: payment.amount, pixCode: undefined, checkoutUrl: undefined };
             for (const [i, step] of successFlow.entries()) {
-              if (step.delayMs > 0) await delay(step.delayMs);
+              if (step.chatAction && step.delayMs > 0) {
+                await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
+              } else if (step.delayMs > 0) {
+                await delay(step.delayMs);
+              }
               await sendStep(ctx, botConfig, user, null, step, i, services.env, timeCompliments, undefined, ptx);
             }
           } else {
@@ -857,7 +889,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             const deliverables = paymentFlow.deliverables ?? [];
             if (deliverables.length > 0) {
               for (const [index, step] of deliverables.entries()) {
-                if (step.delayMs > 0) {
+                if (step.chatAction && step.delayMs > 0) {
+                  await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
+                } else if (step.delayMs > 0) {
                   await delay(step.delayMs);
                 }
                 await sendStep(ctx, botConfig, user, sessionId, step, index, services.env, timeCompliments);
@@ -886,7 +920,11 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           if (failFlow.length > 0) {
             await ctx.answerCbQuery();
             for (const [i, step] of failFlow.entries()) {
-              if (step.delayMs > 0) await delay(step.delayMs);
+              if (step.chatAction && step.delayMs > 0) {
+                await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
+              } else if (step.delayMs > 0) {
+                await delay(step.delayMs);
+              }
               await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments);
             }
           } else {
@@ -921,7 +959,11 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             checkoutUrl: transaction?.checkoutUrl ?? undefined,
           };
           for (const [i, step] of copyFlow.entries()) {
-            if (step.delayMs > 0) await delay(step.delayMs);
+            if (step.chatAction && step.delayMs > 0) {
+              await sendChatActionRepeatedly(ctx, step.type, step.delayMs);
+            } else if (step.delayMs > 0) {
+              await delay(step.delayMs);
+            }
             await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments, undefined, ptx);
           }
         }
