@@ -1,0 +1,20 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname", "severity"]
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: "discord"
+
+receivers:
+  - name: "discord"
+    discord_configs:
+      - webhook_url: "https://discord.com/api/webhooks/1530054206176886784/60o-K2o3UuA3HLZsRXv4PFCwdSJyEEAbcnbK3L9COaYnwWlFO0Mfc9N3T6S0vdTAush8"
+        title: '{{ .GroupLabels.severity | toUpper }} — {{ .GroupLabels.alertname }}'
+        message: |
+          {{ range .Alerts }}
+          **{{ .Annotations.summary }}**
+          {{ .Annotations.description }}
+          {{ end }}

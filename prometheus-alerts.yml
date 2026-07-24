@@ -1,0 +1,73 @@
+groups:
+  - name: botflix
+    rules:
+      - alert: WebhookErrors
+        expr: increase(botflix_webhooks_total{status="error"}[5m]) >= 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Webhook error detected (bot {{ $labels.bot_id }})"
+          description: >
+            {{ $value | humanize }} webhook errors in the last 5 minutes
+            for bot {{ $labels.bot_id }}.
+
+      - alert: PaymentCreationErrors
+        expr: increase(botflix_payments_created_total{status="error"}[10m]) >= 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment creation failed (bot {{ $labels.bot_id }})"
+          description: >
+            {{ $value | humanize }} payment creation error(s) in the last 10 minutes
+            for bot {{ $labels.bot_id }}. Check LivePix credentials and connectivity.
+
+      - alert: InteractionLogFailures
+        expr: increase(botflix_interactions_failed_total[5m]) >= 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Interaction log write failed (bot {{ $labels.bot_id }})"
+          description: >
+            {{ $value | humanize }} interaction log failure(s) in the last 5 minutes
+            for bot {{ $labels.bot_id }}. Check database connectivity.
+
+      - alert: AppDown
+        expr: up{job="botflix"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Botflix app is down"
+          description: >
+            Prometheus cannot reach the /metrics endpoint of the botflix app.
+            The service may be crashed or unresponsive.
+
+      - alert: HighEventLoopLag
+        expr: botflix_nodejs_eventloop_lag_p99_seconds > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High event loop lag (p99 > 500ms)"
+          description: >
+            p99 event loop lag is {{ $value }}s. The Node.js process is
+            blocking the event loop — check for slow DB queries or CPU saturation.
+
+      - alert: HighWebhookErrorRate
+        expr: |
+          (
+            sum(rate(botflix_webhooks_total{status="error"}[10m]))
+            /
+            sum(rate(botflix_webhooks_total[10m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Webhook error rate above 5%"
+          description: >
+            {{ $value | humanizePercentage }} of webhooks are returning errors
+            over the last 10 minutes. Check bot tokens and webhook configurations.

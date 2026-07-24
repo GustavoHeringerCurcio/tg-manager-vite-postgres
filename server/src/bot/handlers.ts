@@ -28,6 +28,14 @@ const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
 const LIVEPIX_COPY_PREFIX = "livepix_copy:";
 
+async function sendViaApi(
+  ctx: Context,
+  method: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  await (ctx.telegram as unknown as { callApi(m: string, p: Record<string, unknown>): Promise<unknown> }).callApi(method, payload);
+}
+
 const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 const userCache = new Map<string, { user: User; timestamp: number }>();
@@ -558,8 +566,17 @@ async function sendLivePixPayment(
 
         if (step.type === "TEXT" && resolvedText) {
           const kb = isLast ? paymentKeyboard(resolvedStep) : keyboard(resolvedStep);
-          const options = kb ? { reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
-          await ctx.reply(resolvedText, options as object);
+          if (isLast && kb) {
+            await sendViaApi(ctx, "sendMessage", {
+              chat_id: chatId,
+              text: resolvedText,
+              parse_mode: "HTML",
+              reply_markup: kb,
+            } as Record<string, unknown>);
+          } else {
+            const options = kb ? { reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" as const } : { parse_mode: "HTML" as const };
+            await ctx.reply(resolvedText, options as object);
+          }
           logInteraction({
             botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
             content: resolvedText, stepIndex: -1 - index, chatId, messageId,
@@ -570,10 +587,15 @@ async function sendLivePixPayment(
           });
         } else if (isLast) {
           const kb = paymentKeyboard(resolvedStep);
-          const kbParam = { reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" as const };
           if (resolvedStep.type === "IMAGE" && resolvedStep.mediaUrls.length === 1) {
             const resolvedPhoto = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
-            await ctx.replyWithPhoto(resolvedPhoto, { caption: resolvedText ?? undefined, ...kbParam } as object);
+            if (typeof resolvedPhoto === "string") {
+              const payload: Record<string, unknown> = { chat_id: chatId, photo: resolvedPhoto, parse_mode: "HTML", reply_markup: kb };
+              if (resolvedText) payload.caption = resolvedText;
+              await sendViaApi(ctx, "sendPhoto", payload);
+            } else {
+              await ctx.replyWithPhoto(resolvedPhoto, { caption: resolvedText ?? undefined, reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" });
+            }
             logInteraction({
               botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
               content: `image:${step.title}`, stepIndex: -1 - index, chatId, messageId,
@@ -589,7 +611,13 @@ async function sendLivePixPayment(
             });
           } else if (resolvedStep.type === "VIDEO" && resolvedStep.mediaUrls.length === 1) {
             const resolvedVideo = await resolveMediaUrl(resolvedStep.mediaUrls[0]);
-            await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText ?? undefined, ...kbParam } as object);
+            if (typeof resolvedVideo === "string") {
+              const payload: Record<string, unknown> = { chat_id: chatId, video: resolvedVideo, parse_mode: "HTML", reply_markup: kb };
+              if (resolvedText) payload.caption = resolvedText;
+              await sendViaApi(ctx, "sendVideo", payload);
+            } else {
+              await ctx.replyWithVideo(resolvedVideo, { caption: resolvedText ?? undefined, reply_markup: kb as InlineKeyboardMarkup, parse_mode: "HTML" });
+            }
             logInteraction({
               botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
               content: `video:${step.title}`, stepIndex: -1 - index, chatId, messageId,
@@ -604,7 +632,10 @@ async function sendLivePixPayment(
               logPayloads: services.env.logPayloads
             });
           } else if (resolvedStep.type === "AUDIO" && getAudioFileId(resolvedStep, timeCompliments.timezone)) {
-            await ctx.replyWithVoice(getAudioFileId(resolvedStep, timeCompliments.timezone)!, { caption: resolvedText ?? undefined, ...kbParam } as object);
+            const audioFileId = getAudioFileId(resolvedStep, timeCompliments.timezone)!;
+            const payload: Record<string, unknown> = { chat_id: chatId, voice: audioFileId, parse_mode: "HTML", reply_markup: kb };
+            if (resolvedText) payload.caption = resolvedText;
+            await sendViaApi(ctx, "sendVoice", payload);
             logInteraction({
               botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "outgoing",
               content: `audio:${step.title}`, stepIndex: -1 - index, chatId, messageId,
@@ -953,7 +984,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           where: { livepixReference: reference },
           select: { pixCode: true, checkoutUrl: true }
         });
-        await ctx.answerCbQuery();
+        await ctx.answerCbQuery("✅ PIX copiado!");
 
         const copyFlow = paymentFlow.copyPixFlow ?? [];
         if (copyFlow.length > 0) {
