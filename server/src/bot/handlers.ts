@@ -512,13 +512,11 @@ async function sendLivePixPayment(
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
 
-    // Provide copy_text with the PIX/code when available. If no copyable text exists, fall back
-    // to a callback so older clients still have a usable button.
-    const fallbackCopyText = pixCode ?? payment.checkoutUrl ?? undefined;
+    // Copy PIX button always uses a callback so that we can run the copy flow (e.g., send audio).
     finalButtons.push([
       {
         text: paymentFlow.pixCopyLabel,
-        ...(fallbackCopyText ? { copy_text: { text: fallbackCopyText } } : { callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}` })
+        callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`
       }
     ]);
 
@@ -988,9 +986,8 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           select: { pixCode: true, checkoutUrl: true }
         });
 
-        // Rely on Telegram clients that support copy_text to perform the clipboard copy.
-        // Do not show any alert or additional text to the user; silently acknowledge the
-        // callback to avoid popups on clients that fall back to callbacks.
+        // The Copy PIX button uses a callback so we can execute the copy flow (e.g., send audio).
+        // Silently acknowledge to avoid extra popups.
         try { await ctx.answerCbQuery(); } catch {}
 
         const copyFlow = filterActiveSteps(paymentFlow.copyPixFlow ?? []);
