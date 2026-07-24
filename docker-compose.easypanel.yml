@@ -9,7 +9,7 @@ services:
       - "traefik.http.routers.botflix.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.botflix.tls=true"
       - "traefik.http.routers.botflix.tls.certresolver=letsencrypt"
-      - "traefik.http.services.botflix.loadbalancer.server.port=${APP_PORT:-3000}"
+      - "traefik.http.services.botflix.loadbalancer.server.port=${APP_PORT:-3001}"
 
 networks:
   easypanel:

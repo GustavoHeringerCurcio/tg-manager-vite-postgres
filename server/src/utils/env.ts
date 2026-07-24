@@ -56,7 +56,7 @@ export function loadEnv(source: EnvSource = process.env): AppEnv {
 
   return {
     nodeEnv: source.NODE_ENV ?? "development",
-    appPort: numberValue(source, "APP_PORT", 3000),
+    appPort: numberValue(source, "APP_PORT", 3001),
     domain,
     adminPassword: required(source, "ADMIN_PASSWORD"),
     livepixClientId: required(source, "LIVEPIX_CLIENT_ID"),

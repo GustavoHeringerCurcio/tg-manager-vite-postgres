@@ -12,7 +12,7 @@ const baseEnv = {
 describe("loadEnv", () => {
   it("loads defaults", () => {
     const env = loadEnv(baseEnv);
-    expect(env.appPort).toBe(3000);
+    expect(env.appPort).toBe(3001);
     expect(env.maxPixGenerations).toBe(5);
     expect(env.logPayloads).toBe(false);
   });

@@ -53,7 +53,7 @@ describe("BotManager", () => {
     };
     const env: AppEnv = {
       nodeEnv: "test",
-      appPort: 3000,
+      appPort: 3001,
       domain: "example.com",
       adminPassword: "secret",
       livepixClientId: "client-id",
@@ -61,7 +61,9 @@ describe("BotManager", () => {
       livepixRedirectUrl: "https://t.me/bot",
       maxPixGenerations: 5,
       interactionRetentionDays: 90,
-      logPayloads: false
+      logPayloads: false,
+      workerCount: 1,
+      dropPendingUpdates: false
     };
 
     const manager = new BotManager(bot, "telegram-token", env);
