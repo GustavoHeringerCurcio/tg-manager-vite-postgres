@@ -68,6 +68,7 @@ export type BotSettings = {
   barkDeviceKey?: string;
   barkSound?: string;
   barkServerUrl?: string;
+  barkIconUrl?: string;
 };
 
 export type GlobalConfig = {

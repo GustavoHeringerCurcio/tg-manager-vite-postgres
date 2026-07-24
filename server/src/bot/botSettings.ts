@@ -9,6 +9,7 @@ export type BotSettings = {
   barkDeviceKey?: string;
   barkSound?: string;
   barkServerUrl?: string;
+  barkIconUrl?: string;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -66,6 +67,9 @@ export function normalizeBotSettings(value: unknown): BotSettings {
 
   const barkServerUrl = cleanString(value.barkServerUrl);
   if (barkServerUrl) settings.barkServerUrl = barkServerUrl;
+
+  const barkIconUrl = cleanString(value.barkIconUrl);
+  if (barkIconUrl) settings.barkIconUrl = barkIconUrl;
 
   if (Array.isArray(value.adminTelegramIds)) {
     const ids = (value.adminTelegramIds as unknown[]).filter(

@@ -2,6 +2,7 @@ import { logger } from "../utils/logger.js";
 import { prisma } from "./prisma.js";
 import { normalizeBotSettings } from "../bot/botSettings.js";
 import { getGlobalConfig } from "../bot/globalConfig.js";
+import { loadEnv } from "../utils/env.js";
 
 interface BarkPayload {
   title: string;
@@ -9,12 +10,22 @@ interface BarkPayload {
   sound: string;
   deviceKey: string;
   serverUrl: string;
+  icon?: string;
+  group?: string;
+  clickUrl?: string;
 }
 
 async function sendBark(payload: BarkPayload): Promise<void> {
-  const { serverUrl, deviceKey, title, body, sound } = payload;
+  const { serverUrl, deviceKey, title, body, sound, icon, group, clickUrl } = payload;
   const base = serverUrl.replace(/\/+$/, "");
-  const url = `${base}/${encodeURIComponent(deviceKey)}/${encodeURIComponent(title)}/${encodeURIComponent(body)}?sound=${encodeURIComponent(sound)}`;
+
+  const params = new URLSearchParams();
+  params.set("sound", sound);
+  if (icon) params.set("icon", icon);
+  if (group) params.set("group", group);
+  if (clickUrl) params.set("url", clickUrl);
+
+  const url = `${base}/${encodeURIComponent(deviceKey)}/${encodeURIComponent(title)}/${encodeURIComponent(body)}?${params.toString()}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -56,18 +67,30 @@ export async function notifyPurchaseConfirmed(
     if (!settings.barkEnabled || !settings.barkDeviceKey) return;
 
     const deviceKey = settings.barkDeviceKey;
-    const sound = settings.barkSound || "cashregister";
+    const sound = settings.barkSound || "kaching";
     const serverUrl = settings.barkServerUrl || "https://api.day.app";
+    const icon = settings.barkIconUrl || undefined;
 
     const displayName = userName || "someone";
     const amountStr = amount.toFixed(2);
 
+    let clickUrl: string | undefined;
+    try {
+      const env = loadEnv();
+      clickUrl = `https://${env.domain}/manager/${botId}/dashboard`;
+    } catch {
+      // domain not available, skip click URL
+    }
+
     await sendBark({
-      title: `💰 Sale! R$ ${amountStr}`,
+      title: `Sale Approved - R$ ${amountStr}`,
       body: `${displayName} just purchased on ${bot.name}`,
       sound,
       deviceKey,
-      serverUrl
+      serverUrl,
+      icon,
+      group: "Sales",
+      clickUrl
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";

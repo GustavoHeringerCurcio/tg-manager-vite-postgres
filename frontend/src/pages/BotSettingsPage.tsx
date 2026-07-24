@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Save, ArrowLeft, Settings } from "lucide-react";
+import { Save, ArrowLeft, Settings, Apple, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { BotSettings } from "@/types";
@@ -88,6 +88,7 @@ export default function BotSettingsPage() {
         barkDeviceKey: settings.barkDeviceKey || undefined,
         barkSound: settings.barkSound || undefined,
         barkServerUrl: settings.barkServerUrl || undefined,
+        barkIconUrl: settings.barkIconUrl || undefined,
       };
       await api.updateBotSettings(botId, cleaned);
       setSettings(cleaned);
@@ -268,35 +269,62 @@ export default function BotSettingsPage() {
             </div>
 
           <div className="border-t border-border pt-6">
-            <h3 className="text-sm font-medium mb-4">Bark Notifications</h3>
-            <p className="text-[11px] text-muted-foreground mb-3">
-              Get push notifications on your iPhone when a purchase is completed. Requires the{" "}
-              <a href="https://apps.apple.com/app/bark-custom-notifications/id1573035188" target="_blank" rel="noopener noreferrer" className="underline">Bark</a>{" "}
-              iOS app installed. Find your device key at the top of the Bark app.
+            <h3 className="text-sm font-medium mb-1">Purchase Notifications</h3>
+            <p className="text-[11px] text-muted-foreground mb-4">
+              Get push notifications on your phone when a sale is completed. Tap a platform to configure.
             </p>
 
-            <div className="flex items-center gap-3 mb-4">
-              <Switch
-                size="sm"
-                checked={settings.barkEnabled === true}
-                onCheckedChange={(v) => update({ barkEnabled: v })}
-              />
-              <div>
-                <Label className="text-sm">Enable Bark notifications</Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Sends a push notification with a cash register sound when someone completes a purchase.
-                </p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => update({ barkEnabled: !settings.barkEnabled })}
+                className={`flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
+                  settings.barkEnabled
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <Apple className="size-5 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">iOS</p>
+                  <p className="text-[11px] text-muted-foreground">Bark</p>
+                </div>
+              </button>
+
+              <div className="flex items-start gap-3 rounded-lg border-2 border-border p-4 text-left opacity-50 cursor-not-allowed select-none">
+                <Smartphone className="size-5 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Android</p>
+                  <p className="text-[11px] text-muted-foreground">Coming Soon</p>
+                </div>
               </div>
             </div>
 
             {settings.barkEnabled && (
-              <div className="space-y-4 ml-9">
+              <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    size="sm"
+                    checked={settings.barkEnabled === true}
+                    onCheckedChange={(v) => update({ barkEnabled: v })}
+                  />
+                  <div>
+                    <Label className="text-sm">Enable Bark notifications</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Sends a push notification with a ka-ching sound when someone completes a purchase.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="barkDeviceKey">Device Key</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Open the Bark iOS app and copy the key at the top of the screen.
+                  </p>
                   <Input
                     id="barkDeviceKey"
                     type="text"
-                    placeholder="Paste your Bark device key"
+                    placeholder="wR6fmuMDuoBELc9LvSRyDd"
                     value={settings.barkDeviceKey ?? ""}
                     onChange={(e) => update({ barkDeviceKey: e.target.value || undefined })}
                     className="h-9 text-sm max-w-sm"
@@ -306,12 +334,12 @@ export default function BotSettingsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="barkSound">Sound Name</Label>
                   <p className="text-[11px] text-muted-foreground">
-                    Name of the sound file uploaded to Bark (without .caf extension). Defaults to &quot;cashregister&quot;.
+                    Sound file name without .caf extension. Upload custom sounds in the Bark app.
                   </p>
                   <Input
                     id="barkSound"
                     type="text"
-                    placeholder="cashregister"
+                    placeholder="kaching"
                     value={settings.barkSound ?? ""}
                     onChange={(e) => update({ barkSound: e.target.value || undefined })}
                     className="h-9 text-sm max-w-[200px]"
@@ -319,9 +347,24 @@ export default function BotSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="barkIconUrl">Icon URL</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    A public image URL shown as the notification icon. Use Imgur or your own server.
+                  </p>
+                  <Input
+                    id="barkIconUrl"
+                    type="text"
+                    placeholder="https://i.imgur.com/AjnwLwD.jpeg"
+                    value={settings.barkIconUrl ?? ""}
+                    onChange={(e) => update({ barkIconUrl: e.target.value || undefined })}
+                    className="h-9 text-sm max-w-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="barkServerUrl">Server URL</Label>
                   <p className="text-[11px] text-muted-foreground">
-                    Optional. Use this if you self-host Bark. Leave empty to use the public server.
+                    Leave empty to use the public Bark server. Only change if you self-host.
                   </p>
                   <Input
                     id="barkServerUrl"
