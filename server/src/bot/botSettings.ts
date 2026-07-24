@@ -35,8 +35,11 @@ export function normalizeBotSettings(value: unknown): BotSettings {
   const language = cleanString(value.language);
   if (language) settings.language = language;
 
-  if (typeof value.maxDailyPixGenerations === "number" && Number.isFinite(value.maxDailyPixGenerations) && value.maxDailyPixGenerations > 0) {
-    settings.maxDailyPixGenerations = Math.round(value.maxDailyPixGenerations);
+  const rawMax = value.maxDailyPixGenerations;
+  if (typeof rawMax === "number" && Number.isFinite(rawMax) && rawMax > 0) {
+    settings.maxDailyPixGenerations = Math.round(rawMax);
+  } else {
+    settings.maxDailyPixGenerations = 5;
   }
 
   if (typeof value.resetPixAfterStart === "boolean") {
