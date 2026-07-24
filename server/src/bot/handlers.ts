@@ -8,6 +8,7 @@ import { delay } from "../utils/async.js";
 import type { MessageType } from "./messageFlow.js";
 import { prisma } from "../services/prisma.js";
 import { logInteraction } from "../services/logger.js";
+import { scheduleRemarketingJob, cancelRemarketingJob } from "../services/remarketingQueue.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { BUTTON_STYLE_MAP, getAudioFileId, normalizeMessageFlow } from "./messageFlow.js";
@@ -417,6 +418,7 @@ function classifyLivePixError(error: unknown): string {
 }
 
 export async function cancelRemarketingForUser(botId: string, userId: string): Promise<number> {
+  await cancelRemarketingJob(userId, botId);
   const cancelled = await prisma.remarketingState.deleteMany({
     where: { botId, userId }
   });
@@ -761,6 +763,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           },
           update: {}
         });
+        await scheduleRemarketingJob(user.id, botConfig.id, remarketing.initialDelayMs);
       }
     } finally {
       activeStarts.delete(chatId);

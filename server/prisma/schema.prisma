@@ -154,14 +154,17 @@ model UserSession {
 }
 
 model RemarketingState {
-  id         String    @id @default(cuid())
-  botId      String
-  userId     String
-  nextIndex  Int       @default(0)
-  totalSent  Int       @default(0)
-  nextSendAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  botId       String
+  userId      String
+  nextIndex   Int       @default(0)
+  totalSent   Int       @default(0)
+  nextSendAt  DateTime?
+  retries     Int       @default(0)
+  lastError   String?
+  pgBossJobId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   bot  Bot  @relation(fields: [botId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

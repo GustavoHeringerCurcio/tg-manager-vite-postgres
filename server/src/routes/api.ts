@@ -8,6 +8,7 @@ import { HttpError } from "../utils/errors.js";
 import { parsePagination, sanitizeBot, sanitizeBots, serializeJson, type SafeBot } from "../utils/serialize.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
+import { scheduleRemarketingJob, cancelRemarketingJob, cancelAllRemarketingJobsForBot } from "../services/remarketingQueue.js";
 import { defaultMessageFlow, normalizeMessageFlow, type MessageButton, type MessageStep } from "../bot/messageFlow.js";
 import { defaultPaymentFlow, isPaymentFlowConfigured, normalizePaymentFlow } from "../bot/paymentFlow.js";
 import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments, getDiscountPercentage } from "../bot/remarketing.js";
@@ -437,6 +438,7 @@ export function apiRouter(env: AppEnv): Router {
 
   router.post("/bots/:id/remarketing-states/cancel-all", route(async (req, res) => {
     const botId = routeParam(req, "id");
+    await cancelAllRemarketingJobsForBot(botId);
     const result = await prisma.remarketingState.updateMany({
       where: { botId, nextSendAt: { not: null } },
       data: { nextSendAt: null }
@@ -513,7 +515,9 @@ export function apiRouter(env: AppEnv): Router {
           nextSendAt: new Date(Date.now() + config.initialDelayMs)
         }
       });
+      await scheduleRemarketingJob(userId, botId, config.initialDelayMs);
     } else {
+      await cancelRemarketingJob(userId, botId);
       const existing = await prisma.remarketingState.findUnique({ where: { userId_botId: { userId, botId } } });
       if (!existing) throw new HttpError(404, "Remarketing state not found");
       await prisma.remarketingState.update({
