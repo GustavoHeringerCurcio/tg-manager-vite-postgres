@@ -7,8 +7,16 @@ COPY frontend/package.json frontend/package.json
 RUN corepack pnpm install --frozen-lockfile
 
 FROM deps AS builder
-COPY . .
+COPY server/tsconfig.json server/tsconfig.json
+COPY frontend/tsconfig.json frontend/tsconfig.json
+COPY frontend/vite.config.ts frontend/vite.config.ts
+COPY frontend/index.html frontend/index.html
+COPY frontend/tailwind.config.js frontend/tailwind.config.js
+COPY frontend/postcss.config.js frontend/postcss.config.js
+COPY server/prisma server/prisma
 RUN corepack pnpm prisma:generate
+COPY server/src server/src
+COPY frontend/src frontend/src
 RUN corepack pnpm typecheck
 RUN corepack pnpm build
 
