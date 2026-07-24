@@ -1,0 +1,1 @@
+git add frontend/src/lib/api.ts server/src/bot/paymentFlow.ts && git commit -m "Add isActive flag for payment steps and server handling"

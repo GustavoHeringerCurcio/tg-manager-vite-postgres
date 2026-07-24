@@ -51,6 +51,9 @@ export type MessageStep = {
   includeQrCode?: boolean;
   includePixCode?: boolean;
   includeCheckoutUrl?: boolean;
+  // New flag to enable/disable this message step in the UI and when executing flows.
+  // If omitted, clients/servers should treat the step as active (true).
+  isActive?: boolean;
   dailyAudios?: DailyAudioConfig;
 };
 

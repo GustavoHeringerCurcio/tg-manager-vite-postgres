@@ -26,18 +26,20 @@ export function normalizePaymentFlow(value: unknown): PaymentFlow {
   if (Array.isArray(value)) throw new Error("paymentFlow must be an object, got an array");
   if (!isRecord(value)) throw new Error("paymentFlow must be an object");
 
-  const steps = normalizeMessageFlow(value.steps);
+  // Normalize steps and ensure the new "isActive" flag defaults to true when missing.
+  const rawSteps = normalizeMessageFlow(value.steps);
+  const steps = rawSteps.map((s) => ({ ...s, isActive: typeof (s as any).isActive === "boolean" ? (s as any).isActive : true }));
 
   const verifyLabel = cleanString(value.verifyLabel) ?? "Verificar pagamento";
   const pixCopyLabel = cleanString(value.pixCopyLabel) ?? "Copiar PIX";
 
   const record = value as Record<string, unknown>;
 
-  const verifyPaymentSuccessFlow = normalizeMessageFlow(record.verifyPaymentSuccessFlow);
-  const verifyPaymentFailFlow = normalizeMessageFlow(record.verifyPaymentFailFlow);
-  const copyPixFlow = normalizeMessageFlow(record.copyPixFlow);
+  const verifyPaymentSuccessFlow = normalizeMessageFlow(record.verifyPaymentSuccessFlow).map((s) => ({ ...s, isActive: typeof (s as any).isActive === "boolean" ? (s as any).isActive : true }));
+  const verifyPaymentFailFlow = normalizeMessageFlow(record.verifyPaymentFailFlow).map((s) => ({ ...s, isActive: typeof (s as any).isActive === "boolean" ? (s as any).isActive : true }));
+  const copyPixFlow = normalizeMessageFlow(record.copyPixFlow).map((s) => ({ ...s, isActive: typeof (s as any).isActive === "boolean" ? (s as any).isActive : true }));
 
-  const deliverables = normalizeMessageFlow(record.deliverables);
+  const deliverables = normalizeMessageFlow(record.deliverables).map((s) => ({ ...s, isActive: typeof (s as any).isActive === "boolean" ? (s as any).isActive : true }));
 
   return {
     steps,
@@ -63,5 +65,11 @@ export function defaultPaymentFlow(): PaymentFlow {
 }
 
 export function isPaymentFlowConfigured(flow: PaymentFlow): boolean {
-  return flow.steps.length > 0;
+  // Consider the flow configured only if there is at least one active step.
+  return flow.steps.some((s) => (s as any).isActive !== false);
+}
+
+// Helper: return only active steps (treat missing isActive as true)
+export function filterActiveSteps(steps: MessageStep[]): MessageStep[] {
+  return steps.filter((s) => (s as any).isActive !== false);
 }
