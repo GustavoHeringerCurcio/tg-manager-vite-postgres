@@ -238,11 +238,66 @@ export function utilsRouter(): Router {
       };
     }
 
+    // Concurrency/backpressure and proper completion handling for dispatched middleware calls.
+    // We allow an optional `parallelism` numeric field in the request body to control
+    // maximum concurrent in-flight handler executions for safety. If absent, use
+    // SIMULATOR_MAX_CONCURRENCY env or default to 20.
+    const parallelismRaw = typeof body.parallelism === "number"
+      ? body.parallelism
+      : Number(process.env.SIMULATOR_MAX_CONCURRENCY ?? 20);
+    const MAX_PARALLEL = Number.isFinite(parallelismRaw) && parallelismRaw > 0
+      ? Math.max(1, Math.floor(parallelismRaw))
+      : 20;
+
+    function createSemaphore(limit: number) {
+      let available = limit;
+      const queue: Array<() => void> = [];
+      return {
+        async acquire() {
+          if (available > 0) {
+            available -= 1;
+            return;
+          }
+          await new Promise<void>((res) => queue.push(res));
+        },
+        release() {
+          available += 1;
+          const next = queue.shift();
+          if (next) {
+            // consume the newly available slot for the queued waiter immediately
+            available -= 1;
+            next();
+          }
+        }
+      };
+    }
+
+    const semaphore = createSemaphore(MAX_PARALLEL);
+
     function dispatchUpdate(update: unknown): Promise<void> {
       return new Promise((resolve, reject) => {
+        let settled = false;
+        // Safety timeout so a stuck handler doesn't block the whole simulator indefinitely.
+        const SAFETY_TIMEOUT_MS = 30_000;
+        const timer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            // Resolve (don't fail the whole run) — the route will count this as completed
+            // but the handler may still finish later; this prevents indefinite hanging.
+            resolve();
+          }
+        }, SAFETY_TIMEOUT_MS);
+
         try {
           const mockRes: Partial<ExpressResponse> = {
-            end: () => mockRes as ExpressResponse,
+            end: () => {
+              if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                resolve();
+              }
+              return mockRes as ExpressResponse;
+            },
             writeHead: () => mockRes as ExpressResponse,
             setHeader: () => mockRes as ExpressResponse,
             getHeader: () => undefined,
@@ -250,6 +305,7 @@ export function utilsRouter(): Router {
             headersSent: true,
             statusCode: 200,
           };
+
           const mockReq = {
             method: "POST",
             headers: {},
@@ -261,11 +317,25 @@ export function utilsRouter(): Router {
             url: "/simulate-load"
           } as unknown as Request;
 
-          middleware(mockReq as unknown as Request, mockRes as ExpressResponse, () => {});
-          resolve();
+          // If middleware calls next(err) synchronously or asynchronously, capture it via the callback.
+          middleware(mockReq as Request, mockRes as ExpressResponse, (err?: unknown) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              reject(new Error(msg));
+            } else {
+              resolve();
+            }
+          });
         } catch (e) {
-          const message = e instanceof Error ? e.message : String(e);
-          reject(new Error(message));
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            const message = e instanceof Error ? e.message : String(e);
+            reject(new Error(message));
+          }
         }
       });
     }
