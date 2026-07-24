@@ -16,13 +16,14 @@ import { loadEnv } from "./utils/env.js";
 import { HttpError } from "./utils/errors.js";
 import { logger } from "./utils/logger.js";
 import { metricsResponse } from "./utils/metrics.js";
-import { prisma } from "./services/prisma.js";
+import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { startRemarketingPoller, stopRemarketingPoller } from "./services/remarketingScheduler.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
 import type { MessageButton } from "./bot/messageFlow.js";
 import { utilsRouter } from "./routes/utils.js";
+import { flushAll } from "./services/logger.js";
 
 (BigInt.prototype as any).toJSON = function() { return this.toString(); };
 
@@ -229,10 +230,11 @@ async function shutdown(signal: string): Promise<void> {
     stopRemarketingPoller();
     stopPaymentPoller();
   }
+  await flushAll();
   server.close(async () => {
     try {
       await shutdownAllBots();
-      await prisma.$disconnect();
+      await Promise.all([prisma.$disconnect(), analyticsPrisma.$disconnect()]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "shutdown failed";
       logger.error(`[${label}] ${message}`);

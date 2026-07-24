@@ -66,38 +66,60 @@ function textFromMessage(message: Message): string {
   return "text" in message ? message.text : "[non-text message]";
 }
 
-async function upsertTelegramUser(botId: string, ctx: Context): Promise<User | null> {
+type UpsertUserOptions = {
+  resetPix?: boolean;
+};
+
+async function upsertTelegramUser(botId: string, ctx: Context, options?: UpsertUserOptions): Promise<User | null> {
   if (!ctx.from) return null;
   const telegramId = BigInt(ctx.from.id);
   const cacheKey = `${botId}:${telegramId}`;
 
   const cached = getCachedUser(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    if (options?.resetPix) {
+      userCache.delete(cacheKey);
+    } else {
+      return cached;
+    }
+  }
 
+  const updateData: Record<string, unknown> = {
+    username: ctx.from.username,
+    firstName: ctx.from.first_name,
+    lastName: ctx.from.last_name,
+    lastInteraction: new Date()
+  };
+  if (options?.resetPix) {
+    updateData.pixGenerations = 0;
+  }
+
+  const createData: Record<string, unknown> = {
+    botId,
+    telegramId,
+    username: ctx.from.username,
+    firstName: ctx.from.first_name,
+    lastName: ctx.from.last_name,
+    lastInteraction: new Date()
+  };
+  if (options?.resetPix) {
+    createData.pixGenerations = 0;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = await prisma.user.upsert({
     where: { botId_telegramId: { botId, telegramId } },
-    create: {
-      botId,
-      telegramId,
-      username: ctx.from.username,
-      firstName: ctx.from.first_name,
-      lastName: ctx.from.last_name,
-      lastInteraction: new Date()
-    },
-    update: {
-      username: ctx.from.username,
-      firstName: ctx.from.first_name,
-      lastName: ctx.from.last_name,
-      lastInteraction: new Date()
-    }
+    create: createData as any,
+    update: updateData
   });
 
   setCachedUser(cacheKey, user);
   return user;
 }
 
-async function createOrResumeSession(botId: string, userId: string, stepIndex?: number): Promise<string> {
+async function createOrResumeSession(botId: string, userId: string, stepIndex?: number, options?: { skipUserUpdate?: boolean }): Promise<string> {
   const now = new Date();
+  const skipUserUpdate = options?.skipUserUpdate === true;
   const existing = await prisma.userSession.findFirst({
     where: { botId, userId, status: "ACTIVE" },
     orderBy: { startedAt: "desc" }
@@ -112,11 +134,17 @@ async function createOrResumeSession(botId: string, userId: string, stepIndex?: 
         updateData.stepsCompleted = [...steps, stepIndex];
       }
     }
-    await prisma.userSession.update({ where: { id: existing.id }, data: updateData });
-    await prisma.user.update({
-      where: { id: userId },
-      data: { currentSessionId: existing.id, currentStepIndex: stepIndex }
-    });
+    if (skipUserUpdate) {
+      await prisma.userSession.update({ where: { id: existing.id }, data: updateData });
+    } else {
+      await Promise.all([
+        prisma.userSession.update({ where: { id: existing.id }, data: updateData }),
+        prisma.user.update({
+          where: { id: userId },
+          data: { currentSessionId: existing.id, currentStepIndex: stepIndex }
+        })
+      ]);
+    }
     return existing.id;
   }
 
@@ -127,14 +155,23 @@ async function createOrResumeSession(botId: string, userId: string, stepIndex?: 
   if (closed) {
     const closedAt = closed.endedAt ?? closed.startedAt;
     if ((now.getTime() - closedAt.getTime()) < SESSION_TIMEOUT_MS) {
-      await prisma.userSession.update({
-        where: { id: closed.id },
-        data: { status: "ACTIVE", endedAt: null, messageCount: { increment: 1 }, updatedAt: now }
-      });
-      await prisma.user.update({
-        where: { id: userId },
-        data: { currentSessionId: closed.id, currentStepIndex: stepIndex }
-      });
+      if (skipUserUpdate) {
+        await prisma.userSession.update({
+          where: { id: closed.id },
+          data: { status: "ACTIVE", endedAt: null, messageCount: { increment: 1 }, updatedAt: now }
+        });
+      } else {
+        await Promise.all([
+          prisma.userSession.update({
+            where: { id: closed.id },
+            data: { status: "ACTIVE", endedAt: null, messageCount: { increment: 1 }, updatedAt: now }
+          }),
+          prisma.user.update({
+            where: { id: userId },
+            data: { currentSessionId: closed.id, currentStepIndex: stepIndex }
+          })
+        ]);
+      }
       return closed.id;
     }
   }
@@ -156,10 +193,12 @@ async function createOrResumeSession(botId: string, userId: string, stepIndex?: 
     }
   });
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { currentSessionId: session.id, currentStepIndex: stepIndex }
-  });
+  if (!skipUserUpdate) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { currentSessionId: session.id, currentStepIndex: stepIndex }
+    });
+  }
 
   return session.id;
 }
@@ -642,19 +681,13 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     if (!chatId || activeStarts.has(chatId)) return;
     activeStarts.add(chatId);
     try {
-      const user = await upsertTelegramUser(botConfig.id, ctx);
+      const shouldResetPix = botSettings.resetPixAfterStart !== false;
+      const user = await upsertTelegramUser(botConfig.id, ctx, { resetPix: shouldResetPix });
       if (!user) return;
 
       if (user.isBlocked) {
         await ctx.reply("Você está bloqueado.", { parse_mode: "HTML" });
         return;
-      }
-
-      if (botSettings.resetPixAfterStart !== false) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { pixGenerations: 0 }
-        });
       }
 
       const isNewUser = user.totalInteractions === 0;
@@ -672,8 +705,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       );
 
       const message = ctx.message ? textFromMessage(ctx.message) : "/start";
-      const sessionId = await createOrResumeSession(botConfig.id, user.id, 0);
-      await incrementUserStats(user.id, "totalInteractions");
+      const sessionId = await createOrResumeSession(botConfig.id, user.id, 0, { skipUserUpdate: true });
 
       logInteraction({
         botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "incoming",
@@ -701,30 +733,34 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         await sendStep(ctx, botConfig, user, sessionId, step, index, services.env, timeCompliments);
       }
 
-      await prisma.userSession.update({
-        where: { id: sessionId },
-        data: { currentStepIndex: messageFlow.length - 1 }
-      });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { currentStepIndex: messageFlow.length - 1 }
-      });
+      const finalStepIndex = messageFlow.length - 1;
+      await Promise.all([
+        prisma.userSession.update({
+          where: { id: sessionId },
+          data: { currentStepIndex: finalStepIndex }
+        }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: {
+            currentSessionId: sessionId,
+            currentStepIndex: finalStepIndex,
+            totalInteractions: { increment: 1 }
+          }
+        })
+      ]);
 
       if (user && remarketing.enabled && remarketing.messages.length > 0) {
-        const existing = await prisma.remarketingState.findUnique({
-          where: { userId_botId: { userId: user.id, botId: botConfig.id } }
+        await prisma.remarketingState.upsert({
+          where: { userId_botId: { userId: user.id, botId: botConfig.id } },
+          create: {
+            botId: botConfig.id,
+            userId: user.id,
+            nextIndex: 0,
+            totalSent: 0,
+            nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
+          },
+          update: {}
         });
-        if (!existing) {
-          await prisma.remarketingState.create({
-            data: {
-              botId: botConfig.id,
-              userId: user.id,
-              nextIndex: 0,
-              totalSent: 0,
-              nextSendAt: new Date(Date.now() + remarketing.initialDelayMs)
-            }
-          });
-        }
       }
     } finally {
       activeStarts.delete(chatId);

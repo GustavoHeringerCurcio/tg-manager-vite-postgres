@@ -1,6 +1,6 @@
 import { logger } from "../utils/logger.js";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "./prisma.js";
+import { analyticsPrisma } from "./prisma.js";
 import { interactionsLogged, interactionsFailed } from "../utils/metrics.js";
 
 export type LogInteractionInput = {
@@ -19,38 +19,108 @@ export type LogInteractionInput = {
   logPayloads: boolean;
 };
 
-export function logInteraction(input: LogInteractionInput): void {
-  let messageIdBigInt: bigint | undefined;
-  let chatIdBigInt: bigint | undefined;
+type InteractionRow = {
+  botId: string;
+  userId?: string;
+  sessionId?: string;
+  type: string;
+  direction: string;
+  content?: string;
+  payload?: Prisma.InputJsonValue;
+  stepIndex?: number;
+  buttonId?: string;
+  messageId?: bigint;
+  chatId?: bigint;
+  metadata?: Prisma.InputJsonValue;
+};
+
+const buffer: InteractionRow[] = [];
+const FLUSH_SIZE = 100;
+const FLUSH_INTERVAL_MS = 5000;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let flushing = false;
+
+function scheduleFlush(): void {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    void doFlush();
+  }, FLUSH_INTERVAL_MS);
+}
+
+async function doFlush(): Promise<void> {
+  if (flushing || buffer.length === 0) return;
+  flushing = true;
+  const batch = buffer.splice(0, buffer.length);
   try {
-    messageIdBigInt = input.messageId != null ? BigInt(input.messageId) : undefined;
-  } catch {
-    logger.error(`[logger] Invalid messageId for BigInt conversion: ${String(input.messageId)}`);
-  }
-  try {
-    chatIdBigInt = input.chatId != null ? BigInt(input.chatId) : undefined;
-  } catch {
-    logger.error(`[logger] Invalid chatId for BigInt conversion: ${String(input.chatId)}`);
-  }
-  void prisma.interaction.create({
-    data: {
-      botId: input.botId,
-      userId: input.userId ?? undefined,
-      sessionId: input.sessionId ?? undefined,
-      type: input.type,
-      direction: input.direction,
-      content: input.content,
-      payload: input.logPayloads ? input.payload : undefined,
-      stepIndex: input.stepIndex ?? undefined,
-      buttonId: input.buttonId ?? undefined,
-      messageId: messageIdBigInt,
-      chatId: chatIdBigInt,
-      metadata: input.metadata as Prisma.InputJsonValue | undefined
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await analyticsPrisma.interaction.createMany({ data: batch as any });
+    for (const row of batch) {
+      interactionsLogged.inc({ bot_id: row.botId, direction: row.direction });
     }
-  }).then(() => {
-    interactionsLogged.inc({ bot_id: input.botId, direction: input.direction });
-  }).catch((error: Error) => {
-    interactionsFailed.inc({ bot_id: input.botId });
-    logger.error(`[logger] Failed to write interaction: ${error.message}`);
-  });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "batch flush failed";
+    for (const row of batch) {
+      interactionsFailed.inc({ bot_id: row.botId });
+    }
+    logger.error(`[logger] Batch flush failed (${batch.length} rows): ${message}`);
+  } finally {
+    flushing = false;
+  }
+}
+
+async function flushAll(): Promise<void> {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  while (buffer.length > 0) {
+    await doFlush();
+  }
+}
+
+function toBigIntSafe(value: number | null | undefined): bigint | undefined {
+  if (value == null) return undefined;
+  try {
+    return BigInt(value);
+  } catch {
+    logger.error(`[logger] Invalid BigInt conversion: ${String(value)}`);
+    return undefined;
+  }
+}
+
+export function logInteraction(input: LogInteractionInput): void {
+  const row: InteractionRow = {
+    botId: input.botId,
+    userId: input.userId ?? undefined,
+    sessionId: input.sessionId ?? undefined,
+    type: input.type,
+    direction: input.direction,
+    content: input.content ?? undefined,
+    payload: input.logPayloads ? input.payload : undefined,
+    stepIndex: input.stepIndex ?? undefined,
+    buttonId: input.buttonId ?? undefined,
+    messageId: toBigIntSafe(input.messageId),
+    chatId: toBigIntSafe(input.chatId),
+    metadata: input.metadata as Prisma.InputJsonValue | undefined
+  };
+
+  buffer.push(row);
+
+  if (buffer.length >= FLUSH_SIZE) {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    void doFlush();
+  } else {
+    scheduleFlush();
+  }
+}
+
+export { flushAll };
+
+export function truncateContent(content: string | null | undefined): string | null {
+  if (!content) return content ?? null;
+  return content.length > 500 ? content.slice(0, 500) : content;
 }
