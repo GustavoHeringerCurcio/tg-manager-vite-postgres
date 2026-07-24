@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppShell from "@/components/layout/AppShell";
@@ -22,15 +22,6 @@ const BotDeliverablesPage = lazy(() => import("@/pages/BotDeliverablesPage"));
 const BotSettingsPage = lazy(() => import("@/pages/BotSettingsPage"));
 const UtilsPage = lazy(() => import("@/pages/UtilsPage"));
 
-function PageFallback() {
-  return (
-    <div className="space-y-6 animate-fade-in p-8">
-      <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
-      <div className="h-96 w-full rounded-xl bg-muted/50 animate-pulse" />
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -38,7 +29,6 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
-            <Suspense fallback={<PageFallback />}>
               <Route index element={<Navigate to="/manager" replace />} />
               <Route path="/manager" element={<ManagerPage />} />
               <Route path="/manager/new" element={<CreateBotPage />} />
@@ -56,7 +46,6 @@ export default function App() {
               <Route path="/manager/:botId/payment-settings/deliverables" element={<BotDeliverablesPage />} />
               <Route path="/utils" element={<UtilsPage />} />
               <Route path="/utils/file-id" element={<Navigate to="/utils?tool=file-id" replace />} />
-            </Suspense>
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />
