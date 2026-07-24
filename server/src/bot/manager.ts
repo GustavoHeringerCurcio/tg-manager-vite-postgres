@@ -24,8 +24,8 @@ export class BotManager {
     this.telegraf = new Telegraf(token, { telegram: { webhookReply: false } });
     applyRateLimit(
       this.telegraf.telegram,
-      getGlobalConfig().telegramRateLimit,
-      getGlobalConfig().telegramRateBurst
+      () => getGlobalConfig().telegramRateLimit,
+      () => getGlobalConfig().telegramRateBurst
     );
     this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
     this.webhookHandler = this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });

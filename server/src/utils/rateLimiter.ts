@@ -1,5 +1,5 @@
-function createTokenBucket(rate: number, burst: number): () => Promise<void> {
-  let tokens = burst;
+function createTokenBucket(getRate: () => number, getBurst: () => number): () => Promise<void> {
+  let tokens = getBurst();
   let lastRefill = Date.now();
   const pending: Array<() => void> = [];
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -7,7 +7,7 @@ function createTokenBucket(rate: number, burst: number): () => Promise<void> {
   function refill(): void {
     const now = Date.now();
     const elapsed = (now - lastRefill) / 1000;
-    tokens = Math.min(burst, tokens + elapsed * rate);
+    tokens = Math.min(getBurst(), tokens + elapsed * getRate());
     lastRefill = now;
   }
 
@@ -41,12 +41,12 @@ function createTokenBucket(rate: number, burst: number): () => Promise<void> {
 export function applyRateLimit(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   telegram: any,
-  rate: number,
-  burst: number
+  getRate: () => number,
+  getBurst: () => number
 ): void {
   if (typeof telegram.callApi !== "function") return;
   const original = (telegram.callApi as Function).bind(telegram);
-  const acquire = createTokenBucket(rate, burst);
+  const acquire = createTokenBucket(getRate, getBurst);
 
   telegram.callApi = async function (...args: unknown[]) {
     await acquire();
