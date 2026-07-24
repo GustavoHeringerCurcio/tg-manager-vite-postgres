@@ -14,14 +14,15 @@ const RETRY_DELAY_SECONDS = 60;
 const CONCURRENCY = 5;
 
 let boss: PgBoss | null = null;
+let initialized = false;
 let workerStarted = false;
 
 export function isWorkerRunning(): boolean {
   return workerStarted;
 }
 
-export async function startRemarketingWorker(): Promise<void> {
-  if (workerStarted) return;
+export async function initRemarketingQueue(): Promise<void> {
+  if (initialized) return;
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL is not set");
@@ -34,6 +35,14 @@ export async function startRemarketingWorker(): Promise<void> {
 
   await boss.start();
 
+  initialized = true;
+  logger.info("[remarketing-queue] initialized");
+}
+
+export async function startRemarketingWorker(): Promise<void> {
+  if (workerStarted) return;
+  if (!boss) throw new Error("remarketing queue not initialized — call initRemarketingQueue first");
+
   await boss.work("remarketing", { localConcurrency: CONCURRENCY }, async (jobs: { data: { stateId: string } }[]) => {
     for (const job of jobs) {
       await handleRemarketingJob(job.data.stateId);
@@ -45,7 +54,7 @@ export async function startRemarketingWorker(): Promise<void> {
 }
 
 export async function stopRemarketingWorker(): Promise<void> {
-  if (!boss || !workerStarted) return;
+  if (!boss) return;
   workerStarted = false;
   try {
     await boss.stop({ graceful: true, timeout: 30_000 });
@@ -54,6 +63,7 @@ export async function stopRemarketingWorker(): Promise<void> {
     logger.error(`[remarketing-queue] stop error: ${message}`);
   }
   boss = null;
+  initialized = false;
   logger.info("[remarketing-queue] worker stopped");
 }
 

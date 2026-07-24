@@ -18,7 +18,7 @@ import { logger } from "./utils/logger.js";
 import { metricsResponse } from "./utils/metrics.js";
 import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
-import { startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs } from "./services/remarketingQueue.js";
+import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs } from "./services/remarketingQueue.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
 import type { MessageButton } from "./bot/messageFlow.js";
@@ -211,6 +211,7 @@ const server = app.listen(env.appPort, async () => {
   try {
     const skipWebhook = !isPrimaryWorker || process.env.SKIP_WEBHOOK === "true";
     await loadActiveBots(env, skipWebhook);
+    await initRemarketingQueue();
     if (isPrimaryWorker) {
       await startRemarketingWorker();
       await rescheduleAllRemarketingJobs();
@@ -227,8 +228,8 @@ const server = app.listen(env.appPort, async () => {
 
 async function shutdown(signal: string): Promise<void> {
   logger.info(`[${label}] Received ${signal}, shutting down`);
+  await stopRemarketingWorker();
   if (isPrimaryWorker) {
-    await stopRemarketingWorker();
     stopPaymentPoller();
   }
   await flushAll();
