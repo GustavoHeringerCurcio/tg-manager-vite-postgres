@@ -41,8 +41,10 @@ export async function loadActiveBots(env: AppEnv, skipWebhook = false): Promise<
 
 export async function shutdownAllBots(): Promise<void> {
   const managers = listBotManagers();
-  for (const [botId, manager] of managers) {
-    await manager.stop();
-    removeBotManager(botId);
-  }
+  await Promise.all(
+    Array.from(managers).map(async ([botId, manager]) => {
+      await manager.stop();
+      removeBotManager(botId);
+    })
+  );
 }

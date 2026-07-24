@@ -3,7 +3,7 @@ import type { Bot } from "@prisma/client";
 export type SafeBot = Omit<Bot, "token" | "fbAccessToken">;
 
 export function serializeJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value, (_key, inner) => (typeof inner === "bigint" ? inner.toString() : inner))) as T;
+  return value;
 }
 
 export function sanitizeBot<T extends Bot>(bot: T): Omit<T, "token" | "fbAccessToken"> {

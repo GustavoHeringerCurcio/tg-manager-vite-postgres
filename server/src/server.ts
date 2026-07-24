@@ -1,4 +1,5 @@
 import "dotenv/config";
+import compression from "compression";
 import cluster from "node:cluster";
 import { availableParallelism } from "node:os";
 import path from "node:path";
@@ -22,6 +23,8 @@ import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
 import type { MessageButton } from "./bot/messageFlow.js";
 import { utilsRouter } from "./routes/utils.js";
+
+(BigInt.prototype as any).toJSON = function() { return this.toString(); };
 
 const env = loadEnv();
 const effectiveWorkers = env.workerCount === 0 ? availableParallelism() : env.workerCount;
@@ -58,6 +61,7 @@ if (effectiveWorkers > 1 && cluster.isPrimary) {
   const dirname = path.dirname(fileURLToPath(import.meta.url));
   const publicDir = path.resolve(dirname, "../public");
 
+app.use(compression());
 app.use(express.json({ limit: "50mb" }));
 app.post("/webhook/:botId", webhookDispatcher);
 

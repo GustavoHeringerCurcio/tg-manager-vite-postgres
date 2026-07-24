@@ -76,6 +76,7 @@ model User {
 
   @@unique([botId, telegramId])
   @@index([botId])
+  @@index([botId, createdAt])
   @@map("users")
 }
 

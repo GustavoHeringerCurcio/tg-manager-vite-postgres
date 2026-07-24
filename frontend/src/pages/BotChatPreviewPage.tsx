@@ -44,7 +44,7 @@ function userInitial(session: UserSession): string {
   return name.charAt(0).toUpperCase();
 }
 
-const POLL_INTERVAL = 10_000;
+
 
 export default function BotChatPreviewPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -61,7 +61,6 @@ export default function BotChatPreviewPage() {
 
   const timelineEndRef = useRef<HTMLDivElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchSessions = useCallback(async (page: number, searchTerm: string) => {
     if (!botId) return;
@@ -112,30 +111,6 @@ export default function BotChatPreviewPage() {
 
   const selectedSession = sessions?.items.find((s) => s.id === selectedId) ?? null;
   const isActiveSession = selectedSession?.status === "ACTIVE";
-
-  useEffect(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-
-    if (selectedId && isActiveSession && botId) {
-      pollTimerRef.current = setInterval(() => {
-        api.chatTimeline(botId, selectedId)
-          .then((result) => {
-            setTimeline(result);
-          })
-          .catch(() => {});
-      }, POLL_INTERVAL);
-    }
-
-    return () => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-  }, [selectedId, isActiveSession, botId]);
 
   function handleSelect(sessionId: string) {
     setSelectedId(sessionId);

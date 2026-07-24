@@ -28,8 +28,23 @@ const LIVEPIX_COPY_PREFIX = "livepix_copy:";
 
 const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const USER_CACHE_TTL_MS = 60_000;
+const USER_CACHE_MAX_SIZE = 10_000;
 
 const userCache = new Map<string, { user: User; timestamp: number }>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, { timestamp }] of userCache) {
+    if (now - timestamp >= USER_CACHE_TTL_MS) userCache.delete(key);
+  }
+  if (userCache.size > USER_CACHE_MAX_SIZE) {
+    const entries = [...userCache.entries()]
+      .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    for (const [key] of entries.slice(0, userCache.size - USER_CACHE_MAX_SIZE)) {
+      userCache.delete(key);
+    }
+  }
+}, 60_000).unref();
 
 function getCachedUser(key: string): User | null {
   const entry = userCache.get(key);
@@ -663,7 +678,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       logInteraction({
         botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "incoming",
         content: message, stepIndex: 0, chatId, messageId: ctx.message?.message_id,
-        payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads,
+        payload: services.env.logPayloads ? jsonPayload(ctx.update) : undefined, logPayloads: services.env.logPayloads,
         metadata: { isStart: true }
       });
 
@@ -746,7 +761,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     logInteraction({
       botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "incoming",
       content: messageText, chatId, messageId: ctx.message?.message_id,
-      payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
+      payload: services.env.logPayloads ? jsonPayload(ctx.update) : undefined, logPayloads: services.env.logPayloads
     });
   });
 
@@ -913,7 +928,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         buttonAction: button.action,
         buttonPrice: button.price,
       },
-      payload: jsonPayload(ctx.update), logPayloads: services.env.logPayloads
+      payload: services.env.logPayloads ? jsonPayload(ctx.update) : undefined, logPayloads: services.env.logPayloads
     });
 
     sendPixelEvent(

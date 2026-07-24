@@ -35,7 +35,18 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    build: { outDir: "../server/public", emptyOutDir: true },
+    build: {
+      outDir: "../server/public",
+      emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ["react", "react-dom", "react-router-dom"],
+            charts: ["recharts"],
+          },
+        },
+      },
+    },
     ...(useMocks
       ? {}
       : { server: { proxy: { "/api": "http://localhost:3000" } } }),

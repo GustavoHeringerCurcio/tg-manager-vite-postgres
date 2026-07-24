@@ -45,14 +45,20 @@ async function processRemarketingBatch(): Promise<void> {
         nextSendAt: { lte: now },
         bot: { status: BotStatus.ACTIVE }
       },
-      include: { user: true, bot: true },
+      include: { user: true },
       orderBy: { nextSendAt: "asc" },
       take: 100
     });
 
+    const botIds = [...new Set(dueStates.map(s => s.botId))];
+    const bots = await prisma.bot.findMany({ where: { id: { in: botIds } } });
+    const botMap = new Map(bots.map(b => [b.id, b]));
+
     for (const state of dueStates) {
+      const bot = botMap.get(state.botId);
+      if (!bot) continue;
       try {
-        await processOne(state, state.bot, state.user.telegramId);
+        await processOne(state, bot, state.user.telegramId);
       } catch (error) {
         const message = error instanceof Error ? error.message : "remarketing send failed";
         logger.error(`[remarketing:${state.botId}] ${message}`);
@@ -65,7 +71,7 @@ async function processRemarketingBatch(): Promise<void> {
 }
 
 async function processOne(
-  state: RemarketingState & { bot: Bot; user: { telegramId: bigint; firstName: string | null } },
+  state: RemarketingState & { user: { telegramId: bigint; firstName: string | null } },
   botConfig: Bot,
   telegramId: bigint
 ): Promise<void> {
