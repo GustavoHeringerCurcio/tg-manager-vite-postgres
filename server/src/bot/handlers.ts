@@ -506,21 +506,19 @@ async function sendLivePixPayment(
 
     // WARNING: These two final buttons are MANDATORY — both always appear and their function
     // MUST NOT be replaced. The "Verify Payment" button is always a callback; the "Copy PIX"
-    // button triggers a callback that sends audio (if enabled) and uses Telegram's native
-    // copy_text for one-tap clipboard copy on supported clients.
+    // button should use Telegram's native copy_text when possible so clients can copy the PIX
+    // string directly to the user's clipboard without invoking a callback.
     const finalButtons: KeyboardButton[][] = [[
       { text: paymentFlow.verifyLabel, callback_data: `${LIVEPIX_VERIFY_PREFIX}${payment.reference}` }
     ]];
 
-    // Ensure we always provide a copy_text payload when possible. If a PIX code was extracted
-    // include it; otherwise fall back to the checkout URL so clients that support copy_text can
-    // still copy useful data. Older clients that don't support copy_text will ignore this field.
+    // Provide copy_text with the PIX/code when available. If no copyable text exists, fall back
+    // to a callback so older clients still have a usable button.
     const fallbackCopyText = pixCode ?? payment.checkoutUrl ?? undefined;
     finalButtons.push([
       {
         text: paymentFlow.pixCopyLabel,
-        callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}`,
-        ...(fallbackCopyText ? { copy_text: { text: fallbackCopyText } } : {})
+        ...(fallbackCopyText ? { copy_text: { text: fallbackCopyText } } : { callback_data: `${LIVEPIX_COPY_PREFIX}${payment.reference}` })
       }
     ]);
 
@@ -986,19 +984,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
           select: { pixCode: true, checkoutUrl: true }
         });
 
-        const textToCopy = transaction?.pixCode ?? transaction?.checkoutUrl ?? null;
-        if (textToCopy) {
-          // Show an alert containing the actual PIX/URL so the user can copy manually in case
-          // the client's native copy_text did not run. If alerts are not supported, fall back
-          // to a short toast message.
-          try {
-            await ctx.answerCbQuery(`PIX: ${textToCopy}`, { show_alert: true });
-          } catch {
-            try { await ctx.answerCbQuery("✅ PIX copiado!"); } catch {}
-          }
-        } else {
-          try { await ctx.answerCbQuery("✅ PIX copiado!"); } catch {}
-        }
+        // Rely on Telegram clients that support copy_text to perform the clipboard copy.
+        // Do not show any alert or additional text to the user; silently acknowledge the
+        // callback to avoid popups on clients that fall back to callbacks.
+        try { await ctx.answerCbQuery(); } catch {}
 
         const copyFlow = paymentFlow.copyPixFlow ?? [];
         if (copyFlow.length > 0) {
