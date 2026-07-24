@@ -65,6 +65,7 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
   });
   if (!state) return;
 
+  const nextSendAt = new Date(Date.now() + delayMs);
   const jobId = await boss.send("remarketing", { stateId: state.id }, {
     startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
     retryLimit: RETRY_LIMIT,
@@ -74,7 +75,7 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
 
   await prisma.remarketingState.update({
     where: { id: state.id },
-    data: { pgBossJobId: jobId }
+    data: { pgBossJobId: jobId, nextSendAt }
   }).catch(() => {});
 }
 
