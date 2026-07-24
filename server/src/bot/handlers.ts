@@ -18,6 +18,7 @@ import type { PaymentFlow } from "./paymentFlow.js";
 import { normalizeRemarketing, normalizeTimeCompliments } from "./remarketing.js";
 import type { TimeComplimentConfig } from "./remarketing.js";
 import { normalizeBotSettings } from "./botSettings.js";
+import { getGlobalConfig } from "./globalConfig.js";
 import { resolveAllPlaceholders, type PaymentContext, formatPixCode } from "./placeholders.js";
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
@@ -28,20 +29,20 @@ const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
 const LIVEPIX_COPY_PREFIX = "livepix_copy:";
 
 const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
-const USER_CACHE_TTL_MS = 60_000;
-const USER_CACHE_MAX_SIZE = 10_000;
 
 const userCache = new Map<string, { user: User; timestamp: number }>();
 
 setInterval(() => {
   const now = Date.now();
+  const ttl = getGlobalConfig().userCacheTtlMs;
+  const maxSize = getGlobalConfig().userCacheMaxSize;
   for (const [key, { timestamp }] of userCache) {
-    if (now - timestamp >= USER_CACHE_TTL_MS) userCache.delete(key);
+    if (now - timestamp >= ttl) userCache.delete(key);
   }
-  if (userCache.size > USER_CACHE_MAX_SIZE) {
+  if (userCache.size > maxSize) {
     const entries = [...userCache.entries()]
       .sort((a, b) => a[1].timestamp - b[1].timestamp);
-    for (const [key] of entries.slice(0, userCache.size - USER_CACHE_MAX_SIZE)) {
+    for (const [key] of entries.slice(0, userCache.size - maxSize)) {
       userCache.delete(key);
     }
   }
@@ -49,7 +50,7 @@ setInterval(() => {
 
 function getCachedUser(key: string): User | null {
   const entry = userCache.get(key);
-  if (entry && Date.now() - entry.timestamp < USER_CACHE_TTL_MS) return entry.user;
+  if (entry && Date.now() - entry.timestamp < getGlobalConfig().userCacheTtlMs) return entry.user;
   userCache.delete(key);
   return null;
 }
@@ -448,7 +449,7 @@ async function sendLivePixPayment(
 
     let pixCode: string | undefined;
     const currentCount = user.pixGenerations;
-    const maxGenerations = normalizeBotSettings(botConfig.settings).maxDailyPixGenerations ?? services.env.maxPixGenerations;
+    const maxGenerations = normalizeBotSettings(botConfig.settings).maxDailyPixGenerations ?? getGlobalConfig().defaultMaxPixGenerations;
     if (currentCount < maxGenerations) {
       pixCode = await services.livePix.extractPixCode(payment.checkoutUrl);
       if (pixCode) {
@@ -680,10 +681,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
   const processedCallbacks = new Set<string>();
   const lastCallbackAt = new Map<string, number>();
-  const CALLBACK_COOLDOWN_MS = 7_000;
 
   setInterval(() => {
-    const cutoff = Date.now() - CALLBACK_COOLDOWN_MS;
+    const cutoff = Date.now() - getGlobalConfig().callbackCooldownMs;
     for (const [key, ts] of lastCallbackAt) {
       if (ts < cutoff) lastCallbackAt.delete(key);
     }
@@ -837,7 +837,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     const userId = ctx.callbackQuery.from.id;
     const now = Date.now();
     const lastAt = lastCallbackAt.get(String(userId));
-    if (lastAt && now - lastAt < CALLBACK_COOLDOWN_MS) {
+    if (lastAt && now - lastAt < getGlobalConfig().callbackCooldownMs) {
       try { await ctx.answerCbQuery(); } catch { /* already answered */ }
       return;
     }

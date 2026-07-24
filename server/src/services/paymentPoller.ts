@@ -3,9 +3,9 @@ import type { Transaction, User } from "@prisma/client";
 import { getBotManager } from "./botRegistry.js";
 import { logInteraction } from "./logger.js";
 import { paymentsConfirmed } from "../utils/metrics.js";
+import { getGlobalConfig } from "../bot/globalConfig.js";
 
 const POLL_INTERVAL_MS = 30_000;
-const POLL_WINDOW_MINUTES = Number(process.env.PAYMENT_POLL_WINDOW_MINUTES ?? "30");
 const BATCH_SIZE = 50;
 
 let pollerInterval: ReturnType<typeof setInterval> | null = null;
@@ -34,7 +34,7 @@ type PendingTransaction = Transaction & { user: User };
 async function processPendingPayments(): Promise<void> {
   const { prisma } = await import("./prisma.js");
   try {
-    const since = new Date(Date.now() - POLL_WINDOW_MINUTES * 60_000);
+    const since = new Date(Date.now() - getGlobalConfig().paymentPollWindowMinutes * 60_000);
     const pending = await prisma.transaction.findMany({
       where: {
         status: "PENDING",

@@ -193,3 +193,11 @@ model PixelEvent {
   @@index([botId, eventName, createdAt])
   @@map("pixel_events")
 }
+
+model GlobalConfig {
+  id        String   @id @default("global")
+  settings  Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@map("global_config")
+}

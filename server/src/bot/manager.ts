@@ -7,6 +7,7 @@ import { registerHandlers } from "./handlers.js";
 import type { AppEnv } from "../utils/env.js";
 import { LivePixService } from "../services/livepix.js";
 import { applyRateLimit } from "../utils/rateLimiter.js";
+import { getGlobalConfig } from "./globalConfig.js";
 
 export class BotManager {
   readonly botId: string;
@@ -23,8 +24,8 @@ export class BotManager {
     this.telegraf = new Telegraf(token, { telegram: { webhookReply: false } });
     applyRateLimit(
       this.telegraf.telegram,
-      Number(process.env.TELEGRAM_RATE_LIMIT ?? "25"),
-      Number(process.env.TELEGRAM_RATE_BURST ?? "30")
+      getGlobalConfig().telegramRateLimit,
+      getGlobalConfig().telegramRateBurst
     );
     this.livePix = new LivePixService(env.livepixClientId, env.livepixClientSecret, env.livepixRedirectUrl);
     this.webhookHandler = this.telegraf.webhookCallback(this.path, { secretToken: this.secretToken });

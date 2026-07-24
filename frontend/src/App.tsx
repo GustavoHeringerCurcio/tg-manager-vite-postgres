@@ -20,6 +20,7 @@ const BotLivepixPage = lazy(() => import("@/pages/BotLivepixPage"));
 const BotPaymentButtonsPage = lazy(() => import("@/pages/BotPaymentButtonsPage"));
 const BotDeliverablesPage = lazy(() => import("@/pages/BotDeliverablesPage"));
 const BotSettingsPage = lazy(() => import("@/pages/BotSettingsPage"));
+const AdminConfigPage = lazy(() => import("@/pages/AdminConfigPage"));
 const UtilsPage = lazy(() => import("@/pages/UtilsPage"));
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/manager/:botId/payment-settings/deliverables" element={<BotDeliverablesPage />} />
               <Route path="/utils" element={<UtilsPage />} />
               <Route path="/utils/file-id" element={<Navigate to="/utils?tool=file-id" replace />} />
+              <Route path="/manager/admin" element={<AdminConfigPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />

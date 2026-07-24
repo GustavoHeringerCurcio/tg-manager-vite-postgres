@@ -12,6 +12,7 @@ import { apiRouter } from "./routes/api.js";
 import { chatRouter } from "./routes/chat.js";
 import { facebookPixelRouter } from "./routes/facebookPixel.js";
 import { botSettingsRouter } from "./routes/botSettings.js";
+import { adminRouter } from "./routes/admin.js";
 import { loadEnv } from "./utils/env.js";
 import { HttpError } from "./utils/errors.js";
 import { logger } from "./utils/logger.js";
@@ -20,6 +21,7 @@ import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs } from "./services/remarketingQueue.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
+import { loadGlobalConfig } from "./bot/globalConfig.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
 import type { MessageButton } from "./bot/messageFlow.js";
 import { utilsRouter } from "./routes/utils.js";
@@ -89,6 +91,7 @@ app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
 app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
 app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
+app.use("/api", adminAuth(env.adminPassword), adminRouter());
 app.use("/api", adminAuth(env.adminPassword), utilsRouter());
 
 app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPassword), async (req: Request, res: Response) => {
@@ -210,6 +213,7 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 const server = app.listen(env.appPort, async () => {
   try {
     const skipWebhook = !isPrimaryWorker || process.env.SKIP_WEBHOOK === "true";
+    await loadGlobalConfig();
     await loadActiveBots(env, skipWebhook);
     await initRemarketingQueue();
     if (isPrimaryWorker) {

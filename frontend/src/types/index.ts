@@ -24,4 +24,5 @@ export type {
   TimeComplimentPreset,
   TimeComplimentConfig,
   BotSettings,
+  GlobalConfig,
 } from "../lib/api";

@@ -28,6 +28,7 @@ import {
   CreditCard,
   MessageSquare,
   Settings,
+  Shield,
   Wrench,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -112,6 +113,16 @@ export default function AppSidebar() {
               >
                 <Bot />
                 <span>All Bots</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Admin"
+                isActive={location.pathname === "/manager/admin"}
+                render={<Link to="/manager/admin" />}
+              >
+                <Shield />
+                <span>Admin</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>

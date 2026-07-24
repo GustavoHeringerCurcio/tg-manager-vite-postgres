@@ -63,6 +63,17 @@ export type BotSettings = {
   hideAdminFromDashboard?: boolean;
 };
 
+export type GlobalConfig = {
+  callbackCooldownMs: number;
+  telegramRateLimit: number;
+  telegramRateBurst: number;
+  defaultMaxPixGenerations: number;
+  paymentPollWindowMinutes: number;
+  interactionRetentionDays: number;
+  userCacheTtlMs: number;
+  userCacheMaxSize: number;
+};
+
 export type Bot = {
   id: string;
   name: string;
@@ -377,4 +388,6 @@ export const api = {
   testPixelEvent: (botId: string) => request<FacebookPixelTestResult>(`/api/bots/${botId}/pixel/test`, { method: "POST" }),
   getBotSettings: (botId: string) => request<BotSettings>(`/api/bots/${botId}/settings`),
   updateBotSettings: (botId: string, settings: BotSettings) => request<BotSettings>(`/api/bots/${botId}/settings`, { method: "PUT", body: JSON.stringify(settings) }),
+  getGlobalConfig: () => request<GlobalConfig>("/api/admin/config"),
+  updateGlobalConfig: (config: GlobalConfig) => request<GlobalConfig>("/api/admin/config", { method: "PUT", body: JSON.stringify(config) }),
 };
