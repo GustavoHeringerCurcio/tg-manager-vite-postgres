@@ -280,6 +280,7 @@ export function utilsRouter(): Router {
       const chatId = base + Math.floor(Math.random() * 1_000_000_000) + i;
       const username = `load_user_${chatId}`;
       for (const action of selectedActions) {
+        await semaphore.acquire();
         try {
           const update = buildUpdate(action, chatId, username);
           await dispatchUpdate(update);
@@ -290,6 +291,8 @@ export function utilsRouter(): Router {
           failed += 1;
           const message = e instanceof Error ? e.message : String(e);
           errors.push({ index: i, userId: String(chatId), action, error: message });
+        } finally {
+          semaphore.release();
         }
       }
     });
