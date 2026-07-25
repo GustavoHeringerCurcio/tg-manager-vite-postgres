@@ -3,8 +3,9 @@
   "mcp": {
     "postgres": {
       "type": "local",
-      "command": ["npx", "-y", "@anthropic/mcp-server-postgres", "postgresql://botflix:botflix-pass@localhost:5433/botflix"],
-      "enabled": true
+      "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "postgresql://botflix:botflix-pass@localhost:5433/botflix"],
+      "enabled": true,
+      "timeout": 30000
     }
   }
 }
