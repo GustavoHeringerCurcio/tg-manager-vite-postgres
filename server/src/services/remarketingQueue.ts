@@ -36,6 +36,9 @@ async function ensureBossInitialized(): Promise<PgBoss> {
   if (boss && initialized) return boss;
   await initRemarketingQueue();
   if (!boss) throw new Error("pg-boss failed to initialize — remarketing cannot be scheduled");
+  await boss.createQueue("remarketing").catch(() =>
+    logger.warn("[remarketing-queue] createQueue failed")
+  );
   await startRemarketingWorker().catch(() =>
     logger.warn("[remarketing-queue] ensureBossInitialized: worker start failed")
   );
