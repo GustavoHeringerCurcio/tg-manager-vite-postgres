@@ -99,7 +99,6 @@ export default function BotPixelConfigPage() {
       setPixelId(result.pixelId);
       setEnabled(result.enabled);
       setHasToken(result.hasToken);
-      setAccessToken("");
       toast.success("Pixel configuration saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save pixel config");
@@ -110,9 +109,13 @@ export default function BotPixelConfigPage() {
 
   async function handleTest() {
     if (!botId) return;
+    if (!testEventCode.trim()) {
+      toast.error("Paste the test event code from Meta's Test Events tab first");
+      return;
+    }
     setTesting(true);
     try {
-      const result = await api.testPixelEvent(botId, testEventCode || undefined);
+      const result = await api.testPixelEvent(botId, testEventCode.trim());
       if (result.sent) {
         toast.success(`Test event sent (ID: ${result.eventId})`);
       } else {
@@ -254,10 +257,12 @@ export default function BotPixelConfigPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="accessToken">Access Token</Label>
+            <Label htmlFor="accessToken" className="flex items-center gap-2">
+              Access Token
+              {hasToken && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">Token saved</Badge>}
+            </Label>
             <p className="text-[11px] text-muted-foreground">
               Generated in Events Manager &rarr; Settings &rarr; Conversions API.
-              {hasToken && " A token is currently stored."}
             </p>
             <Input
               id="accessToken"
@@ -298,25 +303,32 @@ export default function BotPixelConfigPage() {
           {deleting ? "Removing..." : "Disconnect"}
         </Button>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           {hasToken && (
-            <>
-              <Input
-                type="text"
-                placeholder="TEST40087"
-                value={testEventCode}
-                onChange={(e) => setTestEventCode(e.target.value)}
-                className="h-9 w-36 text-sm"
-              />
-              <Button
-                variant="outline"
-                onClick={() => void handleTest()}
-                disabled={testing || !enabled}
-              >
-                <Send className="mr-2 size-4" />
-                {testing ? "Sending..." : "Send Test Event"}
-              </Button>
-            </>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="TEST40087"
+                  value={testEventCode}
+                  onChange={(e) => setTestEventCode(e.target.value)}
+                  className="h-9 w-36 text-sm"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => void handleTest()}
+                  disabled={testing || !enabled}
+                >
+                  <Send className="mr-2 size-4" />
+                  {testing ? "Sending..." : "Send Test Event"}
+                </Button>
+              </div>
+              {!enabled && (
+                <p className="text-xs text-muted-foreground">
+                  Toggle "Enable event tracking" ON above to send test events.
+                </p>
+              )}
+            </div>
           )}
           <Button onClick={() => void handleSave()} disabled={saving}>
             {saving ? "Saving..." : "Save Configuration"}
