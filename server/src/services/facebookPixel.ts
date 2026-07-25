@@ -114,7 +114,8 @@ export async function testPixelEvent(
   botPixelId: string | undefined | null,
   botAccessToken: string | undefined | null,
   botEnabled: boolean | undefined | null,
-  botUsername: string | undefined
+  botUsername: string | undefined,
+  testEventCode?: string
 ): Promise<{ sent: boolean; eventId: string; error?: string }> {
   const pixelId = botPixelId?.trim();
   const accessToken = botAccessToken?.trim();
@@ -136,7 +137,9 @@ export async function testPixelEvent(
     }]
   };
 
-  const url = `${CAPI_URL_BASE}/${pixelId}/events?access_token=${accessToken}`;
+  const url = `${CAPI_URL_BASE}/${pixelId}/events?access_token=${accessToken}${
+    testEventCode ? `&test_event_code=${encodeURIComponent(testEventCode)}` : ""
+  }`;
 
   try {
     const response = await fetch(url, {

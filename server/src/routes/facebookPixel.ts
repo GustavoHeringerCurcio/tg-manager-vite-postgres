@@ -73,7 +73,8 @@ export function facebookPixelRouter(): Router {
   router.post("/bots/:id/pixel/test", route(async (req, res) => {
     const bot = await prisma.bot.findUnique({ where: { id: routeParam(req, "id") } });
     if (!bot) throw new HttpError(404, "Bot not found");
-    const result = await testPixelEvent(bot.id, bot.fbPixelId, bot.fbAccessToken, bot.fbEnabled, undefined);
+    const testEventCode = (req.body as { testEventCode?: string })?.testEventCode;
+    const result = await testPixelEvent(bot.id, bot.fbPixelId, bot.fbAccessToken, bot.fbEnabled, undefined, testEventCode);
     res.json(serializeJson(result));
   }));
 

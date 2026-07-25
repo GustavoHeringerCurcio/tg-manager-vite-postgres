@@ -60,6 +60,7 @@ export default function BotPixelConfigPage() {
   const [accessToken, setAccessToken] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [hasToken, setHasToken] = useState(false);
+  const [testEventCode, setTestEventCode] = useState("");
 
   useEffect(() => {
     void loadConfig();
@@ -111,7 +112,7 @@ export default function BotPixelConfigPage() {
     if (!botId) return;
     setTesting(true);
     try {
-      const result = await api.testPixelEvent(botId);
+      const result = await api.testPixelEvent(botId, testEventCode || undefined);
       if (result.sent) {
         toast.success(`Test event sent (ID: ${result.eventId})`);
       } else {
@@ -299,14 +300,23 @@ export default function BotPixelConfigPage() {
 
         <div className="flex gap-2">
           {hasToken && (
-            <Button
-              variant="outline"
-              onClick={() => void handleTest()}
-              disabled={testing || !enabled}
-            >
-              <Send className="mr-2 size-4" />
-              {testing ? "Sending..." : "Send Test Event"}
-            </Button>
+            <>
+              <Input
+                type="text"
+                placeholder="TEST40087"
+                value={testEventCode}
+                onChange={(e) => setTestEventCode(e.target.value)}
+                className="h-9 w-36 text-sm"
+              />
+              <Button
+                variant="outline"
+                onClick={() => void handleTest()}
+                disabled={testing || !enabled}
+              >
+                <Send className="mr-2 size-4" />
+                {testing ? "Sending..." : "Send Test Event"}
+              </Button>
+            </>
           )}
           <Button onClick={() => void handleSave()} disabled={saving}>
             {saving ? "Saving..." : "Save Configuration"}
