@@ -23,6 +23,7 @@ import { resolveAllPlaceholders, type PaymentContext, formatPixCode } from "./pl
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
 import { sendPixelEvent } from "../services/facebookPixel.js";
+import { notifyPurchaseConfirmed } from "../services/notifications.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
 const LIVEPIX_VERIFY_PREFIX = "livepix_verify:";
@@ -913,6 +914,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             where: { livepixReference: reference },
             data: { status: "COMPLETED" }
           });
+
+          const amountBrl = payment.amount / 100;
+          const displayName = ctx.from?.first_name || ctx.from?.username || undefined;
+          notifyPurchaseConfirmed(botConfig.id, amountBrl, displayName);
 
           paymentsConfirmed.inc({ bot_id: botConfig.id, source: "callback" });
 
