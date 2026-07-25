@@ -346,9 +346,11 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
     return;
   }
 
-  const isNowBurst = isBurstActive({ ...state, burstUntil: state.burstUntil }, config);
-  const burstEnded = wasBurst && !isNowBurst;
-  const nextIndex = burstEnded ? 0 : newNextIndex;
+  const nextJobTime = Date.now() + activeInterval;
+  const willStillBeBurst = state.burstUntil ? state.burstUntil.getTime() > nextJobTime : false;
+  const burstEnded = wasBurst && !willStillBeBurst;
+  const switchedMessageSets = burstEnded && config.useSeparateBurstMessages && config.burstMessages.length > 0;
+  const nextIndex = switchedMessageSets ? 0 : newNextIndex;
 
   const now = Date.now();
   const nextSendAt = new Date(now + activeInterval);
