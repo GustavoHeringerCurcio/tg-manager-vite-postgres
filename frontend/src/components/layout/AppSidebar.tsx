@@ -15,6 +15,7 @@ import {
   SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import {
+  Activity,
   Bot,
   LayoutDashboard,
   MessageCircle,
@@ -232,6 +233,18 @@ export default function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Facebook Pixel"
+                  isActive={
+                    location.pathname === `/manager/${botId}/pixel`
+                  }
+                  render={<Link to={`/manager/${botId}/pixel`} />}
+                >
+                  <Activity />
+                  <span>Facebook Pixel</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   tooltip="Transactions"
