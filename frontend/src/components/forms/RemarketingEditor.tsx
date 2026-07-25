@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import MessageFlowEditor from "./MessageFlowEditor";
 import type { RemarketingConfig } from "@/types";
-import { Timer, Clock } from "lucide-react";
+import { Timer, Clock, Zap } from "lucide-react";
 
 interface RemarketingEditorProps {
   config: RemarketingConfig;
@@ -31,6 +31,11 @@ const UNITS: { value: number; label: string }[] = [
   { value: 60, label: "minute" },
   { value: 3600, label: "hour" },
   { value: 86400, label: "day" },
+];
+
+const DURATION_UNITS: { value: number; label: string }[] = [
+  { value: 3600000, label: "hours" },
+  { value: 86400000, label: "days" },
 ];
 
 function matchingPreset(ms: number): number | null {
@@ -73,6 +78,16 @@ function scheduleHelpText(ms: number): string {
   return `Messages will be sent every ${value} ${unitLabel}`;
 }
 
+function deriveDurationDisplay(ms: number): { number: number; unit: number } {
+  if (ms <= 0) return { number: 1, unit: 86400000 };
+  if (ms >= 86400000 && ms % 86400000 === 0) return { number: Math.round(ms / 86400000), unit: 86400000 };
+  return { number: Math.round(ms / 3600000), unit: 3600000 };
+}
+
+function durationToMs(number: number, unit: number): number {
+  return number * unit;
+}
+
 export default function RemarketingEditor({ config, onChange }: RemarketingEditorProps) {
   const activePreset = matchingPreset(config.intervalMs);
   const [isCustom, setIsCustom] = useState(() => activePreset === null);
@@ -84,6 +99,25 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
     if (config.intervalMs <= 0) return 60;
     return deriveDisplay(config.intervalMs).unit;
   });
+
+  const burstIntervalMs = config.burstIntervalMs ?? 0;
+  const burstActivePreset = matchingPreset(burstIntervalMs);
+  const [burstIsCustom, setBurstIsCustom] = useState(() => burstActivePreset === null && burstIntervalMs > 0);
+  const [burstCustomNumber, setBurstCustomNumber] = useState(() => {
+    if (burstIntervalMs <= 0) return 1;
+    return deriveDisplay(burstIntervalMs).number;
+  });
+  const [burstCustomUnit, setBurstCustomUnit] = useState(() => {
+    if (burstIntervalMs <= 0) return 60;
+    return deriveDisplay(burstIntervalMs).unit;
+  });
+
+  const burstDurationMs = config.burstDurationMs ?? 0;
+  const durationDisplay = deriveDurationDisplay(burstDurationMs);
+  const [burstDurationNumber, setBurstDurationNumber] = useState(durationDisplay.number);
+  const [burstDurationUnit, setBurstDurationUnit] = useState(durationDisplay.unit);
+
+  const burstEnabled = (config.burstIntervalMs ?? 0) > 0;
 
   const selfUpdateRef = useRef(false);
 
@@ -128,7 +162,56 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
     update({ intervalMs: toMs(customNumber, unit) });
   }
 
+  function selectBurstPreset(ms: number) {
+    setBurstIsCustom(false);
+    update({ burstIntervalMs: ms });
+  }
+
+  function enableBurstCustom() {
+    setBurstIsCustom(true);
+  }
+
+  function updateBurstCustomNumber(n: number) {
+    if (!Number.isFinite(n) || n < 1) return;
+    setBurstCustomNumber(n);
+    update({ burstIntervalMs: toMs(n, burstCustomUnit) });
+  }
+
+  function updateBurstCustomUnit(unit: number) {
+    setBurstCustomUnit(unit);
+    update({ burstIntervalMs: toMs(burstCustomNumber, unit) });
+  }
+
+  function toggleBurst(enabled: boolean) {
+    if (enabled) {
+      update({
+        burstIntervalMs: 300_000,
+        burstDurationMs: 172_800_000,
+        burstCycleMessages: true,
+      });
+    } else {
+      update({
+        burstIntervalMs: 0,
+        burstDurationMs: 0,
+        useSeparateBurstMessages: false,
+        burstMessages: [],
+      });
+    }
+  }
+
+  function updateBurstDurationNumber(n: number) {
+    if (!Number.isFinite(n) || n < 1) return;
+    setBurstDurationNumber(n);
+    update({ burstDurationMs: durationToMs(n, burstDurationUnit) });
+  }
+
+  function updateBurstDurationUnit(unit: number) {
+    setBurstDurationUnit(unit);
+    update({ burstDurationMs: durationToMs(burstDurationNumber, unit) });
+  }
+
   const helpText = scheduleHelpText(config.intervalMs);
+  const burstHelpText = burstEnabled ? `Every ${scheduleHelpText(burstIntervalMs).replace("Messages will be sent ", "").replace(" every", "")} during burst phase` : "";
 
   return (
     <div className="space-y-6">
@@ -248,6 +331,144 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
               checked={config.skipStale ?? false}
               onCheckedChange={(v) => update({ skipStale: v })}
             />
+          </div>
+
+          <div className="border-t border-border pt-4 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-yellow-500/10 ring-1 ring-yellow-500/20 mt-0.5">
+                  <Zap className="size-4 text-yellow-400" />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">Burst Phase</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Fast initial interval for a limited duration, then switch to normal schedule
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={burstEnabled}
+                onCheckedChange={(v) => toggleBurst(v)}
+              />
+            </div>
+
+            {burstEnabled && (
+              <div className="space-y-3 animate-fade-in">
+                <div className="space-y-2">
+                  <Label className="text-xs">Burst Interval</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {PRESETS.map((p) => (
+                      <Button
+                        key={p.value}
+                        size="xs"
+                        variant={!burstIsCustom && burstActivePreset === p.value ? "default" : "outline"}
+                        onClick={() => selectBurstPreset(p.value)}
+                      >
+                        {p.label}
+                      </Button>
+                    ))}
+                    <Button
+                      size="xs"
+                      variant={burstIsCustom ? "default" : "outline"}
+                      onClick={enableBurstCustom}
+                    >
+                      Custom
+                    </Button>
+                  </div>
+                  {burstIsCustom && (
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={burstCustomNumber}
+                        onChange={(e) => updateBurstCustomNumber(Number(e.target.value))}
+                        className="h-8 w-20 text-sm"
+                      />
+                      <Select
+                        value={String(burstCustomUnit)}
+                        onValueChange={(v) => updateBurstCustomUnit(Number(v))}
+                      >
+                        <SelectTrigger className="h-8 w-24 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UNITS.map((u) => (
+                            <SelectItem key={u.value} value={String(u.value)}>{u.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {burstHelpText && (
+                    <p className="text-[0.7rem] text-muted-foreground">{burstHelpText}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Burst Duration</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={burstDurationNumber}
+                      onChange={(e) => updateBurstDurationNumber(Number(e.target.value))}
+                      className="h-8 w-20 text-sm"
+                    />
+                    <Select
+                      value={String(burstDurationUnit)}
+                      onValueChange={(v) => updateBurstDurationUnit(Number(v))}
+                    >
+                      <SelectTrigger className="h-8 w-24 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DURATION_UNITS.map((u) => (
+                          <SelectItem key={u.value} value={String(u.value)}>{u.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-[0.7rem] text-muted-foreground">
+                    Burst starts when user sends /start and lasts for this duration
+                  </p>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <Label className="text-xs">Cycle Messages During Burst</Label>
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      When off, sends each message once then stops until burst ends
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.burstCycleMessages ?? true}
+                    onCheckedChange={(v) => update({ burstCycleMessages: v })}
+                  />
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <Label className="text-xs">Use Separate Burst Messages</Label>
+                    <p className="text-[0.7rem] text-muted-foreground">
+                      When off, reuses main remarketing messages ({config.messages.length} messages)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.useSeparateBurstMessages ?? false}
+                    onCheckedChange={(v) => update({ useSeparateBurstMessages: v })}
+                  />
+                </div>
+
+                {(config.useSeparateBurstMessages ?? false) && (
+                  <div className="animate-fade-in">
+                    <MessageFlowEditor
+                      steps={config.burstMessages ?? []}
+                      onChange={(burstMessages) => update({ burstMessages })}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

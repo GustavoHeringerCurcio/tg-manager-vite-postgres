@@ -162,6 +162,7 @@ model RemarketingState {
   nextIndex   Int       @default(0)
   totalSent   Int       @default(0)
   nextSendAt  DateTime?
+  burstUntil  DateTime?
   retries     Int       @default(0)
   lastError   String?
   pgBossJobId String?

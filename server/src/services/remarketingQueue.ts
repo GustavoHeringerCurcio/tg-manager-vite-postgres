@@ -4,14 +4,22 @@ import type { RemarketingState } from "@prisma/client";
 import { logger } from "../utils/logger.js";
 import { prisma } from "./prisma.js";
 import { getBotManager } from "./botRegistry.js";
-import { normalizeRemarketing, getDiscountPercentage, normalizeTimeCompliments } from "../bot/remarketing.js";
+import {
+  normalizeRemarketing,
+  getDiscountPercentage,
+  normalizeTimeCompliments,
+  isBurstActive,
+  getActiveInterval,
+  getActiveMessages
+} from "../bot/remarketing.js";
 import { normalizeBotSettings } from "../bot/botSettings.js";
 import type { RemarketingConfig } from "../bot/remarketing.js";
 import { sendRemarketingStep } from "./remarketingSender.js";
 
 const RETRY_LIMIT = 3;
 const RETRY_DELAY_SECONDS = 60;
-const CONCURRENCY = 5;
+const BURST_CONCURRENCY = 30;
+const NORMAL_CONCURRENCY = 5;
 
 let boss: PgBoss | null = null;
 let initialized = false;
@@ -27,7 +35,7 @@ export async function initRemarketingQueue(): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL is not set");
 
-  boss = new PgBoss(dbUrl);
+  boss = new PgBoss({ connectionString: dbUrl });
 
   boss.on("error", (error: Error) => {
     logger.error(`[remarketing-queue] pg-boss error: ${error.message}`);
@@ -39,11 +47,33 @@ export async function initRemarketingQueue(): Promise<void> {
   logger.info("[remarketing-queue] initialized");
 }
 
+async function hasActiveBurst(): Promise<boolean> {
+  try {
+    const bots = await prisma.bot.findMany({
+      where: { status: BotStatus.ACTIVE },
+      select: { remarketing: true }
+    });
+    for (const bot of bots) {
+      const config = normalizeRemarketing(bot.remarketing);
+      if (config.enabled && config.burstIntervalMs > 0) {
+        return true;
+      }
+    }
+  } catch {
+    // fallback to normal concurrency on error
+  }
+  return false;
+}
+
 export async function startRemarketingWorker(): Promise<void> {
   if (workerStarted) return;
   if (!boss) throw new Error("remarketing queue not initialized — call initRemarketingQueue first");
 
-  await boss.work("remarketing", { localConcurrency: CONCURRENCY }, async (jobs: { data: { stateId: string } }[]) => {
+  const useBurst = await hasActiveBurst();
+  const concurrency = useBurst ? BURST_CONCURRENCY : NORMAL_CONCURRENCY;
+  logger.info(`[remarketing-queue] starting worker with concurrency=${concurrency} (burst=${useBurst})`);
+
+  await boss.work("remarketing", { localConcurrency: concurrency }, async (jobs: { data: { stateId: string } }[]) => {
     for (const job of jobs) {
       await handleRemarketingJob(job.data.stateId);
     }
@@ -121,14 +151,46 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
   const now = new Date();
   const states = await prisma.remarketingState.findMany({
     where: {
-      nextSendAt: { not: null, gt: now },
+      nextSendAt: { not: null },
       bot: { status: BotStatus.ACTIVE }
     },
-    select: { id: true, nextSendAt: true }
+    select: { id: true, nextSendAt: true, burstUntil: true, botId: true }
   });
 
   let scheduled = 0;
+  let skipped = 0;
+
   for (const state of states) {
+    const isPastDue = state.nextSendAt!.getTime() <= now.getTime();
+
+    if (isPastDue) {
+      const bot = await prisma.bot.findUnique({
+        where: { id: state.botId },
+        select: { remarketing: true }
+      }).catch(() => null);
+      if (!bot) continue;
+
+      const config = normalizeRemarketing(bot.remarketing);
+      const interval = getActiveInterval(state, config);
+      const nextSendAt = new Date(Date.now() + interval);
+
+      const jobId = await boss.send("remarketing", { stateId: state.id }, {
+        startAfter: Math.ceil(interval / 1000),
+        retryLimit: RETRY_LIMIT,
+        retryDelay: RETRY_DELAY_SECONDS,
+        singletonKey: `remarketing-${state.id}`
+      }).catch(() => null);
+
+      if (jobId) {
+        await prisma.remarketingState.update({
+          where: { id: state.id },
+          data: { pgBossJobId: jobId, nextSendAt, lastError: "past-due skipped on restart" }
+        }).catch(() => {});
+        skipped++;
+      }
+      continue;
+    }
+
     const delayMs = state.nextSendAt!.getTime() - now.getTime();
     const jobId = await boss.send("remarketing", { stateId: state.id }, {
       startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
@@ -146,8 +208,8 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
     }
   }
 
-  if (scheduled > 0) {
-    logger.info(`[remarketing-queue] rescheduled ${scheduled} pending jobs`);
+  if (scheduled > 0 || skipped > 0) {
+    logger.info(`[remarketing-queue] rescheduled ${scheduled} pending jobs, skipped ${skipped} past-due`);
   }
 }
 
@@ -177,18 +239,20 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
   const now = Date.now();
 
   if (config.skipStale) {
-    const staleThreshold = config.intervalMs * 2;
+    const activeInterval = getActiveInterval(state, config);
+    const staleThreshold = activeInterval * 2;
     if (now - state.nextSendAt.getTime() > staleThreshold) {
       logger.warn(`[remarketing:${state.botId}] skipped stale message (nextSendAt was ${state.nextSendAt.toISOString()}), rescheduling next without counting send`);
-      const newNextIndex = (state.nextIndex + 1) % config.messages.length;
-      const nextSendAt = new Date(Date.now() + config.intervalMs);
+      const activeMessages = getActiveMessages(state, config);
+      const newNextIndex = (state.nextIndex + 1) % activeMessages.length;
+      const nextSendAt = new Date(Date.now() + activeInterval);
       await prisma.remarketingState.update({
         where: { id: state.id },
         data: { nextIndex: newNextIndex, nextSendAt, retries: 0, lastError: "skipped stale" }
       }).catch(() => {});
       if (boss) {
         await boss.send("remarketing", { stateId: state.id }, {
-          startAfter: Math.ceil(config.intervalMs / 1000),
+          startAfter: Math.ceil(activeInterval / 1000),
           retryLimit: RETRY_LIMIT,
           retryDelay: RETRY_DELAY_SECONDS,
           singletonKey: `remarketing-${state.id}`
@@ -204,9 +268,38 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
   const botSettings = normalizeBotSettings(bot.settings);
   const timeCompliments = normalizeTimeCompliments(bot.timeCompliments, botSettings.timezone);
 
-  const index = state.nextIndex % config.messages.length;
-  const step = config.messages[index];
+  const activeMessages = getActiveMessages(state, config);
+  const index = state.nextIndex % activeMessages.length;
+  const step = activeMessages[index];
   if (!step) return;
+
+  const wasBurst = isBurstActive(state, config);
+  const shouldCycle = wasBurst ? config.burstCycleMessages : true;
+
+  if (wasBurst && !shouldCycle) {
+    const newNextIndex = (state.nextIndex + 1) % activeMessages.length;
+    if (newNextIndex === 0 && state.nextIndex !== 0) {
+      logger.info(`[remarketing:${state.botId}] burst non-cycling completed, silencing until burst ends for user ${state.userId}`);
+      const resumeAt = state.burstUntil
+        ? state.burstUntil.getTime() + config.initialDelayMs
+        : Date.now() + config.intervalMs;
+      const nextSendAt = new Date(resumeAt);
+      if (boss) {
+        const delaySeconds = Math.ceil(Math.max(resumeAt - Date.now(), 0) / 1000);
+        const jobId = await boss.send("remarketing", { stateId: state.id }, {
+          startAfter: delaySeconds,
+          retryLimit: RETRY_LIMIT,
+          retryDelay: RETRY_DELAY_SECONDS,
+          singletonKey: `remarketing-${state.id}`
+        }).catch(() => null);
+        await prisma.remarketingState.update({
+          where: { id: state.id },
+          data: { nextIndex: 0, nextSendAt, retries: 0, lastError: "burst non-cycling silence", pgBossJobId: jobId }
+        }).catch(() => {});
+      }
+      return;
+    }
+  }
 
   const discountPercentage = getDiscountPercentage(config.discountOffer, state.totalSent);
   const applyDiscount = discountPercentage > 0;
@@ -216,6 +309,8 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
     orderBy: { startedAt: "desc" },
     select: { id: true }
   });
+
+  await advanceState(state, config);
 
   try {
     await sendRemarketingStep({
@@ -234,41 +329,33 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "remarketing send failed";
-    const isTimeout = message.includes("timed out");
-    logger.error(`[remarketing:${state.botId}] ${message}`);
-    if (isTimeout) {
-      logger.warn(`[remarketing:${state.botId}] timeout on send — advancing without retry to prevent duplicates`);
-      await prisma.remarketingState.update({
-        where: { id: state.id },
-        data: { retries: state.retries + 1, lastError: message }
-      }).catch(() => {});
-      await advanceState(state, config);
-      return;
-    }
-    await prisma.remarketingState.update({
-      where: { id: state.id },
-      data: { retries: state.retries + 1, lastError: message }
-    }).catch(() => {});
-    throw error;
+    logger.error(`[remarketing:${state.botId}] send failed after advance: ${message}`);
   }
-
-  await advanceState(state, config);
 }
 
 async function advanceState(state: RemarketingState, config: RemarketingConfig): Promise<void> {
+  const wasBurst = isBurstActive(state, config);
+  const activeMessages = getActiveMessages(state, config);
+  const activeInterval = getActiveInterval(state, config);
+
   const newTotalSent = state.totalSent + 1;
-  const newNextIndex = (state.nextIndex + 1) % config.messages.length;
+  const newNextIndex = (state.nextIndex + 1) % activeMessages.length;
 
   if (config.maxSends > 0 && newTotalSent >= config.maxSends) {
     await prisma.remarketingState.delete({ where: { id: state.id } });
     return;
   }
 
-  const nextSendAt = new Date(Date.now() + config.intervalMs);
+  const isNowBurst = isBurstActive({ ...state, burstUntil: state.burstUntil }, config);
+  const burstEnded = wasBurst && !isNowBurst;
+  const nextIndex = burstEnded ? 0 : newNextIndex;
+
+  const now = Date.now();
+  const nextSendAt = new Date(now + activeInterval);
 
   if (boss) {
     const jobId = await boss.send("remarketing", { stateId: state.id }, {
-      startAfter: Math.ceil(config.intervalMs / 1000),
+      startAfter: Math.ceil(activeInterval / 1000),
       retryLimit: RETRY_LIMIT,
       retryDelay: RETRY_DELAY_SECONDS,
       singletonKey: `remarketing-${state.id}`
@@ -277,12 +364,13 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
     await prisma.remarketingState.update({
       where: { id: state.id },
       data: {
-        nextIndex: newNextIndex,
+        nextIndex,
         totalSent: newTotalSent,
         nextSendAt,
         retries: 0,
         lastError: null,
-        pgBossJobId: jobId
+        pgBossJobId: jobId,
+        ...(burstEnded ? { burstUntil: null } : {})
       }
     });
 
@@ -293,7 +381,7 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
   await prisma.remarketingState.update({
     where: { id: state.id },
     data: {
-      nextIndex: newNextIndex,
+      nextIndex,
       totalSent: newTotalSent,
       nextSendAt: null,
       retries: 0,

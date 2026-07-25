@@ -24,6 +24,11 @@ export type RemarketingConfig = {
   discountOffer: DiscountOfferConfig;
   skipStale: boolean;
   initialDelayMs: number;
+  burstIntervalMs: number;
+  burstDurationMs: number;
+  burstCycleMessages: boolean;
+  useSeparateBurstMessages: boolean;
+  burstMessages: MessageStep[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,6 +56,25 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
   const initialDelayMs = Number.isFinite(initialDelayMsRaw) && initialDelayMsRaw >= 0
     ? Math.round(initialDelayMsRaw)
     : intervalMs;
+
+  const burstIntervalMs = Number(value.burstIntervalMs ?? 0);
+  if (!Number.isFinite(burstIntervalMs) || burstIntervalMs < 0) {
+    throw new Error("remarketing burstIntervalMs must be zero or greater");
+  }
+  if (enabled && burstIntervalMs > 0 && burstIntervalMs < 60000) {
+    throw new Error("remarketing burstIntervalMs must be at least 60000 (1 minute) when enabled");
+  }
+  const burstDurationMs = Number(value.burstDurationMs ?? 0);
+  if (!Number.isFinite(burstDurationMs) || burstDurationMs < 0) {
+    throw new Error("remarketing burstDurationMs must be zero or greater");
+  }
+  if (burstIntervalMs > 0 && burstDurationMs <= 0) {
+    throw new Error("remarketing burstDurationMs must be greater than zero when burst is enabled");
+  }
+  const burstCycleMessages = typeof value.burstCycleMessages === "boolean" ? value.burstCycleMessages : true;
+  const useSeparateBurstMessages = typeof value.useSeparateBurstMessages === "boolean" ? value.useSeparateBurstMessages : false;
+  const burstMessages = useSeparateBurstMessages ? normalizeMessageFlow(value.burstMessages) : [];
+
   return {
     enabled,
     intervalMs: Math.round(intervalMs),
@@ -58,7 +82,12 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
     messages,
     discountOffer,
     skipStale,
-    initialDelayMs
+    initialDelayMs,
+    burstIntervalMs: Math.round(burstIntervalMs),
+    burstDurationMs: Math.round(burstDurationMs),
+    burstCycleMessages,
+    useSeparateBurstMessages,
+    burstMessages
   };
 }
 
@@ -184,8 +213,31 @@ export function defaultRemarketing(): RemarketingConfig {
     messages: [],
     discountOffer: defaultDiscountOffer(),
     skipStale: false,
-    initialDelayMs: 86400000
+    initialDelayMs: 86400000,
+    burstIntervalMs: 0,
+    burstDurationMs: 0,
+    burstCycleMessages: true,
+    useSeparateBurstMessages: false,
+    burstMessages: []
   };
+}
+
+export function isBurstActive(state: { burstUntil: Date | null }, config: RemarketingConfig): boolean {
+  return !!(state.burstUntil && state.burstUntil.getTime() > Date.now() && config.burstIntervalMs > 0);
+}
+
+export function getActiveInterval(state: { burstUntil: Date | null }, config: RemarketingConfig): number {
+  if (isBurstActive(state, config)) {
+    return config.burstIntervalMs;
+  }
+  return config.intervalMs;
+}
+
+export function getActiveMessages(state: { burstUntil: Date | null }, config: RemarketingConfig): MessageStep[] {
+  if (isBurstActive(state, config) && config.useSeparateBurstMessages && config.burstMessages.length > 0) {
+    return config.burstMessages;
+  }
+  return config.messages;
 }
 
 export function defaultRemarketingMessage(index: number): MessageStep {

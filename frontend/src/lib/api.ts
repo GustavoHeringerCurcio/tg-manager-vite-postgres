@@ -135,6 +135,11 @@ export type RemarketingConfig = {
   discountOffer: DiscountOfferConfig;
   skipStale?: boolean;
   initialDelayMs?: number;
+  burstIntervalMs?: number;
+  burstDurationMs?: number;
+  burstCycleMessages?: boolean;
+  useSeparateBurstMessages?: boolean;
+  burstMessages?: MessageStep[];
 };
 
 export type FacebookPixelConfig = {

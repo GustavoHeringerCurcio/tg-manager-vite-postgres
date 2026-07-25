@@ -863,7 +863,13 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     } finally {
       if (user && remarketing.enabled && remarketing.messages.length > 0) {
         try {
-          const nextSendAt = new Date(Date.now() + remarketing.initialDelayMs);
+          const burstUntil = remarketing.burstIntervalMs > 0 && remarketing.burstDurationMs > 0
+            ? new Date(Date.now() + remarketing.burstDurationMs)
+            : null;
+          const firstDelay = remarketing.burstIntervalMs > 0
+            ? remarketing.burstIntervalMs
+            : remarketing.initialDelayMs;
+          const nextSendAt = new Date(Date.now() + firstDelay);
           await prisma.remarketingState.upsert({
             where: { userId_botId: { userId: user.id, botId: botConfig.id } },
             create: {
@@ -871,17 +877,19 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               userId: user.id,
               nextIndex: 0,
               totalSent: 0,
-              nextSendAt
+              nextSendAt,
+              burstUntil
             },
             update: {
               nextIndex: 0,
               totalSent: 0,
               nextSendAt,
+              burstUntil,
               retries: 0,
               lastError: null
             }
           });
-          await scheduleRemarketingJob(user.id, botConfig.id, remarketing.initialDelayMs);
+          await scheduleRemarketingJob(user.id, botConfig.id, firstDelay);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           logger.error(`[bot:${botConfig.id}] failed to schedule remarketing after /start: ${msg}`);
