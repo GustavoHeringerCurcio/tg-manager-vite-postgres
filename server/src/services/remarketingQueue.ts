@@ -68,7 +68,10 @@ export async function stopRemarketingWorker(): Promise<void> {
 }
 
 export async function scheduleRemarketingJob(userId: string, botId: string, delayMs: number): Promise<void> {
-  if (!boss) return;
+  if (!boss) {
+    logger.warn("[remarketing-queue] scheduleRemarketingJob called but pg-boss is not initialized — remarketing will not run");
+    return;
+  }
   const state = await prisma.remarketingState.findUnique({
     where: { userId_botId: { userId, botId } },
     select: { id: true }

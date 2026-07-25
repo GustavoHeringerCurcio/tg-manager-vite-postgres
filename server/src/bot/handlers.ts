@@ -773,9 +773,10 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     const chatId = ctx.chat?.id;
     if (!chatId || activeStarts.has(chatId)) return;
     activeStarts.add(chatId);
+    let user: User | null = null;
     try {
       const shouldResetPix = botSettings.resetPixAfterStart !== false;
-      const user = await upsertTelegramUser(botConfig.id, ctx, { resetPix: shouldResetPix });
+      user = await upsertTelegramUser(botConfig.id, ctx, { resetPix: shouldResetPix });
       if (!user) return;
 
       if (user.isBlocked) {
@@ -859,28 +860,33 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         })
       ]);
 
-      if (user && remarketing.enabled && remarketing.messages.length > 0) {
-        const nextSendAt = new Date(Date.now() + remarketing.initialDelayMs);
-        await prisma.remarketingState.upsert({
-          where: { userId_botId: { userId: user.id, botId: botConfig.id } },
-          create: {
-            botId: botConfig.id,
-            userId: user.id,
-            nextIndex: 0,
-            totalSent: 0,
-            nextSendAt
-          },
-          update: {
-            nextIndex: 0,
-            totalSent: 0,
-            nextSendAt,
-            retries: 0,
-            lastError: null
-          }
-        });
-        await scheduleRemarketingJob(user.id, botConfig.id, remarketing.initialDelayMs);
-      }
     } finally {
+      if (user && remarketing.enabled && remarketing.messages.length > 0) {
+        try {
+          const nextSendAt = new Date(Date.now() + remarketing.initialDelayMs);
+          await prisma.remarketingState.upsert({
+            where: { userId_botId: { userId: user.id, botId: botConfig.id } },
+            create: {
+              botId: botConfig.id,
+              userId: user.id,
+              nextIndex: 0,
+              totalSent: 0,
+              nextSendAt
+            },
+            update: {
+              nextIndex: 0,
+              totalSent: 0,
+              nextSendAt,
+              retries: 0,
+              lastError: null
+            }
+          });
+          await scheduleRemarketingJob(user.id, botConfig.id, remarketing.initialDelayMs);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.error(`[bot:${botConfig.id}] failed to schedule remarketing after /start: ${msg}`);
+        }
+      }
       activeStarts.delete(chatId);
     }
   });
