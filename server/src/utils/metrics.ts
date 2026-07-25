@@ -46,6 +46,30 @@ export const interactionsFailed = new Counter({
   labelNames: [...labels] as const,
 });
 
+export const remarketingJobsScheduled = new Counter({
+  name: "botflix_remarketing_jobs_scheduled_total",
+  help: "Remarketing pg-boss jobs successfully scheduled",
+  labelNames: [...labels] as const,
+});
+
+export const remarketingJobsFailed = new Counter({
+  name: "botflix_remarketing_jobs_failed_total",
+  help: "Remarketing pg-boss jobs that failed to schedule",
+  labelNames: [...labels, "reason"] as const,
+});
+
+export const remarketingSent = new Counter({
+  name: "botflix_remarketing_sent_total",
+  help: "Remarketing messages successfully sent",
+  labelNames: [...labels] as const,
+});
+
+export const remarketingSendFailed = new Counter({
+  name: "botflix_remarketing_send_failed_total",
+  help: "Remarketing messages that failed to send",
+  labelNames: [...labels] as const,
+});
+
 export const dbPoolAvailable = new Gauge({
   name: "botflix_db_pool_available",
   help: "Available DB connections in the Prisma pool (1 = healthy)",

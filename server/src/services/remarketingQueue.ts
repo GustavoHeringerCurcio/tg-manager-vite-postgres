@@ -5,6 +5,12 @@ import { logger } from "../utils/logger.js";
 import { prisma } from "./prisma.js";
 import { getBotManager } from "./botRegistry.js";
 import {
+  remarketingJobsScheduled,
+  remarketingJobsFailed,
+  remarketingSent,
+  remarketingSendFailed
+} from "../utils/metrics.js";
+import {
   normalizeRemarketing,
   getDiscountPercentage,
   normalizeTimeCompliments,
@@ -26,15 +32,30 @@ let boss: PgBoss | null = null;
 let initialized = false;
 let workerStarted = false;
 
+async function ensureBossInitialized(): Promise<PgBoss> {
+  if (boss && initialized) return boss;
+  await initRemarketingQueue();
+  if (!boss) throw new Error("pg-boss failed to initialize — remarketing cannot be scheduled");
+  return boss;
+}
+
 export function isWorkerRunning(): boolean {
   return workerStarted;
 }
 
 export async function initRemarketingQueue(): Promise<void> {
-  if (initialized) return;
+  if (initialized && boss) return;
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL is not set");
+
+  try {
+    if (boss) {
+      await boss.stop({ graceful: true, timeout: 10_000 }).catch(() => {});
+    }
+  } catch {
+    // ignore cleanup errors
+  }
 
   boss = new PgBoss({ connectionString: dbUrl });
 
@@ -70,7 +91,13 @@ export async function startRemarketingWorker(): Promise<void> {
   if (workerStarted) return;
   if (!boss) throw new Error("remarketing queue not initialized — call initRemarketingQueue first");
 
-  const useBurst = await hasActiveBurst();
+  let useBurst = false;
+  try {
+    useBurst = await hasActiveBurst();
+  } catch (err) {
+    logger.warn(`[remarketing-queue] hasActiveBurst failed, falling back to normal concurrency: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   const concurrency = useBurst ? BURST_CONCURRENCY : NORMAL_CONCURRENCY;
   logger.info(`[remarketing-queue] starting worker with concurrency=${concurrency} (burst=${useBurst})`);
 
@@ -99,9 +126,8 @@ export async function stopRemarketingWorker(): Promise<void> {
 }
 
 export async function scheduleRemarketingJob(userId: string, botId: string, delayMs: number): Promise<void> {
-  if (!boss) {
-    throw new Error("pg-boss is not initialized — remarketing cannot be scheduled");
-  }
+  const activeBoss = await ensureBossInitialized();
+
   const state = await prisma.remarketingState.findUnique({
     where: { userId_botId: { userId, botId } },
     select: { id: true }
@@ -109,18 +135,31 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
   if (!state) return;
 
   const nextSendAt = new Date(Date.now() + delayMs);
-  const jobId = await boss.send("remarketing", { stateId: state.id }, {
-    startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
+  const startAfter = Math.ceil(Math.max(delayMs, 0) / 1000);
+
+  const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
+    startAfter,
     retryLimit: RETRY_LIMIT,
     retryDelay: RETRY_DELAY_SECONDS,
     singletonKey: `remarketing-${state.id}`,
     singletonSeconds: SINGLETON_SECONDS
   });
 
-  await prisma.remarketingState.update({
-    where: { id: state.id },
-    data: { pgBossJobId: jobId, nextSendAt }
-  }).catch(() => {});
+  if (jobId) {
+    await prisma.remarketingState.update({
+      where: { id: state.id },
+      data: { pgBossJobId: jobId, nextSendAt, retries: 0, lastError: null }
+    });
+    remarketingJobsScheduled.inc({ bot_id: botId });
+    logger.info(`[remarketing:${botId}] scheduled job ${jobId} for user ${userId} in ${startAfter}s`);
+  } else {
+    remarketingJobsFailed.inc({ bot_id: botId, reason: "boss_send_null" });
+    logger.warn(`[remarketing:${botId}] boss.send returned null for user ${userId} — singleton collision or queue error`);
+    await prisma.remarketingState.update({
+      where: { id: state.id },
+      data: { lastError: "boss.send returned null — possible singleton collision", retries: 0 }
+    }).catch(() => {});
+  }
 }
 
 export async function cancelRemarketingJob(userId: string, botId: string): Promise<void> {
@@ -147,7 +186,8 @@ export async function cancelAllRemarketingJobsForBot(botId: string): Promise<voi
 }
 
 export async function rescheduleAllRemarketingJobs(): Promise<void> {
-  if (!boss) return;
+  const activeBoss = await ensureBossInitialized().catch(() => null);
+  if (!activeBoss) return;
 
   const now = new Date();
   const states = await prisma.remarketingState.findMany({
@@ -175,7 +215,7 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
       const interval = getActiveInterval(state, config);
       const nextSendAt = new Date(Date.now() + interval);
 
-      const jobId = await boss.send("remarketing", { stateId: state.id }, {
+      const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
         startAfter: Math.ceil(interval / 1000),
         retryLimit: RETRY_LIMIT,
         retryDelay: RETRY_DELAY_SECONDS,
@@ -197,7 +237,7 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
     }
 
     const delayMs = state.nextSendAt!.getTime() - now.getTime();
-    const jobId = await boss.send("remarketing", { stateId: state.id }, {
+    const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
       startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
       retryLimit: RETRY_LIMIT,
       retryDelay: RETRY_DELAY_SECONDS,
@@ -259,8 +299,9 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
         where: { id: state.id },
         data: { nextIndex: newNextIndex, nextSendAt, retries: 0, lastError: "skipped stale" }
       }).catch(() => {});
-      if (boss) {
-        await boss.send("remarketing", { stateId: state.id }, {
+      const activeBoss = await ensureBossInitialized().catch(() => null);
+      if (activeBoss) {
+        await activeBoss.send("remarketing", { stateId: state.id }, {
           startAfter: Math.ceil(activeInterval / 1000),
           retryLimit: RETRY_LIMIT,
           retryDelay: RETRY_DELAY_SECONDS,
@@ -273,7 +314,10 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
   }
 
   const manager = getBotManager(state.botId);
-  if (!manager) return;
+  if (!manager) {
+    remarketingJobsFailed.inc({ bot_id: state.botId, reason: "bot_manager_not_found" });
+    return;
+  }
 
   const botSettings = normalizeBotSettings(bot.settings);
   const timeCompliments = normalizeTimeCompliments(bot.timeCompliments, botSettings.timezone);
@@ -294,9 +338,10 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
         ? state.burstUntil.getTime() + config.initialDelayMs
         : Date.now() + config.intervalMs;
       const nextSendAt = new Date(resumeAt);
-      if (boss) {
+      const activeBoss = await ensureBossInitialized().catch(() => null);
+      if (activeBoss) {
         const delaySeconds = Math.ceil(Math.max(resumeAt - Date.now(), 0) / 1000);
-        const jobId = await boss.send("remarketing", { stateId: state.id }, {
+        const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
           startAfter: delaySeconds,
           retryLimit: RETRY_LIMIT,
           retryDelay: RETRY_DELAY_SECONDS,
@@ -338,7 +383,9 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
       labelTemplate: config.discountOffer.labelTemplate,
       showOriginalPrice: config.discountOffer.showOriginalPrice
     });
+    remarketingSent.inc({ bot_id: state.botId });
   } catch (error) {
+    remarketingSendFailed.inc({ bot_id: state.botId });
     const message = error instanceof Error ? error.message : "remarketing send failed";
     logger.error(`[remarketing:${state.botId}] send failed after advance: ${message}`);
   }
@@ -366,40 +413,40 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
   const now = Date.now();
   const nextSendAt = new Date(now + activeInterval);
 
-  if (boss) {
-    const jobId = await boss.send("remarketing", { stateId: state.id }, {
-      startAfter: Math.ceil(activeInterval / 1000),
-      retryLimit: RETRY_LIMIT,
-      retryDelay: RETRY_DELAY_SECONDS,
-      singletonKey: `remarketing-${state.id}`,
-      singletonSeconds: SINGLETON_SECONDS
-    });
-
+  const activeBoss = await ensureBossInitialized().catch(() => null);
+  if (!activeBoss) {
+    logger.warn(`[remarketing-queue] advanceState called but pg-boss is down — state ${state.id} left inactive`);
     await prisma.remarketingState.update({
       where: { id: state.id },
       data: {
         nextIndex,
         totalSent: newTotalSent,
-        nextSendAt,
+        nextSendAt: null,
         retries: 0,
-        lastError: null,
-        pgBossJobId: jobId,
-        ...(burstEnded ? { burstUntil: null } : {})
+        lastError: "pg-boss unavailable — re-trigger via /start or admin API"
       }
     });
-
     return;
   }
 
-  logger.warn(`[remarketing-queue] advanceState called but pg-boss is down — state ${state.id} left inactive`);
+  const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
+    startAfter: Math.ceil(activeInterval / 1000),
+    retryLimit: RETRY_LIMIT,
+    retryDelay: RETRY_DELAY_SECONDS,
+    singletonKey: `remarketing-${state.id}`,
+    singletonSeconds: SINGLETON_SECONDS
+  });
+
   await prisma.remarketingState.update({
     where: { id: state.id },
     data: {
       nextIndex,
       totalSent: newTotalSent,
-      nextSendAt: null,
+      nextSendAt,
       retries: 0,
-      lastError: "pg-boss unavailable — re-trigger via /start or admin API"
+      lastError: jobId ? null : "boss.send returned null in advanceState",
+      pgBossJobId: jobId,
+      ...(burstEnded ? { burstUntil: null } : {})
     }
   });
 }
