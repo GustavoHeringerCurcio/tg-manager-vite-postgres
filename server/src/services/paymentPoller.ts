@@ -126,6 +126,14 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
   });
 
   try {
+    const { cancelRemarketingForUser } = await import("../bot/handlers.js");
+    await cancelRemarketingForUser(txn.botId, txn.userId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`[payment-poller:${txn.botId}] remarketing cancel failed: ${msg}`);
+  }
+
+  try {
     const bot = await prisma.bot.findUnique({
       where: { id: txn.botId },
       select: {

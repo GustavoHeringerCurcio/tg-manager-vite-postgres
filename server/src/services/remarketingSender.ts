@@ -79,8 +79,13 @@ export function buildInlineKeyboard(
 }
 
 export async function sendRemarketingStep(ctx: RemarketingSendContext): Promise<void> {
-  const withTimeout = <T>(p: Promise<T>, ms = 10000) =>
-    Promise.race<T>([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error("telegram request timed out")), ms))]);
+  const withTimeout = <T>(p: Promise<T>, ms = 40000) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("telegram request timed out")), ms);
+    });
+    return Promise.race<T>([p.finally(() => clearTimeout(timer)), timeout]);
+  };
 
   if (ctx.step.chatAction) {
     const CHAT_ACTION_INTERVAL_MS = 4000;
