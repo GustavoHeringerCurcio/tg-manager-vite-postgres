@@ -32,6 +32,7 @@ import {
   Download,
   MessageSquare,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,6 +61,17 @@ function formatAbsolute(dateStr: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getActiveInterval(
+  burstUntil: string | null,
+  intervalMs: number,
+  burstIntervalMs: number
+): number {
+  if (burstUntil && burstIntervalMs > 0 && new Date(burstUntil).getTime() > Date.now()) {
+    return burstIntervalMs;
+  }
+  return intervalMs;
 }
 
 function computeProgress(
@@ -101,6 +113,7 @@ export default function BotRemarketingStatusPage() {
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
   const config = data?.config;
   const intervalMs = config?.intervalMs ?? 86_400_000;
+  const burstIntervalMs = config?.burstIntervalMs ?? 0;
 
   const fetchData = useCallback(async (currentPage: number, filter: StatusFilter) => {
     if (!botId) return;
@@ -190,7 +203,10 @@ export default function BotRemarketingStatusPage() {
   // Compute summary stats from the full dataset (not just current page)
   const totalWithProgress = data?.items
     .filter((item) => item.nextSendAt !== null)
-    .map((item) => computeProgress(item.nextSendAt, intervalMs, now))
+    .map((item) => {
+      const itemInterval = getActiveInterval(item.burstUntil, intervalMs, burstIntervalMs);
+      return computeProgress(item.nextSendAt, itemInterval, now);
+    })
     ?? [];
   const avgProgress =
     totalWithProgress.length > 0
@@ -288,6 +304,44 @@ export default function BotRemarketingStatusPage() {
               <p className="text-xs text-muted-foreground">Avg Progress</p>
               <p className="text-2xl font-bold tabular-nums">
                 {Math.round(avgProgress)}%
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Queue stats */}
+      {data?.queueStats && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-muted-foreground">Queue Pending</p>
+              <p className="text-2xl font-bold tabular-nums text-amber-400">
+                {data.queueStats.pending}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-muted-foreground">Queue Active</p>
+              <p className="text-2xl font-bold tabular-nums text-sky-400">
+                {data.queueStats.active}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-muted-foreground">Queue Failed</p>
+              <p className="text-2xl font-bold tabular-nums text-red-400">
+                {data.queueStats.failed}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <p className="text-xs text-muted-foreground">Queue Total</p>
+              <p className="text-2xl font-bold tabular-nums">
+                {data.queueStats.total}
               </p>
             </CardContent>
           </Card>
@@ -396,6 +450,7 @@ export default function BotRemarketingStatusPage() {
                         botId={botId ?? ""}
                         config={config}
                         intervalMs={intervalMs}
+                        burstIntervalMs={burstIntervalMs}
                         now={now}
                         isToggling={togglingUsers.has(item.userId)}
                         onToggle={handleToggle}
@@ -443,6 +498,7 @@ function RemarketingRow({
   botId,
   config,
   intervalMs,
+  burstIntervalMs,
   now,
   isToggling,
   onToggle,
@@ -451,13 +507,16 @@ function RemarketingRow({
   botId: string;
   config: RemarketingStatusResponse["config"] | null | undefined;
   intervalMs: number;
+  burstIntervalMs: number;
   now: number;
   isToggling: boolean;
   onToggle: (userId: string, currentActive: boolean) => void;
 }) {
   const isActive = item.nextSendAt !== null;
-  const { progress, remainingMs } = computeProgress(item.nextSendAt, intervalMs, now);
+  const itemInterval = getActiveInterval(item.burstUntil, intervalMs, burstIntervalMs);
+  const { progress, remainingMs } = computeProgress(item.nextSendAt, itemInterval, now);
   const barColor = isActive ? progressColor(progress) : "bg-muted";
+  const isBurst = item.burstUntil !== null && new Date(item.burstUntil).getTime() > now;
 
   const userLabel = item.user.username
     ? `@${item.user.username}`
@@ -485,7 +544,7 @@ function RemarketingRow({
       .sort((a, b) => b.afterMessages - a.afterMessages)[0]?.percentage ?? 0;
 
   const lastSendAt = item.nextSendAt
-    ? new Date(new Date(item.nextSendAt).getTime() - intervalMs)
+    ? new Date(new Date(item.nextSendAt).getTime() - itemInterval)
     : null;
 
   return (
@@ -508,16 +567,24 @@ function RemarketingRow({
 
       {/* Status */}
       <td className="px-4 py-3">
-        <Badge
-          variant={isActive ? "default" : "secondary"}
-          className={
-            isActive
-              ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
-              : ""
-          }
-        >
-          {isActive ? "Active" : "Cancelled"}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge
+            variant={isActive ? "default" : "secondary"}
+            className={
+              isActive
+                ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                : ""
+            }
+          >
+            {isActive ? "Active" : "Cancelled"}
+          </Badge>
+          {isActive && isBurst && (
+            <Badge className="bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20 text-[10px] px-1.5 py-0">
+              <Zap className="size-3 mr-0.5" />
+              Burst
+            </Badge>
+          )}
+        </div>
       </td>
 
       {/* Message */}

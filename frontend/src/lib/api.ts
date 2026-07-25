@@ -171,6 +171,7 @@ export type RemarketingStateItem = {
   nextIndex: number;
   totalSent: number;
   nextSendAt: string | null;
+  burstUntil: string | null;
   createdAt: string;
   updatedAt: string;
   user: UserSummary;
@@ -182,11 +183,22 @@ export type RemarketingStatusConfig = {
   messageCount: number;
   messageTitles: string[];
   discountOffer: DiscountOfferConfig;
+  burstIntervalMs: number;
+  burstEnabled: boolean;
+};
+
+export type RemarketingQueueStats = {
+  pending: number;
+  active: number;
+  completed: number;
+  failed: number;
+  total: number;
 };
 
 export type RemarketingStatusResponse = Paginated<RemarketingStateItem> & {
   config: RemarketingStatusConfig | null;
   serverTime: string;
+  queueStats: RemarketingQueueStats | null;
 };
 
 export type BotPayload = {

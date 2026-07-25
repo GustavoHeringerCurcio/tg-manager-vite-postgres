@@ -8,7 +8,7 @@ import { HttpError } from "../utils/errors.js";
 import { parsePagination, sanitizeBot, sanitizeBots, serializeJson, type SafeBot } from "../utils/serialize.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
-import { scheduleRemarketingJob, cancelRemarketingJob, cancelAllRemarketingJobsForBot } from "../services/remarketingQueue.js";
+import { scheduleRemarketingJob, cancelRemarketingJob, cancelAllRemarketingJobsForBot, getRemarketingQueueStats } from "../services/remarketingQueue.js";
 import { defaultMessageFlow, normalizeMessageFlow, type MessageButton, type MessageStep } from "../bot/messageFlow.js";
 import { defaultPaymentFlow, isPaymentFlowConfigured, normalizePaymentFlow } from "../bot/paymentFlow.js";
 import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments, getDiscountPercentage } from "../bot/remarketing.js";
@@ -420,6 +420,7 @@ export function apiRouter(env: AppEnv): Router {
       prisma.bot.findUnique({ where: { id: botId } })
     ]);
     const config = bot ? normalizeRemarketing(bot.remarketing) : null;
+    const queueStats = await getRemarketingQueueStats().catch(() => null);
     res.json(serializeJson({
       items,
       total,
@@ -430,9 +431,12 @@ export function apiRouter(env: AppEnv): Router {
         maxSends: config.maxSends,
         messageCount: config.messages.length,
         messageTitles: config.messages.map(m => m.title),
-        discountOffer: config.discountOffer
+        discountOffer: config.discountOffer,
+        burstIntervalMs: config.burstIntervalMs,
+        burstEnabled: config.burstIntervalMs > 0
       } : null,
-      serverTime: new Date().toISOString()
+      serverTime: new Date().toISOString(),
+      queueStats: queueStats ?? { pending: 0, active: 0, completed: 0, failed: 0, total: 0 }
     }));
   }));
 
@@ -458,11 +462,12 @@ export function apiRouter(env: AppEnv): Router {
     const headers = [
       "Username", "Telegram ID", "First Name", "Status",
       "Messages Sent", "Max Sends", "Next Message", "Next Send At",
-      "Discount Active", "Cycle", "Created At", "Updated At"
+      "Discount Active", "Cycle", "Burst", "Created At", "Updated At"
     ];
     const cycleCount = config?.messages.length ?? 0;
     const rows = states.map(s => {
       const isActive = s.nextSendAt !== null;
+      const isBurst = s.burstUntil ? s.burstUntil.getTime() > Date.now() : false;
       const nextMsgTitle = config && cycleCount > 0
         ? config.messages[s.nextIndex % cycleCount]?.title ?? "—"
         : "—";
@@ -481,6 +486,7 @@ export function apiRouter(env: AppEnv): Router {
         s.nextSendAt ? s.nextSendAt.toISOString() : "—",
         discountActive ? "Yes" : "No",
         String(cycle),
+        isBurst ? "Yes" : "No",
         s.createdAt.toISOString(),
         s.updatedAt.toISOString()
       ];
