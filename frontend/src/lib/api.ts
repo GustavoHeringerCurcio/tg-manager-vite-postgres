@@ -399,6 +399,7 @@ export const api = {
   testPixelEvent: (botId: string) => request<FacebookPixelTestResult>(`/api/bots/${botId}/pixel/test`, { method: "POST" }),
   getBotSettings: (botId: string) => request<BotSettings>(`/api/bots/${botId}/settings`),
   updateBotSettings: (botId: string, settings: BotSettings) => request<BotSettings>(`/api/bots/${botId}/settings`, { method: "PUT", body: JSON.stringify(settings) }),
+  testBarkNotification: (botId: string) => request<{ ok: boolean }>(`/api/bots/${botId}/settings/test-bark`, { method: "POST" }),
   getGlobalConfig: () => request<GlobalConfig>("/api/admin/config"),
   updateGlobalConfig: (config: GlobalConfig) => request<GlobalConfig>("/api/admin/config", { method: "PUT", body: JSON.stringify(config) }),
 };

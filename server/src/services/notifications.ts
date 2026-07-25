@@ -116,3 +116,46 @@ export async function sendSystemAlert(title: string, body: string): Promise<void
     logger.error(`[bark] sendSystemAlert failed: ${message}`);
   }
 }
+
+export async function sendBarkTest(botId: string): Promise<void> {
+  const bot = await prisma.bot.findUnique({
+    where: { id: botId },
+    select: { name: true, settings: true }
+  });
+
+  if (!bot) throw new Error("Bot not found");
+
+  const settings = normalizeBotSettings(bot.settings);
+
+  if (!settings.barkDeviceKey) throw new Error("Bark device key is not configured");
+
+  const deviceKey = settings.barkDeviceKey;
+  const sound = settings.barkSound || "kaching";
+  const serverUrl = settings.barkServerUrl || "https://api.day.app";
+  const icon = settings.barkIconUrl || undefined;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const base = serverUrl.replace(/\/+$/, "");
+    const params = new URLSearchParams();
+    params.set("sound", sound);
+    if (icon) params.set("icon", icon);
+
+    const url = `${base}/${encodeURIComponent(deviceKey)}/Test%20Notification/If%20you%20see%20this,%20Bark%20is%20working!?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      signal: controller.signal
+    });
+
+    const data = await response.json().catch(() => null) as Record<string, unknown> | null;
+
+    if (!response.ok || data?.code !== 200) {
+      throw new Error(`Bark server returned: ${JSON.stringify(data)}`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}

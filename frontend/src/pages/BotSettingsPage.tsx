@@ -45,6 +45,7 @@ export default function BotSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<BotSettings>({});
   const [newAdminId, setNewAdminId] = useState("");
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (bot?.settings) {
@@ -101,6 +102,19 @@ export default function BotSettingsPage() {
     }
   }
 
+  async function handleTest() {
+    if (!botId) return;
+    setTesting(true);
+    try {
+      await api.testBarkNotification(botId);
+      toast.success("Test notification sent! Check your iPhone.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send test notification");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   function addAdminId() {
     const trimmed = newAdminId.trim();
     if (!trimmed || !/^\d+$/.test(trimmed)) return;
@@ -127,8 +141,17 @@ export default function BotSettingsPage() {
             Bot Settings
           </h1>
           <p className="text-sm text-muted-foreground">{bot.name}</p>
-        </div>
-      </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleTest()}
+                  disabled={testing}
+                >
+                  {testing ? "Sending..." : "Send Test Notification"}
+                </Button>
+              </div>
 
       <Card>
         <CardContent className="space-y-6 p-6">

@@ -7,6 +7,7 @@ import { prisma } from "../services/prisma.js";
 import { serializeJson } from "../utils/serialize.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
 import { normalizeBotSettings, type BotSettings } from "../bot/botSettings.js";
+import { sendBarkTest } from "../services/notifications.js";
 
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<void>;
 
@@ -44,6 +45,12 @@ export function botSettingsRouter(env: AppEnv): Router {
       await startBot(updated, env);
     }
     res.json(serializeJson(settings));
+  }));
+
+  router.post("/bots/:id/settings/test-bark", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    await sendBarkTest(botId);
+    res.json({ ok: true });
   }));
 
   return router;
