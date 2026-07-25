@@ -18,6 +18,7 @@ import { sendRemarketingStep } from "./remarketingSender.js";
 
 const RETRY_LIMIT = 3;
 const RETRY_DELAY_SECONDS = 60;
+const SINGLETON_SECONDS = 259200;
 const BURST_CONCURRENCY = 30;
 const NORMAL_CONCURRENCY = 5;
 
@@ -99,8 +100,7 @@ export async function stopRemarketingWorker(): Promise<void> {
 
 export async function scheduleRemarketingJob(userId: string, botId: string, delayMs: number): Promise<void> {
   if (!boss) {
-    logger.warn("[remarketing-queue] scheduleRemarketingJob called but pg-boss is not initialized — remarketing will not run");
-    return;
+    throw new Error("pg-boss is not initialized — remarketing cannot be scheduled");
   }
   const state = await prisma.remarketingState.findUnique({
     where: { userId_botId: { userId, botId } },
@@ -113,7 +113,8 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
     startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
     retryLimit: RETRY_LIMIT,
     retryDelay: RETRY_DELAY_SECONDS,
-    singletonKey: `remarketing-${state.id}`
+    singletonKey: `remarketing-${state.id}`,
+    singletonSeconds: SINGLETON_SECONDS
   });
 
   await prisma.remarketingState.update({
@@ -178,8 +179,12 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
         startAfter: Math.ceil(interval / 1000),
         retryLimit: RETRY_LIMIT,
         retryDelay: RETRY_DELAY_SECONDS,
-        singletonKey: `remarketing-${state.id}`
-      }).catch(() => null);
+        singletonKey: `remarketing-${state.id}`,
+        singletonSeconds: SINGLETON_SECONDS
+      }).catch((err) => {
+        logger.warn(`[remarketing-queue] failed to reschedule past-due state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
+      });
 
       if (jobId) {
         await prisma.remarketingState.update({
@@ -196,8 +201,12 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
       startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
       retryLimit: RETRY_LIMIT,
       retryDelay: RETRY_DELAY_SECONDS,
-      singletonKey: `remarketing-${state.id}`
-    }).catch(() => null);
+      singletonKey: `remarketing-${state.id}`,
+      singletonSeconds: SINGLETON_SECONDS
+    }).catch((err) => {
+      logger.warn(`[remarketing-queue] failed to reschedule state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    });
 
     if (jobId) {
       await prisma.remarketingState.update({
@@ -255,8 +264,9 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
           startAfter: Math.ceil(activeInterval / 1000),
           retryLimit: RETRY_LIMIT,
           retryDelay: RETRY_DELAY_SECONDS,
-          singletonKey: `remarketing-${state.id}`
-        }).catch(() => null);
+          singletonKey: `remarketing-${state.id}`,
+          singletonSeconds: SINGLETON_SECONDS
+        });
       }
       return;
     }
@@ -290,8 +300,9 @@ async function handleRemarketingJob(stateId: string): Promise<void> {
           startAfter: delaySeconds,
           retryLimit: RETRY_LIMIT,
           retryDelay: RETRY_DELAY_SECONDS,
-          singletonKey: `remarketing-${state.id}`
-        }).catch(() => null);
+          singletonKey: `remarketing-${state.id}`,
+          singletonSeconds: SINGLETON_SECONDS
+        });
         await prisma.remarketingState.update({
           where: { id: state.id },
           data: { nextIndex: 0, nextSendAt, retries: 0, lastError: "burst non-cycling silence", pgBossJobId: jobId }
@@ -360,8 +371,9 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
       startAfter: Math.ceil(activeInterval / 1000),
       retryLimit: RETRY_LIMIT,
       retryDelay: RETRY_DELAY_SECONDS,
-      singletonKey: `remarketing-${state.id}`
-    }).catch(() => null);
+      singletonKey: `remarketing-${state.id}`,
+      singletonSeconds: SINGLETON_SECONDS
+    });
 
     await prisma.remarketingState.update({
       where: { id: state.id },
@@ -390,4 +402,34 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
       lastError: "pg-boss unavailable — re-trigger via /start or admin API"
     }
   });
+}
+
+export type RemarketingQueueStats = {
+  pending: number;
+  active: number;
+  completed: number;
+  failed: number;
+  total: number;
+};
+
+export async function getRemarketingQueueStats(): Promise<RemarketingQueueStats> {
+  if (!boss) {
+    return { pending: 0, active: 0, completed: 0, failed: 0, total: 0 };
+  }
+  try {
+    const stats = await boss.getQueueStats("remarketing", { force: true });
+    const latest = stats[stats.length - 1];
+    if (!latest) {
+      return { pending: 0, active: 0, completed: 0, failed: 0, total: 0 };
+    }
+    const pending = (latest.queuedCount ?? 0) + (latest.readyCount ?? 0);
+    const active = latest.activeCount ?? 0;
+    const failed = latest.failedCount ?? 0;
+    const total = latest.totalCount ?? 0;
+    const completed = Math.max(0, total - pending - active - failed);
+    return { pending, active, completed, failed, total };
+  } catch (error) {
+    logger.warn("[remarketing-queue] failed to get queue stats");
+    return { pending: 0, active: 0, completed: 0, failed: 0, total: 0 };
+  }
 }

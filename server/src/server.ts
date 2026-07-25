@@ -252,8 +252,8 @@ const server = app.listen(env.appPort, async () => {
   try {
     const skipWebhook = !isPrimaryWorker || process.env.SKIP_WEBHOOK === "true";
     await loadGlobalConfig();
-    await loadActiveBots(env, skipWebhook);
     await initRemarketingQueue();
+    await loadActiveBots(env, skipWebhook);
     if (isPrimaryWorker) {
       await startRemarketingWorker();
       await rescheduleAllRemarketingJobs();
