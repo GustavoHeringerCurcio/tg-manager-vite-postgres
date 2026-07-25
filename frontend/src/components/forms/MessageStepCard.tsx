@@ -55,6 +55,7 @@ interface MessageStepCardProps {
   onDuplicate: () => void;
   showPaymentOptions?: boolean;
   livepixConfigured?: boolean;
+  showRepeatAudios?: boolean;
 }
 
 const typeConfig: Record<MessageType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -91,6 +92,7 @@ function MessageStepCardInner({
   onDuplicate,
   showPaymentOptions = false,
   livepixConfigured = true,
+  showRepeatAudios = false,
 }: MessageStepCardProps) {
   const {
     attributes,
@@ -151,6 +153,22 @@ function MessageStepCardInner({
 
   function removeMediaUrl(idx: number) {
     update({ mediaUrls: step.mediaUrls.filter((_, i) => i !== idx) });
+  }
+
+  function addRepeatAudio() {
+    const current = step.repeatAudios ?? [];
+    update({ repeatAudios: [...current, ""] });
+  }
+
+  function updateRepeatAudio(idx: number, val: string) {
+    const audios = [...(step.repeatAudios ?? [])];
+    audios[idx] = val;
+    update({ repeatAudios: audios.filter((v) => v.trim()) });
+  }
+
+  function removeRepeatAudio(idx: number) {
+    const audios = (step.repeatAudios ?? []).filter((_, i) => i !== idx);
+    update({ repeatAudios: audios.length > 0 ? audios : undefined });
   }
 
   const type = typeConfig[step.type];
@@ -407,6 +425,31 @@ function MessageStepCardInner({
                 )}
                 <Button variant="outline" size="sm" onClick={addMediaUrl} className="h-7 text-xs">
                   <Plus className="mr-1 size-3" /> Add {mediaTypeLabel[step.type]} URL or file_id
+                </Button>
+              </div>
+            )}
+
+            {showRepeatAudios && step.type === "AUDIO" && (
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Repeat Voice Notes</Label>
+                <p className="text-[10px] text-muted-foreground/60">
+                  When the user clicks the button again, a different audio plays.
+                </p>
+                {(step.repeatAudios ?? []).map((audio, i) => (
+                  <div key={i} className="flex gap-1">
+                    <Input
+                      value={audio}
+                      onChange={(e) => updateRepeatAudio(i, e.target.value)}
+                      placeholder={`Audio for click #${i + 2}`}
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Button variant="ghost" size="icon-sm" onClick={() => removeRepeatAudio(i)}>
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addRepeatAudio} className="h-7 text-xs">
+                  <Plus className="mr-1 size-3" /> Add repeat audio
                 </Button>
               </div>
             )}

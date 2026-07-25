@@ -33,9 +33,10 @@ interface MessageFlowEditorProps {
   onChange: (steps: MessageStep[]) => void;
   showPaymentOptions?: boolean;
   livepixConfigured?: boolean;
+  showRepeatAudios?: boolean;
 }
 
-export default function MessageFlowEditor({ steps: initialSteps, onChange, showPaymentOptions = false, livepixConfigured = true }: MessageFlowEditorProps) {
+export default function MessageFlowEditor({ steps: initialSteps, onChange, showPaymentOptions = false, livepixConfigured = true, showRepeatAudios = false }: MessageFlowEditorProps) {
   const { steps, push, undo, canUndo } = useUndo(initialSteps);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -192,6 +193,7 @@ export default function MessageFlowEditor({ steps: initialSteps, onChange, showP
                     onDuplicate={() => duplicateStep(i)}
                     showPaymentOptions={showPaymentOptions}
                     livepixConfigured={livepixConfigured}
+                    showRepeatAudios={showRepeatAudios}
                   />
                 ))}
               </div>

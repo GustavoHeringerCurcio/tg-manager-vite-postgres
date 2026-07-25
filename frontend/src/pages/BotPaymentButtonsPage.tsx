@@ -207,6 +207,7 @@ export default function BotPaymentButtonsPage() {
               onChange={setVerifySuccessFlow}
               showPaymentOptions={false}
               livepixConfigured={false}
+              showRepeatAudios
             />
           </div>
 
@@ -222,6 +223,7 @@ export default function BotPaymentButtonsPage() {
               onChange={setVerifyFailFlow}
               showPaymentOptions={false}
               livepixConfigured={false}
+              showRepeatAudios
             />
           </div>
         </div>
@@ -256,6 +258,7 @@ export default function BotPaymentButtonsPage() {
               onChange={setCopyPixFlow}
               showPaymentOptions={false}
               livepixConfigured={false}
+              showRepeatAudios
             />
           </div>
         </div>

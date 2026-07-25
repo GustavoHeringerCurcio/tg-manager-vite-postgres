@@ -55,6 +55,7 @@ export type MessageStep = {
   // If omitted, clients/servers should treat the step as active (true).
   isActive?: boolean;
   dailyAudios?: DailyAudioConfig;
+  repeatAudios?: string[];
 };
 
 export type BotSettings = {

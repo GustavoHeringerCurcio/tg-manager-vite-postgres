@@ -281,7 +281,8 @@ async function sendStep(
   env: AppEnv,
   timeCompliments: TimeComplimentConfig,
   parseMode?: ParseMode,
-  payment?: PaymentContext
+  payment?: PaymentContext,
+  repeatIndex?: number
 ): Promise<void> {
 
   let resolvedText = step.text
@@ -336,7 +337,15 @@ async function sendStep(
     });
     return;
   }
-  const audioFileId = step.type === "AUDIO" ? getAudioFileId(step, timeCompliments.timezone) : null;
+  let audioFileId: string | null = null;
+  if (step.type === "AUDIO") {
+    if (repeatIndex != null && repeatIndex > 0 && step.repeatAudios && step.repeatAudios.length > 0) {
+      audioFileId = step.repeatAudios[repeatIndex - 1] ?? null;
+      if (!audioFileId) return;
+    } else {
+      audioFileId = getAudioFileId(step, timeCompliments.timezone);
+    }
+  }
   if (step.type === "AUDIO" && audioFileId) {
     await ctx.replyWithVoice(audioFileId, { caption: resolvedText, ...(Object.keys(options).length > 0 ? options : {}) });
     logInteraction({
@@ -713,6 +722,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
   const processedCallbacks = new Set<string>();
   const lastCallbackAt = new Map<string, number>();
+  const flowTriggerCount = new Map<string, number>();
 
   setInterval(() => {
     const cutoff = Date.now() - getGlobalConfig().callbackCooldownMs;
@@ -952,6 +962,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
         } else {
           const failFlow = filterActiveSteps(paymentFlow.verifyPaymentFailFlow ?? []);
           if (failFlow.length > 0) {
+            const verifyKey = `verify:${reference}:${chatId}`;
+            const repeatIdx = flowTriggerCount.get(verifyKey) ?? 0;
+            flowTriggerCount.set(verifyKey, repeatIdx + 1);
             await ctx.answerCbQuery();
             for (const [i, step] of failFlow.entries()) {
               if (step.isActive === false) continue;
@@ -960,7 +973,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
               } else if (step.delayMs > 0) {
                 await delay(step.delayMs);
               }
-              await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments);
+              await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments, undefined, undefined, repeatIdx);
             }
           } else {
             await ctx.reply("❌ Pagamento ainda não identificado. Tente novamente após efetuar o pagamento.", { parse_mode: "HTML" });
@@ -992,6 +1005,9 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
 
         const copyFlow = filterActiveSteps(paymentFlow.copyPixFlow ?? []);
         if (copyFlow.length > 0) {
+          const copyKey = `copy:${reference}:${chatId}`;
+          const repeatIdx = flowTriggerCount.get(copyKey) ?? 0;
+          flowTriggerCount.set(copyKey, repeatIdx + 1);
           const ptx: PaymentContext = {
             pixCode: transaction?.pixCode ?? undefined,
             checkoutUrl: transaction?.checkoutUrl ?? undefined,
@@ -1003,7 +1019,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             } else if (step.delayMs > 0) {
               await delay(step.delayMs);
             }
-            await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments, undefined, ptx);
+            await sendStep(ctx, botConfig, null, null, step, i, services.env, timeCompliments, undefined, ptx, repeatIdx);
           }
         }
       } catch (err) {

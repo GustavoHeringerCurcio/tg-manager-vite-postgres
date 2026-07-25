@@ -54,6 +54,7 @@ export type MessageStep = {
   includeCheckoutUrl?: boolean;
   isActive?: boolean;
   dailyAudios?: DailyAudioConfig;
+  repeatAudios?: string[];
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -157,6 +158,13 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       }
     }
 
+    let repeatAudios: string[] | undefined = undefined;
+    if (Array.isArray(item.repeatAudios)) {
+      repeatAudios = item.repeatAudios
+        .map((v: unknown) => cleanString(v))
+        .filter((v: string | undefined): v is string => !!v);
+    }
+
     return {
       id: idFrom(item.id),
       title: cleanString(item.title) ?? `Message ${index + 1}`,
@@ -170,7 +178,8 @@ export function normalizeMessageFlow(value: unknown): MessageStep[] {
       ...(typeof item.includePixCode === "boolean" ? { includePixCode: item.includePixCode } : {}),
       ...(typeof item.includeCheckoutUrl === "boolean" ? { includeCheckoutUrl: item.includeCheckoutUrl } : {}),
       ...(typeof item.isActive === "boolean" ? { isActive: item.isActive } : {}),
-      ...(dailyAudios ? { dailyAudios } : {})
+      ...(dailyAudios ? { dailyAudios } : {}),
+      ...(repeatAudios ? { repeatAudios } : {})
     };
   });
 }
