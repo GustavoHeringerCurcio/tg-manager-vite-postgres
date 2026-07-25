@@ -11,6 +11,7 @@ import { webhookDispatcher } from "./middleware/webhook.js";
 import { apiRouter } from "./routes/api.js";
 import { chatRouter } from "./routes/chat.js";
 import { facebookPixelRouter } from "./routes/facebookPixel.js";
+import { utmifyRouter } from "./routes/utmify.js";
 import { botSettingsRouter } from "./routes/botSettings.js";
 import { adminRouter } from "./routes/admin.js";
 import { loadEnv } from "./utils/env.js";
@@ -21,6 +22,7 @@ import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
 import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs } from "./services/remarketingQueue.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
+import { storeEntry } from "./services/entryStore.js";
 import { notifyPurchaseConfirmed } from "./services/notifications.js";
 import { sendSystemAlert } from "./services/notifications.js";
 import { loadGlobalConfig } from "./bot/globalConfig.js";
@@ -105,9 +107,24 @@ app.get("/metrics", async (_req, res) => {
   }
 });
 
+app.post("/api/entry", async (req: Request, res: Response) => {
+  const utm = req.body?.utm;
+  if (!utm || typeof utm !== "object") {
+    res.status(400).json({ error: "utm object required" });
+    return;
+  }
+  const safe: Record<string, string> = {};
+  for (const [key, value] of Object.entries(utm)) {
+    if (typeof value === "string") safe[key] = value;
+  }
+  const token = storeEntry(safe);
+  res.json({ token });
+});
+
 app.use("/api", adminAuth(env.adminPassword), apiRouter(env));
 app.use("/api", adminAuth(env.adminPassword), chatRouter());
 app.use("/api", adminAuth(env.adminPassword), facebookPixelRouter());
+app.use("/api", adminAuth(env.adminPassword), utmifyRouter());
 app.use("/api", adminAuth(env.adminPassword), botSettingsRouter(env));
 app.use("/api", adminAuth(env.adminPassword), adminRouter());
 app.use("/api", adminAuth(env.adminPassword), utilsRouter());

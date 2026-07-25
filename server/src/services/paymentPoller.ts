@@ -6,6 +6,7 @@ import { paymentsConfirmed } from "../utils/metrics.js";
 import { getGlobalConfig } from "../bot/globalConfig.js";
 import { notifyPurchaseConfirmed } from "./notifications.js";
 import { sendPixelEvent } from "./facebookPixel.js";
+import { sendUtmifyOrder } from "./utmify.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const BATCH_SIZE = 50;
@@ -127,7 +128,10 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
   try {
     const bot = await prisma.bot.findUnique({
       where: { id: txn.botId },
-      select: { fbPixelId: true, fbAccessToken: true, fbEnabled: true, name: true }
+      select: {
+        fbPixelId: true, fbAccessToken: true, fbEnabled: true, name: true,
+        utmifyApiToken: true, utmifyEnabled: true
+      }
     });
     if (bot) {
       sendPixelEvent(
@@ -146,6 +150,32 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
           eventSourceUrl: bot.name ? `https://t.me/${bot.name}` : ""
         }
       );
+
+      if (bot.utmifyApiToken && bot.utmifyEnabled) {
+        const session = await prisma.userSession.findFirst({
+          where: { botId: txn.botId, userId: txn.userId },
+          orderBy: { startedAt: "desc" },
+          select: { metadata: true }
+        });
+        const meta = session?.metadata as Record<string, unknown> | undefined;
+        const utmParams = (meta?.utmParams as Record<string, string>) ?? null;
+
+        const name = txn.user.firstName || txn.user.username || "User";
+        sendUtmifyOrder({
+          botId: txn.botId,
+          orderId: txn.id,
+          status: "paid",
+          customerName: name,
+          customerEmail: `${name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}.${txn.user.telegramId}@botflix.user`,
+          productName: "Produto",
+          priceInCents: Math.round(txn.amount * 100),
+          utmParams,
+          totalPaidCents: Math.round(txn.amount * 100),
+          createdAt: txn.createdAt,
+          apiToken: bot.utmifyApiToken,
+          enabled: bot.utmifyEnabled
+        });
+      }
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

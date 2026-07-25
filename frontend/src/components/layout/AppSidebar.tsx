@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   Activity,
+  BarChart3,
   Bot,
   LayoutDashboard,
   MessageCircle,
@@ -243,6 +244,18 @@ export default function AppSidebar() {
                 >
                   <Activity />
                   <span>Facebook Pixel</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Utmify"
+                  isActive={
+                    location.pathname === `/manager/${botId}/utmify`
+                  }
+                  render={<Link to={`/manager/${botId}/utmify`} />}
+                >
+                  <BarChart3 />
+                  <span>Utmify</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

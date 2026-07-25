@@ -1,17 +1,17 @@
 import type { Bot } from "@prisma/client";
 
-export type SafeBot = Omit<Bot, "token" | "fbAccessToken">;
+export type SafeBot = Omit<Bot, "token" | "fbAccessToken" | "utmifyApiToken">;
 
 export function serializeJson<T>(value: T): T {
   return value;
 }
 
-export function sanitizeBot<T extends Bot>(bot: T): Omit<T, "token" | "fbAccessToken"> {
-  const { token: _token, fbAccessToken: _fbAccessToken, ...safeBot } = bot;
+export function sanitizeBot<T extends Bot>(bot: T): Omit<T, "token" | "fbAccessToken" | "utmifyApiToken"> {
+  const { token: _token, fbAccessToken: _fbAccessToken, utmifyApiToken: _utmifyApiToken, ...safeBot } = bot;
   return safeBot;
 }
 
-export function sanitizeBots<T extends Bot>(bots: T[]): Array<Omit<T, "token" | "fbAccessToken">> {
+export function sanitizeBots<T extends Bot>(bots: T[]): Array<Omit<T, "token" | "fbAccessToken" | "utmifyApiToken">> {
   return bots.map((bot) => sanitizeBot(bot));
 }
 

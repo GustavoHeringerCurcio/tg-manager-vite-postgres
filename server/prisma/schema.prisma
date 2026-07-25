@@ -32,6 +32,8 @@ model Bot {
   fbPixelId       String?
   fbAccessToken   String?
   fbEnabled       Boolean   @default(false)
+  utmifyApiToken  String?
+  utmifyEnabled   Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

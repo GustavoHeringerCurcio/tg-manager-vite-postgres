@@ -22,6 +22,7 @@ const BotDeliverablesPage = lazy(() => import("@/pages/BotDeliverablesPage"));
 const BotSettingsPage = lazy(() => import("@/pages/BotSettingsPage"));
 const AdminConfigPage = lazy(() => import("@/pages/AdminConfigPage"));
 const BotPixelConfigPage = lazy(() => import("@/pages/BotPixelConfigPage"));
+const BotUtmifyConfigPage = lazy(() => import("@/pages/BotUtmifyConfigPage"));
 const UtilsPage = lazy(() => import("@/pages/UtilsPage"));
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="/manager/:botId/interactions" element={<BotInteractionsPage />} />
               <Route path="/manager/:botId/chat-preview" element={<BotChatPreviewPage />} />
               <Route path="/manager/:botId/pixel" element={<BotPixelConfigPage />} />
+              <Route path="/manager/:botId/utmify" element={<BotUtmifyConfigPage />} />
               <Route path="/manager/:botId/payment-settings/gateways" element={<BotGatewayPage />} />
               <Route path="/manager/:botId/payment-settings/gateways/livepix" element={<BotLivepixPage />} />
               <Route path="/manager/:botId/payment-settings/payment-buttons" element={<BotPaymentButtonsPage />} />

@@ -23,6 +23,8 @@ import { resolveAllPlaceholders, type PaymentContext, formatPixCode } from "./pl
 import { markdownToHtml } from "../utils/markdownToHtml.js";
 import { resolveMediaUrl } from "../utils/media.js";
 import { sendPixelEvent } from "../services/facebookPixel.js";
+import { sendUtmifyOrder } from "../services/utmify.js";
+import { getEntry } from "../services/entryStore.js";
 import { notifyPurchaseConfirmed } from "../services/notifications.js";
 
 const LIVEPIX_CALLBACK_PREFIX = "livepix_payment:";
@@ -212,6 +214,40 @@ async function createOrResumeSession(botId: string, userId: string, stepIndex?: 
   }
 
   return session.id;
+}
+
+const PLACEMENT_CODES: Record<string, string> = {
+  "1": "Instagram_Feed",
+  "2": "Instagram_Reels",
+  "3": "Instagram_Stories",
+  "4": "Facebook_Feed",
+  "5": "Facebook_Mobile_Feed",
+  "6": "Facebook_Reels",
+  "7": "Facebook_Marketplace",
+  "8": "Audience_Network",
+  "9": "Messenger",
+};
+
+function decodeCompact(payload: string): Record<string, string> | null {
+  const parts = payload.split("~");
+  if (parts.length < 3) return null;
+  const utm: Record<string, string> = {};
+  utm.utm_source = parts[0];
+  if (parts[1]) utm.utm_campaign = parts[1];
+  if (parts[2]) utm.utm_medium = parts[2];
+  if (parts[3]) utm.utm_content = parts[3];
+  if (parts[4]) utm.utm_term = PLACEMENT_CODES[parts[4]] ?? parts[4];
+  return utm;
+}
+
+async function getUtmParamsForUser(botId: string, userId: string): Promise<Record<string, string> | null> {
+  const session = await prisma.userSession.findFirst({
+    where: { botId, userId },
+    orderBy: { startedAt: "desc" },
+    select: { metadata: true }
+  });
+  const meta = session?.metadata as Record<string, unknown> | undefined;
+  return (meta?.utmParams as Record<string, string>) ?? null;
 }
 
 async function incrementUserStats(userId: string, field: "totalInteractions" | "totalPayments", amountDelta?: number): Promise<void> {
@@ -764,6 +800,23 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
       const message = ctx.message ? textFromMessage(ctx.message) : "/start";
       const sessionId = await createOrResumeSession(botConfig.id, user.id, 0, { skipUserUpdate: true });
 
+      const startParam = ctx.message?.text?.replace(/^\/start\s*/, "");
+      if (startParam) {
+        let utmParams: Record<string, string> | null = null;
+        if (startParam.length <= 8 && !startParam.includes("~")) {
+          utmParams = getEntry(startParam);
+        }
+        if (!utmParams && startParam.includes("~")) {
+          utmParams = decodeCompact(startParam);
+        }
+        if (utmParams) {
+          await prisma.userSession.update({
+            where: { id: sessionId },
+            data: { metadata: { utmParams } }
+          }).catch(() => {});
+        }
+      }
+
       logInteraction({
         botId: botConfig.id, userId: user.id, sessionId, type: "message", direction: "incoming",
         content: message, stepIndex: 0, chatId, messageId: ctx.message?.message_id,
@@ -963,6 +1016,34 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
                 eventSourceUrl: ctx.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : ""
               }
             );
+
+            try {
+              const txn = await prisma.transaction.findFirst({
+                where: { livepixReference: reference },
+                select: { id: true, amount: true, createdAt: true }
+              });
+              if (txn) {
+                const utmParams = await getUtmParamsForUser(botConfig.id, user.id);
+                const name = user.firstName || user.username || "User";
+                sendUtmifyOrder({
+                  botId: botConfig.id,
+                  orderId: txn.id,
+                  status: "paid",
+                  customerName: name,
+                  customerEmail: `${name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}.${user.telegramId}@botflix.user`,
+                  productName: "Produto",
+                  priceInCents: Math.round(txn.amount * 100),
+                  utmParams,
+                  totalPaidCents: Math.round(txn.amount * 100),
+                  createdAt: txn.createdAt,
+                  apiToken: botConfig.utmifyApiToken ?? "",
+                  enabled: botConfig.utmifyEnabled
+                });
+              }
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              logger.error(`[bot:${botConfig.id}] utmify Purchase event failed: ${msg}`);
+            }
           }
         } else {
           const failFlow = filterActiveSteps(paymentFlow.verifyPaymentFailFlow ?? []);

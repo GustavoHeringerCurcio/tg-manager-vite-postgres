@@ -149,6 +149,17 @@ export type FacebookPixelTestResult = {
   error?: string;
 };
 
+export type UtmifyConfig = {
+  hasToken: boolean;
+  enabled: boolean;
+};
+
+export type UtmifyTestResult = {
+  sent: boolean;
+  orderId: string;
+  error?: string;
+};
+
 export type RemarketingStateItem = {
   id: string;
   userId: string;
@@ -397,6 +408,10 @@ export const api = {
   updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string; enabled?: boolean }) => request<{ pixelId: string; hasToken: boolean; enabled: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
   deletePixelConfig: (botId: string) => request<void>(`/api/bots/${botId}/pixel`, { method: "DELETE" }),
   testPixelEvent: (botId: string) => request<FacebookPixelTestResult>(`/api/bots/${botId}/pixel/test`, { method: "POST" }),
+  getUtmifyConfig: (botId: string) => request<UtmifyConfig>(`/api/bots/${botId}/utmify`),
+  updateUtmifyConfig: (botId: string, payload: { apiToken: string; enabled?: boolean }) => request<{ hasToken: boolean; enabled: boolean }>(`/api/bots/${botId}/utmify`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteUtmifyConfig: (botId: string) => request<void>(`/api/bots/${botId}/utmify`, { method: "DELETE" }),
+  testUtmifyOrder: (botId: string) => request<UtmifyTestResult>(`/api/bots/${botId}/utmify/test`, { method: "POST" }),
   getBotSettings: (botId: string) => request<BotSettings>(`/api/bots/${botId}/settings`),
   updateBotSettings: (botId: string, settings: BotSettings) => request<BotSettings>(`/api/bots/${botId}/settings`, { method: "PUT", body: JSON.stringify(settings) }),
   testBarkNotification: (botId: string) => request<{ ok: boolean }>(`/api/bots/${botId}/settings/test-bark`, { method: "POST" }),
