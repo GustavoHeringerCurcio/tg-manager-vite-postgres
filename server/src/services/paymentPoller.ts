@@ -5,6 +5,7 @@ import { logInteraction } from "./logger.js";
 import { paymentsConfirmed } from "../utils/metrics.js";
 import { getGlobalConfig } from "../bot/globalConfig.js";
 import { notifyPurchaseConfirmed } from "./notifications.js";
+import { sendPixelEvent } from "./facebookPixel.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const BATCH_SIZE = 50;
@@ -122,4 +123,32 @@ async function verifyOne(txn: PendingTransaction): Promise<void> {
     content: "Payment auto-confirmed",
     logPayloads: false
   });
+
+  try {
+    const bot = await prisma.bot.findUnique({
+      where: { id: txn.botId },
+      select: { fbPixelId: true, fbAccessToken: true, fbEnabled: true, name: true }
+    });
+    if (bot) {
+      sendPixelEvent(
+        txn.botId,
+        txn.userId,
+        txn.user.telegramId,
+        bot.name,
+        bot.fbPixelId,
+        bot.fbAccessToken,
+        bot.fbEnabled,
+        {
+          eventName: "Purchase",
+          eventTime: Math.floor(Date.now() / 1000),
+          userData: { externalId: txn.user.telegramId.toString() },
+          customData: { currency: "BRL", value: payment.amount / 100, transaction_id: txn.livepixReference },
+          eventSourceUrl: bot.name ? `https://t.me/${bot.name}` : ""
+        }
+      );
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(`[payment-poller:${txn.botId}] pixel Purchase event failed: ${msg}`);
+  }
 }
