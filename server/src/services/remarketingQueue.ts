@@ -262,7 +262,7 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
   }
 }
 
-async function handleRemarketingJob(stateId: string): Promise<void> {
+export async function handleRemarketingJob(stateId: string): Promise<void> {
   const state = await prisma.remarketingState.findUnique({
     where: { id: stateId },
     include: { user: { select: { telegramId: true, firstName: true, isBlocked: true } } }

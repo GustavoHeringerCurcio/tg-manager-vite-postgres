@@ -8,7 +8,7 @@ import { HttpError } from "../utils/errors.js";
 import { parsePagination, sanitizeBot, sanitizeBots, serializeJson, type SafeBot } from "../utils/serialize.js";
 import { prisma } from "../services/prisma.js";
 import { startBot, stopBot } from "../services/botLifecycle.js";
-import { scheduleRemarketingJob, cancelRemarketingJob, cancelAllRemarketingJobsForBot, getRemarketingQueueStats } from "../services/remarketingQueue.js";
+import { scheduleRemarketingJob, cancelRemarketingJob, cancelAllRemarketingJobsForBot, getRemarketingQueueStats, handleRemarketingJob } from "../services/remarketingQueue.js";
 import { defaultMessageFlow, normalizeMessageFlow, type MessageButton, type MessageStep } from "../bot/messageFlow.js";
 import { defaultPaymentFlow, isPaymentFlowConfigured, normalizePaymentFlow } from "../bot/paymentFlow.js";
 import { defaultRemarketing, normalizeRemarketing, defaultTimeCompliments, normalizeTimeCompliments, getDiscountPercentage } from "../bot/remarketing.js";
@@ -532,6 +532,218 @@ export function apiRouter(env: AppEnv): Router {
       });
     }
     res.json({ ok: true });
+  }));
+
+  router.get("/bots/:id/remarketing/diagnostic", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+
+    const bot = await prisma.bot.findUnique({
+      where: { id: botId },
+      select: { remarketing: true, status: true }
+    });
+    if (!bot) throw new HttpError(404, "Bot not found");
+
+    const config = normalizeRemarketing(bot.remarketing);
+
+    const [statesOverview, pgBossSubscription, queueStats, recentStates] = await Promise.all([
+      prisma.$queryRawUnsafe<Array<{
+        total: bigint;
+        active: bigint;
+        completed: bigint;
+        hasError: bigint;
+        pastDue: bigint;
+      }>>(`
+        SELECT
+          COUNT(*)::bigint AS "total",
+          COUNT(*) FILTER (WHERE "nextSendAt" IS NOT NULL)::bigint AS "active",
+          COUNT(*) FILTER (WHERE "nextSendAt" IS NULL)::bigint AS "completed",
+          COUNT(*) FILTER (WHERE "lastError" IS NOT NULL)::bigint AS "hasError",
+          COUNT(*) FILTER (WHERE "nextSendAt" IS NOT NULL AND "nextSendAt" < NOW())::bigint AS "pastDue"
+        FROM remarketing_states
+        WHERE "botId" = $1
+      `, botId),
+
+      prisma.$queryRawUnsafe<Array<{
+        name: string;
+        count: number;
+        active_count: number;
+        policy: string;
+        created_on: string;
+      }>>(`
+        SELECT
+          name,
+          COALESCE((queued_count + ready_count), 0)::int AS count,
+          COALESCE(active_count, 0)::int AS active_count,
+          policy,
+          created_on::text
+        FROM pgboss.queue
+        WHERE name = 'remarketing'
+      `),
+
+      getRemarketingQueueStats().catch(() => null),
+
+      (async () => {
+        const states = await prisma.remarketingState.findMany({
+          where: { botId },
+          orderBy: { updatedAt: "desc" },
+          take: 10,
+          include: { user: { select: { telegramId: true, firstName: true, username: true } } }
+        });
+        const now = new Date();
+        return serializeJson(states.map(s => ({
+          id: s.id,
+          userId: s.userId,
+          telegramId: String(s.user.telegramId),
+          firstName: s.user.firstName,
+          username: s.user.username,
+          nextIndex: s.nextIndex,
+          totalSent: s.totalSent,
+          nextSendAt: s.nextSendAt,
+          isPastDue: !!(s.nextSendAt && s.nextSendAt < now),
+          burstUntil: s.burstUntil,
+          retries: s.retries,
+          lastError: s.lastError,
+          pgBossJobId: s.pgBossJobId,
+          hasActiveJob: !!s.pgBossJobId,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt
+        })));
+      })()
+    ]);
+
+    const overview = statesOverview[0] ?? { total: 0n, active: 0n, completed: 0n, hasError: 0n, pastDue: 0n };
+    const queue = pgBossSubscription[0] ?? null;
+
+    res.json(serializeJson({
+      bot: {
+        id: botId,
+        status: bot.status,
+        remarketing: {
+          enabled: config.enabled,
+          intervalMs: config.intervalMs,
+          maxSends: config.maxSends,
+          messageCount: config.messages.length,
+          initialDelayMs: config.initialDelayMs,
+          burst: {
+            enabled: config.burstIntervalMs > 0,
+            intervalMs: config.burstIntervalMs,
+            durationMs: config.burstDurationMs,
+            cycleMessages: config.burstCycleMessages,
+            useSeparateBurstMessages: config.useSeparateBurstMessages,
+            burstMessageCount: config.burstMessages.length
+          },
+          skipStale: config.skipStale,
+          discountOffer: config.discountOffer.enabled
+            ? {
+                tiers: config.discountOffer.tiers.map(t => ({
+                  afterMessages: t.afterMessages,
+                  percentage: t.percentage
+                })),
+                labelTemplate: config.discountOffer.labelTemplate
+              }
+            : null
+        }
+      },
+      states: {
+        total: Number(overview.total),
+        active: Number(overview.active),
+        completed: Number(overview.completed),
+        hasError: Number(overview.hasError),
+        pastDue: Number(overview.pastDue)
+      },
+      pgBoss: {
+        queue: queue ? {
+          name: queue.name,
+          pendingJobs: queue.count,
+          activeJobs: queue.active_count,
+          policy: queue.policy,
+          createdOn: queue.created_on
+        } : null,
+        queueStats: queueStats ?? { pending: 0, active: 0, completed: 0, failed: 0, total: 0 },
+        workerSubscribed: queue !== null
+      },
+      recentStates,
+      serverTime: new Date().toISOString()
+    }));
+  }));
+
+  router.post("/bots/:id/remarketing/trigger", route(async (req, res) => {
+    const botId = routeParam(req, "id");
+    const body = readBody<{ userId: string }>(req);
+    const userId = cleanString(body?.userId);
+    if (!userId) throw new HttpError(400, "userId is required");
+
+    const state = await prisma.remarketingState.findUnique({
+      where: { userId_botId: { userId, botId } },
+      include: { user: { select: { telegramId: true, firstName: true, isBlocked: true } } }
+    });
+    if (!state) throw new HttpError(404, "No remarketing state found for this user");
+
+    const bot = await prisma.bot.findUnique({
+      where: { id: botId },
+      select: { remarketing: true, status: true }
+    });
+    if (!bot) throw new HttpError(404, "Bot not found");
+
+    const config = normalizeRemarketing(bot.remarketing);
+    if (!config.enabled) throw new HttpError(400, "Remarketing is disabled for this bot");
+    if (config.messages.length === 0) throw new HttpError(400, "No remarketing messages configured");
+
+    const activeMessages = config.useSeparateBurstMessages && config.burstMessages.length > 0
+      ? config.burstMessages
+      : config.messages;
+    const index = state.nextIndex % activeMessages.length;
+    const step = activeMessages[index];
+    if (!step) throw new HttpError(400, "No message step found at current index");
+
+    const beforeState = {
+      nextIndex: state.nextIndex,
+      totalSent: state.totalSent,
+      nextSendAt: state.nextSendAt?.toISOString() ?? null,
+      lastError: state.lastError,
+      pgBossJobId: state.pgBossJobId
+    };
+
+    const startTime = Date.now();
+    let sendError: string | null = null;
+
+    try {
+      await handleRemarketingJob(state.id);
+    } catch (err) {
+      sendError = err instanceof Error ? err.message : String(err);
+    }
+
+    const updated = await prisma.remarketingState.findUnique({
+      where: { userId_botId: { userId, botId } }
+    });
+
+    const durationMs = Date.now() - startTime;
+
+    res.json(serializeJson({
+      ok: sendError === null,
+      durationMs,
+      error: sendError,
+      step: {
+        id: step.id,
+        title: step.title,
+        type: step.type,
+        text: step.text?.slice(0, 200) ?? null,
+        mediaCount: step.mediaUrls.length,
+        buttonCount: step.buttons.length
+      },
+      before: beforeState,
+      after: updated ? {
+        nextIndex: updated.nextIndex,
+        totalSent: updated.totalSent,
+        nextSendAt: updated.nextSendAt?.toISOString() ?? null,
+        lastError: updated.lastError,
+        pgBossJobId: updated.pgBossJobId,
+        stateDeleted: false
+      } : {
+        stateDeleted: true,
+        reason: "maxSends reached or user blocked"
+      }
+    }));
   }));
 
   return router;
