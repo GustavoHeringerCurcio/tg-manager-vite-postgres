@@ -70,6 +70,7 @@ export type BotSettings = {
   barkSound?: string;
   barkServerUrl?: string;
   barkIconUrl?: string;
+  barkShowBotName?: boolean;
 };
 
 export type GlobalConfig = {

@@ -84,7 +84,7 @@ export async function notifyPurchaseConfirmed(
 
     await sendBark({
       title: `Sale Approved - R$ ${amountStr}`,
-      body: `${displayName} just purchased on ${bot.name}`,
+      body: `${displayName} just purchased${settings.barkShowBotName ? ` on ${bot.name}` : ""}`,
       sound,
       deviceKey,
       serverUrl,

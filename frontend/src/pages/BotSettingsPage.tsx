@@ -398,6 +398,20 @@ export default function BotSettingsPage() {
                     className="h-9 text-sm max-w-sm"
                   />
                 </div>
+
+                <div className="flex items-center gap-3">
+                  <Switch
+                    size="sm"
+                    checked={settings.barkShowBotName === true}
+                    onCheckedChange={(v) => update({ barkShowBotName: v })}
+                  />
+                  <div>
+                    <Label className="text-sm">Show bot name in notification</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      When enabled, notifications show "purchased on {bot.name}". Otherwise, only the customer name is shown.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

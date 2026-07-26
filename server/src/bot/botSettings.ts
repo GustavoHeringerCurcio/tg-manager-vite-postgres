@@ -10,6 +10,7 @@ export type BotSettings = {
   barkSound?: string;
   barkServerUrl?: string;
   barkIconUrl?: string;
+  barkShowBotName?: boolean;
 };
 
 function cleanString(value: unknown): string | undefined {
@@ -70,6 +71,10 @@ export function normalizeBotSettings(value: unknown): BotSettings {
 
   const barkIconUrl = cleanString(value.barkIconUrl);
   if (barkIconUrl) settings.barkIconUrl = barkIconUrl;
+
+  if (typeof value.barkShowBotName === "boolean") {
+    settings.barkShowBotName = value.barkShowBotName;
+  }
 
   if (Array.isArray(value.adminTelegramIds)) {
     const ids = (value.adminTelegramIds as unknown[]).filter(
