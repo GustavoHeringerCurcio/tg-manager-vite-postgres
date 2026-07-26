@@ -863,6 +863,11 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     } finally {
       if (user && remarketing.enabled && remarketing.messages.length > 0) {
         try {
+          await cancelRemarketingJob(user.id, botConfig.id);
+          await prisma.remarketingState.deleteMany({
+            where: { botId: botConfig.id, userId: user.id }
+          });
+
           const burstUntil = remarketing.burstIntervalMs > 0 && remarketing.burstDurationMs > 0
             ? new Date(Date.now() + remarketing.burstDurationMs)
             : null;
@@ -870,23 +875,15 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
             ? remarketing.burstIntervalMs
             : remarketing.initialDelayMs;
           const nextSendAt = new Date(Date.now() + firstDelay);
-          await prisma.remarketingState.upsert({
-            where: { userId_botId: { userId: user.id, botId: botConfig.id } },
-            create: {
+
+          await prisma.remarketingState.create({
+            data: {
               botId: botConfig.id,
               userId: user.id,
               nextIndex: 0,
               totalSent: 0,
               nextSendAt,
               burstUntil
-            },
-            update: {
-              nextIndex: 0,
-              totalSent: 0,
-              nextSendAt,
-              burstUntil,
-              retries: 0,
-              lastError: null
             }
           });
           await scheduleRemarketingJob(user.id, botConfig.id, firstDelay);

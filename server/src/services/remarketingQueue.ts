@@ -31,7 +31,6 @@ import { sendSystemAlert } from "./notifications.js";
 
 const RETRY_LIMIT = 3;
 const RETRY_DELAY_SECONDS = 60;
-const SINGLETON_SECONDS = 300;
 const BURST_CONCURRENCY = 30;
 const NORMAL_CONCURRENCY = 5;
 
@@ -168,9 +167,7 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
     jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
       startAfter,
       retryLimit: RETRY_LIMIT,
-      retryDelay: RETRY_DELAY_SECONDS,
-      singletonKey: `remarketing-${state.id}`,
-      singletonSeconds: SINGLETON_SECONDS
+      retryDelay: RETRY_DELAY_SECONDS
     });
   } catch (err) {
     sendError = err instanceof Error ? err.message : String(err);
@@ -193,7 +190,7 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
       logger.warn(`[remarketing:${botId}] failed to update state with error: ${err instanceof Error ? err.message : String(err)}`);
     });
   } else {
-    logger.info(`[remarketing:${botId}] boss.send returned null for user ${userId} — job already pending (singleton), skipping`);
+    logger.warn(`[remarketing:${botId}] boss.send returned null for user ${userId}`);
   }
 }
 
@@ -257,9 +254,7 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
       const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
         startAfter: Math.ceil(interval / 1000),
         retryLimit: RETRY_LIMIT,
-        retryDelay: RETRY_DELAY_SECONDS,
-        singletonKey: `remarketing-${state.id}`,
-        singletonSeconds: SINGLETON_SECONDS
+        retryDelay: RETRY_DELAY_SECONDS
       }).catch((err) => {
         logger.warn(`[remarketing-queue] failed to reschedule past-due state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
         return null;
@@ -281,9 +276,7 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
     const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
       startAfter: Math.ceil(Math.max(delayMs, 0) / 1000),
       retryLimit: RETRY_LIMIT,
-      retryDelay: RETRY_DELAY_SECONDS,
-      singletonKey: `remarketing-${state.id}`,
-      singletonSeconds: SINGLETON_SECONDS
+      retryDelay: RETRY_DELAY_SECONDS
     }).catch((err) => {
       logger.warn(`[remarketing-queue] failed to reschedule state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
       return null;
@@ -353,9 +346,7 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
         await activeBoss.send("remarketing", { stateId: state.id }, {
           startAfter: Math.ceil(activeInterval / 1000),
           retryLimit: RETRY_LIMIT,
-          retryDelay: RETRY_DELAY_SECONDS,
-          singletonKey: `remarketing-${state.id}`,
-          singletonSeconds: SINGLETON_SECONDS
+          retryDelay: RETRY_DELAY_SECONDS
         });
       }
       return;
@@ -393,9 +384,7 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
         const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
           startAfter: delaySeconds,
           retryLimit: RETRY_LIMIT,
-          retryDelay: RETRY_DELAY_SECONDS,
-          singletonKey: `remarketing-${state.id}`,
-          singletonSeconds: SINGLETON_SECONDS
+          retryDelay: RETRY_DELAY_SECONDS
         });
         await prisma.remarketingState.update({
           where: { id: state.id },
@@ -484,9 +473,7 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
   const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
     startAfter: Math.ceil(activeInterval / 1000),
     retryLimit: RETRY_LIMIT,
-    retryDelay: RETRY_DELAY_SECONDS,
-    singletonKey: `remarketing-${state.id}`,
-    singletonSeconds: SINGLETON_SECONDS
+    retryDelay: RETRY_DELAY_SECONDS
   });
 
   if (jobId) {
@@ -503,7 +490,7 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
       }
     });
   } else {
-    logger.info(`[remarketing-queue] advanceState: next job not scheduled for state ${state.id} — singleton likely active, will recover on next reschedule`);
+    logger.warn(`[remarketing-queue] advanceState: boss.send returned null for state ${state.id}`);
     await prisma.remarketingState.update({
       where: { id: state.id },
       data: {

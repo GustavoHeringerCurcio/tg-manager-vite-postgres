@@ -508,16 +508,14 @@ export function apiRouter(env: AppEnv): Router {
       const bot = await prisma.bot.findUnique({ where: { id: botId } });
       if (!bot) throw new HttpError(404, "Bot not found");
       const config = normalizeRemarketing(bot.remarketing);
-      await prisma.remarketingState.upsert({
-        where: { userId_botId: { userId, botId } },
-        create: {
+      await cancelRemarketingJob(userId, botId);
+      await prisma.remarketingState.deleteMany({ where: { botId, userId } });
+      await prisma.remarketingState.create({
+        data: {
           botId,
           userId,
           nextIndex: 0,
           totalSent: 0,
-          nextSendAt: new Date(Date.now() + config.initialDelayMs)
-        },
-        update: {
           nextSendAt: new Date(Date.now() + config.initialDelayMs)
         }
       });
