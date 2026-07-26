@@ -133,6 +133,7 @@ export type RemarketingConfig = {
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;
+  burstDiscountOffer?: DiscountOfferConfig;
   skipStale?: boolean;
   initialDelayMs?: number;
   burstIntervalMs?: number;
@@ -185,6 +186,7 @@ export type RemarketingStatusConfig = {
   messageCount: number;
   messageTitles: string[];
   discountOffer: DiscountOfferConfig;
+  burstDiscountOffer: DiscountOfferConfig | null;
   burstIntervalMs: number;
   burstEnabled: boolean;
 };

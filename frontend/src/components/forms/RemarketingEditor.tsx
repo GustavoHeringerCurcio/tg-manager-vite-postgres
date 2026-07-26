@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import MessageFlowEditor from "./MessageFlowEditor";
 import type { RemarketingConfig } from "@/types";
-import { Timer, Clock, Zap } from "lucide-react";
+import { Timer, Clock, Zap, Plus, X, Percent } from "lucide-react";
 
 interface RemarketingEditorProps {
   config: RemarketingConfig;
@@ -195,6 +195,7 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
         burstDurationMs: 0,
         useSeparateBurstMessages: false,
         burstMessages: [],
+        burstDiscountOffer: undefined,
       });
     }
   }
@@ -467,6 +468,112 @@ export default function RemarketingEditor({ config, onChange }: RemarketingEdito
                     />
                   </div>
                 )}
+
+                <div className="border-t border-border/40 pt-3 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Label className="text-xs">Burst Discount</Label>
+                      <p className="text-[0.7rem] text-muted-foreground">
+                        Separate discount tiers for the burst phase (falls back to main discount if disabled)
+                      </p>
+                    </div>
+                    <Switch
+                      checked={(config.burstDiscountOffer?.enabled) ?? false}
+                      onCheckedChange={(v) => {
+                        if (v) {
+                          update({
+                            burstDiscountOffer: {
+                              enabled: true,
+                              tiers: config.burstDiscountOffer?.tiers ?? [],
+                              labelTemplate: config.burstDiscountOffer?.labelTemplate ?? "{label} - R${discount_price} ({discount_percentage}% OFF)",
+                              showOriginalPrice: config.burstDiscountOffer?.showOriginalPrice ?? true,
+                            },
+                          });
+                        } else {
+                          update({ burstDiscountOffer: undefined });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {config.burstDiscountOffer?.enabled && (
+                    <div className="space-y-2 animate-fade-in">
+                      {config.burstDiscountOffer.tiers.map((tier, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 rounded-lg border border-border/40 bg-card/50 px-3 py-2"
+                        >
+                          <div className="flex-1 grid grid-cols-2 gap-2">
+                            <div className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">After msgs</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={tier.afterMessages}
+                                onChange={(e) => {
+                                  const tiers = [...(config.burstDiscountOffer?.tiers ?? [])];
+                                  tiers[index] = { ...tier, afterMessages: Math.max(1, Number(e.target.value)) };
+                                  update({ burstDiscountOffer: { ...config.burstDiscountOffer!, tiers } });
+                                }}
+                                className="h-7 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-0.5">
+                              <Label className="text-[10px] text-muted-foreground">Discount %</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={99}
+                                value={tier.percentage}
+                                onChange={(e) => {
+                                  const tiers = [...(config.burstDiscountOffer?.tiers ?? [])];
+                                  tiers[index] = { ...tier, percentage: Math.min(99, Math.max(1, Number(e.target.value))) };
+                                  update({ burstDiscountOffer: { ...config.burstDiscountOffer!, tiers } });
+                                }}
+                                className="h-7 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const tiers = (config.burstDiscountOffer?.tiers ?? []).filter((_, i) => i !== index);
+                              update({ burstDiscountOffer: { ...config.burstDiscountOffer!, tiers } });
+                            }}
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-7 text-xs"
+                        onClick={() => {
+                          const tiers = [...(config.burstDiscountOffer?.tiers ?? []), { afterMessages: 2, percentage: 15 }];
+                          update({ burstDiscountOffer: { ...(config.burstDiscountOffer ?? { enabled: true, tiers: [], labelTemplate: "{label} - R${discount_price} ({discount_percentage}% OFF)", showOriginalPrice: true }), tiers } });
+                        }}
+                      >
+                        <Plus className="size-3 mr-1" />
+                        Add Burst Tier
+                      </Button>
+
+                      {config.burstDiscountOffer.tiers.length > 0 && (
+                        <p className="text-[10px] text-yellow-400/80">
+                          {config.burstDiscountOffer.tiers
+                            .sort((a, b) => a.afterMessages - b.afterMessages)
+                            .map((t) => `after ${t.afterMessages} msgs → ${t.percentage}% off`)
+                            .join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

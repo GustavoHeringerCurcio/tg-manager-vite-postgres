@@ -432,6 +432,7 @@ export function apiRouter(env: AppEnv): Router {
         messageCount: config.messages.length,
         messageTitles: config.messages.map(m => m.title),
         discountOffer: config.discountOffer,
+        burstDiscountOffer: config.burstDiscountOffer ?? null,
         burstIntervalMs: config.burstIntervalMs,
         burstEnabled: config.burstIntervalMs > 0
       } : null,
@@ -638,6 +639,15 @@ export function apiRouter(env: AppEnv): Router {
                   percentage: t.percentage
                 })),
                 labelTemplate: config.discountOffer.labelTemplate
+              }
+            : null,
+          burstDiscountOffer: config.burstDiscountOffer?.enabled
+            ? {
+                tiers: config.burstDiscountOffer.tiers.map(t => ({
+                  afterMessages: t.afterMessages,
+                  percentage: t.percentage
+                })),
+                labelTemplate: config.burstDiscountOffer.labelTemplate
               }
             : null
         }

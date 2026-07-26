@@ -22,7 +22,8 @@ import {
   normalizeTimeCompliments,
   isBurstActive,
   getActiveInterval,
-  getActiveMessages
+  getActiveMessages,
+  getActiveDiscountOffer
 } from "../bot/remarketing.js";
 import { normalizeBotSettings } from "../bot/botSettings.js";
 import type { RemarketingConfig } from "../bot/remarketing.js";
@@ -397,7 +398,8 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
     }
   }
 
-  const discountPercentage = getDiscountPercentage(config.discountOffer, state.totalSent);
+  const discountOffer = getActiveDiscountOffer(state, config);
+  const discountPercentage = getDiscountPercentage(discountOffer, state.totalSent);
   const applyDiscount = discountPercentage > 0;
 
   const session = await prisma.userSession.findFirst({
@@ -418,8 +420,8 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
       timeCompliments,
       applyDiscount,
       discountPercentage,
-      labelTemplate: config.discountOffer.labelTemplate,
-      showOriginalPrice: config.discountOffer.showOriginalPrice
+      labelTemplate: discountOffer.labelTemplate,
+      showOriginalPrice: discountOffer.showOriginalPrice
     });
     remarketingSent.inc({ bot_id: state.botId });
   } catch (error) {

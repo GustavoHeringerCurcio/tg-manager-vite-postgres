@@ -646,11 +646,14 @@ function RemarketingRow({
       ? config.messageTitles[item.nextIndex % messageCount] ?? "—"
       : "—";
 
+  const useBurstDiscount = isBurst && config?.burstDiscountOffer?.enabled;
+  const activeDiscount = useBurstDiscount ? config.burstDiscountOffer! : config?.discountOffer;
+
   const discountActive =
-    config?.discountOffer?.enabled &&
-    config.discountOffer.tiers.some((t) => item.totalSent >= t.afterMessages);
+    activeDiscount?.enabled &&
+    activeDiscount.tiers.some((t) => item.totalSent >= t.afterMessages);
   const discountPct =
-    config?.discountOffer?.tiers
+    activeDiscount?.tiers
       ?.filter((t) => item.totalSent >= t.afterMessages)
       .sort((a, b) => b.afterMessages - a.afterMessages)[0]?.percentage ?? 0;
 
@@ -731,8 +734,11 @@ function RemarketingRow({
         <div className="flex items-center gap-1.5">
           <span className="text-sm tabular-nums">{sentLabel}</span>
           {discountActive && discountPct > 0 && (
-            <Badge className="bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20 text-[10px] px-1.5 py-0">
-              -{discountPct}%
+            <Badge className={useBurstDiscount
+              ? "bg-yellow-500/10 text-yellow-400 ring-1 ring-yellow-500/20 text-[10px] px-1.5 py-0"
+              : "bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20 text-[10px] px-1.5 py-0"
+            }>
+              {useBurstDiscount ? "⚡" : ""}-{discountPct}%
             </Badge>
           )}
         </div>

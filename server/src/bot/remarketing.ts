@@ -22,6 +22,7 @@ export type RemarketingConfig = {
   maxSends: number;
   messages: MessageStep[];
   discountOffer: DiscountOfferConfig;
+  burstDiscountOffer?: DiscountOfferConfig;
   skipStale: boolean;
   initialDelayMs: number;
   burstIntervalMs: number;
@@ -74,6 +75,9 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
   const burstCycleMessages = typeof value.burstCycleMessages === "boolean" ? value.burstCycleMessages : true;
   const useSeparateBurstMessages = typeof value.useSeparateBurstMessages === "boolean" ? value.useSeparateBurstMessages : false;
   const burstMessages = useSeparateBurstMessages ? normalizeMessageFlow(value.burstMessages) : [];
+  const burstDiscountOffer = isRecord(value.burstDiscountOffer)
+    ? normalizeDiscountOffer(value.burstDiscountOffer)
+    : undefined;
 
   return {
     enabled,
@@ -81,6 +85,7 @@ export function normalizeRemarketing(value: unknown): RemarketingConfig {
     maxSends: Math.round(maxSends),
     messages,
     discountOffer,
+    ...(burstDiscountOffer ? { burstDiscountOffer } : {}),
     skipStale,
     initialDelayMs,
     burstIntervalMs: Math.round(burstIntervalMs),
@@ -238,6 +243,16 @@ export function getActiveMessages(state: { burstUntil: Date | null }, config: Re
     return config.burstMessages;
   }
   return config.messages;
+}
+
+export function getActiveDiscountOffer(
+  state: { burstUntil: Date | null },
+  config: RemarketingConfig
+): DiscountOfferConfig {
+  if (isBurstActive(state, config) && config.burstDiscountOffer?.enabled) {
+    return config.burstDiscountOffer;
+  }
+  return config.discountOffer;
 }
 
 export function defaultRemarketingMessage(index: number): MessageStep {
