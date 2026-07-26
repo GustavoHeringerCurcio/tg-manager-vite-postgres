@@ -1143,7 +1143,7 @@ export function registerHandlers(telegraf: Telegraf<Context>, botConfig: Bot, se
     } else {
       buttonId = rest;
     }
-    const foundButton = findPaymentButtonAcross([messageFlow, remarketing.messages], buttonId);
+    const foundButton = findPaymentButtonAcross([messageFlow, remarketing.messages, remarketing.burstMessages ?? []].filter((a): a is MessageStep[] => a.length > 0), buttonId);
     if (!foundButton) {
       await ctx.answerCbQuery("Este botão não está mais disponível.");
       return;

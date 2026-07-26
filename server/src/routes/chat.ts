@@ -175,6 +175,12 @@ export function chatRouter(): Router {
     if (typeof body.isBlocked === "boolean") data.isBlocked = body.isBlocked;
     if (typeof body.settings === "object") data.settings = body.settings as Prisma.InputJsonValue;
 
+    if (data.isBlocked === true) {
+      cancelRemarketingForUser(botId, userId).catch((err) => {
+        logger.warn(`[chat] failed to cancel remarketing for blocked user ${userId}: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
+
     const updated = await prisma.user.update({ where: { id: userId }, data });
     res.json(serializeJson(updated));
   }));

@@ -8,7 +8,13 @@ import {
   remarketingJobsScheduled,
   remarketingJobsFailed,
   remarketingSent,
-  remarketingSendFailed
+  remarketingSendFailed,
+  remarketingOrphanedJobs,
+  remarketingPastDue,
+  remarketingDead,
+  remarketingWorkerUp,
+  remarketingErrors,
+  remarketingActiveTotal
 } from "../utils/metrics.js";
 import {
   normalizeRemarketing,
@@ -33,15 +39,18 @@ let initialized = false;
 let workerStarted = false;
 
 async function ensureBossInitialized(): Promise<PgBoss> {
-  if (boss && initialized) return boss;
-  await initRemarketingQueue();
-  if (!boss) throw new Error("pg-boss failed to initialize — remarketing cannot be scheduled");
+  if (!boss || !initialized) {
+    await initRemarketingQueue();
+    if (!boss) throw new Error("pg-boss failed to initialize — remarketing cannot be scheduled");
+  }
   await boss.createQueue("remarketing").catch(() =>
     logger.warn("[remarketing-queue] createQueue failed")
   );
-  await startRemarketingWorker().catch(() =>
-    logger.warn("[remarketing-queue] ensureBossInitialized: worker start failed")
-  );
+  if (!workerStarted) {
+    await startRemarketingWorker().catch(() =>
+      logger.warn("[remarketing-queue] ensureBossInitialized: worker start failed")
+    );
+  }
   return boss;
 }
 
@@ -57,10 +66,12 @@ export async function initRemarketingQueue(): Promise<void> {
 
   try {
     if (boss) {
-      await boss.stop({ graceful: true, timeout: 10_000 }).catch(() => {});
+      await boss.stop({ graceful: true, timeout: 10_000 }).catch((err) => {
+        logger.warn(`[remarketing-queue] boss.stop failed on re-init: ${err instanceof Error ? err.message : String(err)}`);
+      });
     }
-  } catch {
-    // ignore cleanup errors
+  } catch (err) {
+    logger.warn(`[remarketing-queue] cleanup error during re-init: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   boss = new PgBoss({ connectionString: dbUrl });
@@ -97,6 +108,8 @@ export async function startRemarketingWorker(): Promise<void> {
   if (workerStarted) return;
   if (!boss) throw new Error("remarketing queue not initialized — call initRemarketingQueue first");
 
+  await boss.createQueue("remarketing");
+
   let useBurst = false;
   try {
     useBurst = await hasActiveBurst();
@@ -114,6 +127,10 @@ export async function startRemarketingWorker(): Promise<void> {
   });
 
   workerStarted = true;
+
+  const metricsInterval = setInterval(refreshRemarketingMetrics, 60_000);
+  metricsInterval.unref();
+
   logger.info("[remarketing-queue] worker started");
 }
 
@@ -143,13 +160,20 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
   const nextSendAt = new Date(Date.now() + delayMs);
   const startAfter = Math.ceil(Math.max(delayMs, 0) / 1000);
 
-  const jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
-    startAfter,
-    retryLimit: RETRY_LIMIT,
-    retryDelay: RETRY_DELAY_SECONDS,
-    singletonKey: `remarketing-${state.id}`,
-    singletonSeconds: SINGLETON_SECONDS
-  });
+  let jobId: string | null = null;
+  let sendError: string | null = null;
+
+  try {
+    jobId = await activeBoss.send("remarketing", { stateId: state.id }, {
+      startAfter,
+      retryLimit: RETRY_LIMIT,
+      retryDelay: RETRY_DELAY_SECONDS,
+      singletonKey: `remarketing-${state.id}`,
+      singletonSeconds: SINGLETON_SECONDS
+    });
+  } catch (err) {
+    sendError = err instanceof Error ? err.message : String(err);
+  }
 
   if (jobId) {
     await prisma.remarketingState.update({
@@ -159,12 +183,15 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
     remarketingJobsScheduled.inc({ bot_id: botId });
     logger.info(`[remarketing:${botId}] scheduled job ${jobId} for user ${userId} in ${startAfter}s`);
   } else {
-    remarketingJobsFailed.inc({ bot_id: botId, reason: "boss_send_null" });
-    logger.warn(`[remarketing:${botId}] boss.send returned null for user ${userId} — singleton collision or queue error`);
+    const reason = sendError ?? "boss.send returned null — possible singleton collision";
+    remarketingJobsFailed.inc({ bot_id: botId, reason: "send_failed" });
+    logger.warn(`[remarketing:${botId}] boss.send failed for user ${userId}: ${reason}`);
     await prisma.remarketingState.update({
       where: { id: state.id },
-      data: { lastError: "boss.send returned null — possible singleton collision", retries: 0 }
-    }).catch(() => {});
+      data: { lastError: reason.length > 500 ? reason.slice(0, 497) + "..." : reason, retries: 0 }
+    }).catch((err) => {
+      logger.warn(`[remarketing:${botId}] failed to update state with error: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 }
 
@@ -175,7 +202,9 @@ export async function cancelRemarketingJob(userId: string, botId: string): Promi
     select: { pgBossJobId: true }
   });
   if (state?.pgBossJobId) {
-    await boss.cancel("remarketing", state.pgBossJobId).catch(() => {});
+    await boss.cancel("remarketing", state.pgBossJobId).catch((err) => {
+      logger.warn(`[remarketing-queue] boss.cancel failed for job ${state.pgBossJobId}: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 }
 
@@ -187,7 +216,9 @@ export async function cancelAllRemarketingJobsForBot(botId: string): Promise<voi
   });
   const jobIds = states.map(s => s.pgBossJobId!).filter(Boolean);
   if (jobIds.length > 0) {
-    await boss.cancel("remarketing", jobIds).catch(() => {});
+    await boss.cancel("remarketing", jobIds).catch((err) => {
+      logger.warn(`[remarketing-queue] boss.cancel batch failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 }
 
@@ -236,7 +267,9 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
         await prisma.remarketingState.update({
           where: { id: state.id },
           data: { pgBossJobId: jobId, nextSendAt, lastError: "past-due skipped on restart" }
-        }).catch(() => {});
+        }).catch((err) => {
+          logger.warn(`[remarketing-queue] failed to update past-due state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+        });
         skipped++;
       }
       continue;
@@ -258,7 +291,9 @@ export async function rescheduleAllRemarketingJobs(): Promise<void> {
       await prisma.remarketingState.update({
         where: { id: state.id },
         data: { pgBossJobId: jobId }
-      }).catch(() => {});
+      }).catch((err) => {
+        logger.warn(`[remarketing-queue] failed to update rescheduled state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+      });
       scheduled++;
     }
   }
@@ -278,7 +313,9 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
 
   if (state.user.isBlocked) {
     logger.info(`[remarketing:${state.botId}] user ${state.userId} is blocked, cancelling remarketing`);
-    await prisma.remarketingState.delete({ where: { id: state.id } }).catch(() => {});
+    await prisma.remarketingState.delete({ where: { id: state.id } }).catch((err) => {
+      logger.warn(`[remarketing:${state.botId}] failed to delete blocked-user state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+    });
     return;
   }
 
@@ -287,7 +324,9 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
 
   const config = normalizeRemarketing(bot.remarketing);
   if (!config.enabled || config.messages.length === 0) {
-    await prisma.remarketingState.delete({ where: { id: state.id } }).catch(() => {});
+    await prisma.remarketingState.delete({ where: { id: state.id } }).catch((err) => {
+      logger.warn(`[remarketing:${state.botId}] failed to delete disabled-config state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+    });
     return;
   }
 
@@ -304,7 +343,9 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
       await prisma.remarketingState.update({
         where: { id: state.id },
         data: { nextIndex: newNextIndex, nextSendAt, retries: 0, lastError: "skipped stale" }
-      }).catch(() => {});
+      }).catch((err) => {
+        logger.warn(`[remarketing:${state.botId}] failed to update stale-skip state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+      });
       const activeBoss = await ensureBossInitialized().catch(() => null);
       if (activeBoss) {
         await activeBoss.send("remarketing", { stateId: state.id }, {
@@ -357,7 +398,9 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
         await prisma.remarketingState.update({
           where: { id: state.id },
           data: { nextIndex: 0, nextSendAt, retries: 0, lastError: "burst non-cycling silence", pgBossJobId: jobId }
-        }).catch(() => {});
+        }).catch((err) => {
+          logger.warn(`[remarketing:${state.botId}] failed to update burst-silence state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+        });
       }
       return;
     }
@@ -371,8 +414,6 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
     orderBy: { startedAt: "desc" },
     select: { id: true }
   });
-
-  await advanceState(state, config);
 
   try {
     await sendRemarketingStep({
@@ -393,8 +434,11 @@ export async function handleRemarketingJob(stateId: string): Promise<void> {
   } catch (error) {
     remarketingSendFailed.inc({ bot_id: state.botId });
     const message = error instanceof Error ? error.message : "remarketing send failed";
-    logger.error(`[remarketing:${state.botId}] send failed after advance: ${message}`);
+    logger.error(`[remarketing:${state.botId}] send failed: ${message}`);
+    throw error;
   }
+
+  await advanceState(state, config);
 }
 
 async function advanceState(state: RemarketingState, config: RemarketingConfig): Promise<void> {
@@ -455,6 +499,81 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
       ...(burstEnded ? { burstUntil: null } : {})
     }
   });
+}
+
+async function refreshRemarketingMetrics(): Promise<void> {
+  remarketingWorkerUp.set(workerStarted ? 1 : 0);
+
+  const bots = await prisma.bot.findMany({
+    where: { status: BotStatus.ACTIVE, remarketingStates: { some: {} } },
+    select: { id: true }
+  }).catch(() => []);
+
+  for (const bot of bots) {
+    const botId = bot.id;
+
+    const [orphaned, pastDue, dead, errors, active] = await Promise.all([
+      prisma.remarketingState.count({
+        where: { botId, pgBossJobId: null, nextSendAt: { not: null } }
+      }),
+      prisma.remarketingState.count({
+        where: { botId, nextSendAt: { lt: new Date(), not: null } }
+      }),
+      prisma.remarketingState.count({
+        where: { botId, nextSendAt: null }
+      }),
+      prisma.remarketingState.count({
+        where: { botId, lastError: { not: null } }
+      }),
+      prisma.remarketingState.count({
+        where: { botId, nextSendAt: { not: null } }
+      }),
+    ]).catch(() => [0, 0, 0, 0, 0]);
+
+    remarketingOrphanedJobs.set({ bot_id: botId }, orphaned ?? 0);
+    remarketingPastDue.set({ bot_id: botId }, pastDue ?? 0);
+    remarketingDead.set({ bot_id: botId }, dead ?? 0);
+    remarketingErrors.set({ bot_id: botId }, errors ?? 0);
+    remarketingActiveTotal.set({ bot_id: botId }, active ?? 0);
+  }
+}
+
+export async function recoverOrphanedRemarketingStates(): Promise<void> {
+  const states = await prisma.remarketingState.findMany({
+    where: {
+      nextSendAt: null,
+      bot: { status: BotStatus.ACTIVE }
+    },
+    select: { id: true, botId: true, userId: true }
+  });
+
+  let recovered = 0;
+  for (const state of states) {
+    try {
+      const bot = await prisma.bot.findUnique({
+        where: { id: state.botId },
+        select: { remarketing: true }
+      });
+      if (!bot) continue;
+
+      const config = normalizeRemarketing(bot.remarketing);
+      if (!config.enabled) continue;
+
+      const nextSendAt = new Date(Date.now() + config.intervalMs);
+      await prisma.remarketingState.update({
+        where: { id: state.id },
+        data: { nextSendAt, lastError: "recovered orphaned state on startup" }
+      });
+      await scheduleRemarketingJob(state.userId, state.botId, config.intervalMs);
+      recovered++;
+    } catch (err) {
+      logger.warn(`[remarketing-queue] failed to recover orphaned state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (recovered > 0) {
+    logger.info(`[remarketing-queue] recovered ${recovered} orphaned remarketing states`);
+  }
 }
 
 export type RemarketingQueueStats = {

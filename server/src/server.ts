@@ -20,13 +20,14 @@ import { logger } from "./utils/logger.js";
 import { metricsResponse } from "./utils/metrics.js";
 import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
-import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs } from "./services/remarketingQueue.js";
+import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs, recoverOrphanedRemarketingStates } from "./services/remarketingQueue.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { storeEntry } from "./services/entryStore.js";
 import { notifyPurchaseConfirmed } from "./services/notifications.js";
 import { sendSystemAlert } from "./services/notifications.js";
 import { loadGlobalConfig } from "./bot/globalConfig.js";
 import { normalizePaymentFlow } from "./bot/paymentFlow.js";
+import { cancelRemarketingForUser } from "./bot/handlers.js";
 import type { MessageButton } from "./bot/messageFlow.js";
 import { utilsRouter } from "./routes/utils.js";
 import { flushAll } from "./services/logger.js";
@@ -154,6 +155,10 @@ app.post("/api/bots/:botId/payment/simulate-confirm", adminAuth(env.adminPasswor
       data: { status: "COMPLETED" }
     });
 
+    cancelRemarketingForUser(botId, transaction.userId).catch((err) => {
+      logger.warn(`[simulate-confirm] failed to cancel remarketing: ${err instanceof Error ? err.message : String(err)}`);
+    });
+
     const [bot, user] = await Promise.all([
       prisma.bot.findUnique({ where: { id: botId }, select: { token: true, paymentFlow: true } }),
       prisma.user.findUnique({ where: { id: transaction.userId }, select: { telegramId: true, firstName: true, username: true } })
@@ -257,6 +262,7 @@ const server = app.listen(env.appPort, async () => {
     if (isPrimaryWorker) {
       await startRemarketingWorker();
       await rescheduleAllRemarketingJobs();
+      await recoverOrphanedRemarketingStates();
       startPaymentPoller();
     }
     logger.info(`[${label}] Listening on ${env.appPort}`);

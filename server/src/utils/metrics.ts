@@ -70,6 +70,41 @@ export const remarketingSendFailed = new Counter({
   labelNames: [...labels] as const,
 });
 
+export const remarketingOrphanedJobs = new Gauge({
+  name: "botflix_remarketing_orphaned_jobs",
+  help: "States with pgBossJobId=null but nextSendAt set (scheduled but no job created)",
+  labelNames: [...labels] as const,
+});
+
+export const remarketingPastDue = new Gauge({
+  name: "botflix_remarketing_past_due",
+  help: "States where nextSendAt < NOW() (overdue — worker may be down)",
+  labelNames: [...labels] as const,
+});
+
+export const remarketingDead = new Gauge({
+  name: "botflix_remarketing_dead",
+  help: "States with nextSendAt=null (permanently orphaned — needs manual recovery)",
+  labelNames: [...labels] as const,
+});
+
+export const remarketingWorkerUp = new Gauge({
+  name: "botflix_remarketing_worker_up",
+  help: "1 if the remarketing pg-boss worker is running, 0 if down",
+});
+
+export const remarketingErrors = new Gauge({
+  name: "botflix_remarketing_errors",
+  help: "States with non-null lastError (message delivery or scheduling failures)",
+  labelNames: [...labels] as const,
+});
+
+export const remarketingActiveTotal = new Gauge({
+  name: "botflix_remarketing_active_total",
+  help: "Total active remarketing states (for stall detection)",
+  labelNames: [...labels] as const,
+});
+
 export const dbPoolAvailable = new Gauge({
   name: "botflix_db_pool_available",
   help: "Available DB connections in the Prisma pool (1 = healthy)",

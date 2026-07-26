@@ -71,3 +71,84 @@ groups:
           description: >
             {{ $value | humanizePercentage }} of webhooks are returning errors
             over the last 10 minutes. Check bot tokens and webhook configurations.
+
+      # ---- Remarketing Alerts ----
+
+      - alert: RemarketingOrphanedJobs
+        expr: botflix_remarketing_orphaned_jobs > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Remarketing: {{ $value }} state(s) without pg-boss jobs (bot {{ $labels.bot_id }})"
+          description: >
+            States have nextSendAt set but no pgBossJobId.
+            Jobs are NOT being created in pg-boss.
+            Check: (1) pgboss.queue has 'remarketing' row,
+            (2) boss.send() is succeeding,
+            (3) server logs for "Queue remarketing does not exist".
+
+      - alert: RemarketingWorkerDown
+        expr: botflix_remarketing_worker_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Remarketing worker is DOWN"
+          description: >
+            The pg-boss remarketing worker is not running.
+            No messages will be delivered. Restart the server
+            or check pg-boss connectivity.
+
+      - alert: RemarketingDeadStates
+        expr: botflix_remarketing_dead >= 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} remarketing state(s) permanently dead (bot {{ $labels.bot_id }})"
+          description: >
+            States have nextSendAt=null — permanently orphaned.
+            These were likely abandoned when pg-boss was unavailable
+            during state advancement. Manual recovery required:
+            have users send /start or use admin trigger endpoint.
+
+      - alert: RemarketingPastDue
+        expr: botflix_remarketing_past_due >= 5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} remarketing states past-due (bot {{ $labels.bot_id }})"
+          description: >
+            States have nextSendAt in the past. Worker may be
+            overloaded, down, or pg-boss may have lost jobs.
+            Check the remarketing diagnostic page in admin panel.
+
+      - alert: RemarketingStalled
+        expr: |
+          botflix_remarketing_active_total > 0
+          and
+          increase(botflix_remarketing_sent_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Remarketing stalled: {{ $value }} active states but 0 sends in 30m (bot {{ $labels.bot_id }})"
+          description: >
+            Bot has active remarketing states but zero messages
+            were delivered in the last 30 minutes. The worker
+            or pg-boss queue may be silently broken.
+            Check admin panel > Remarketing > Diagnostics.
+
+      - alert: RemarketingErrors
+        expr: botflix_remarketing_errors >= 3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} remarketing states have errors (bot {{ $labels.bot_id }})"
+          description: >
+            States have non-null lastError values. Individual
+            message delivery or scheduling is failing.
+            Check the admin panel error column for specific messages.
