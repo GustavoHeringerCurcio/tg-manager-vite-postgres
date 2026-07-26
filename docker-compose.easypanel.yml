@@ -6,6 +6,7 @@ services:
       - easypanel
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=easypanel"
       - "traefik.http.routers.botflix.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.botflix.tls=true"
       - "traefik.http.routers.botflix.tls.certresolver=letsencrypt"
