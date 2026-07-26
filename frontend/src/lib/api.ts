@@ -191,7 +191,11 @@ export type RemarketingStatusConfig = {
 
 export type RemarketingDiagnostic = {
   states: { total: number; active: number; completed: number; hasError: number; pastDue: number };
-  queueStats: { pendingJobs: number; activeJobs: number; workerSubscribed: boolean; queueStats: RemarketingQueueStats | null };
+  pgBoss: {
+    queue: { name: string; pendingJobs: number; activeJobs: number; policy: string; createdOn: string } | null;
+    queueStats: RemarketingQueueStats | null;
+    workerSubscribed: boolean;
+  };
   recentStates: Array<{
     userId: string; telegramId: string;
     nextSendAt: string | null; lastError: string | null;

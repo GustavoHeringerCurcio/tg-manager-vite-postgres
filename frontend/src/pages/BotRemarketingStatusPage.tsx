@@ -412,14 +412,14 @@ export default function BotRemarketingStatusPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Worker</p>
-                <p className={`text-lg font-bold tabular-nums ${diagnostic.queueStats.workerSubscribed ? "text-emerald-400" : "text-red-400"}`}>
-                  {diagnostic.queueStats.workerSubscribed ? "Running" : "DOWN"}
+                <p className={`text-lg font-bold tabular-nums ${diagnostic.pgBoss.workerSubscribed ? "text-emerald-400" : "text-red-400"}`}>
+                  {diagnostic.pgBoss.workerSubscribed ? "Running" : "DOWN"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Active Jobs</p>
                 <p className="text-lg font-bold tabular-nums text-sky-400">
-                  {diagnostic.queueStats.activeJobs}
+                  {diagnostic.pgBoss.queue?.activeJobs ?? 0}
                 </p>
               </div>
             </div>
