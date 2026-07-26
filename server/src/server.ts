@@ -20,7 +20,7 @@ import { logger } from "./utils/logger.js";
 import { metricsResponse } from "./utils/metrics.js";
 import { prisma, analyticsPrisma } from "./services/prisma.js";
 import { loadActiveBots, shutdownAllBots } from "./services/botLifecycle.js";
-import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs, recoverOrphanedRemarketingStates } from "./services/remarketingQueue.js";
+import { initRemarketingQueue, startRemarketingWorker, stopRemarketingWorker, rescheduleAllRemarketingJobs, recoverOrphanedRemarketingStates, cleanStaleRemarketingJobs } from "./services/remarketingQueue.js";
 import { startPaymentPoller, stopPaymentPoller } from "./services/paymentPoller.js";
 import { storeEntry } from "./services/entryStore.js";
 import { notifyPurchaseConfirmed } from "./services/notifications.js";
@@ -261,6 +261,7 @@ const server = app.listen(env.appPort, async () => {
     await loadActiveBots(env, skipWebhook);
     if (isPrimaryWorker) {
       await startRemarketingWorker();
+      await cleanStaleRemarketingJobs();
       await rescheduleAllRemarketingJobs();
       await recoverOrphanedRemarketingStates();
       startPaymentPoller();

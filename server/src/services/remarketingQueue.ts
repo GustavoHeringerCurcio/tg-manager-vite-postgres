@@ -27,10 +27,11 @@ import {
 import { normalizeBotSettings } from "../bot/botSettings.js";
 import type { RemarketingConfig } from "../bot/remarketing.js";
 import { sendRemarketingStep } from "./remarketingSender.js";
+import { sendSystemAlert } from "./notifications.js";
 
 const RETRY_LIMIT = 3;
 const RETRY_DELAY_SECONDS = 60;
-const SINGLETON_SECONDS = 259200;
+const SINGLETON_SECONDS = 300;
 const BURST_CONCURRENCY = 30;
 const NORMAL_CONCURRENCY = 5;
 
@@ -182,16 +183,17 @@ export async function scheduleRemarketingJob(userId: string, botId: string, dela
     });
     remarketingJobsScheduled.inc({ bot_id: botId });
     logger.info(`[remarketing:${botId}] scheduled job ${jobId} for user ${userId} in ${startAfter}s`);
-  } else {
-    const reason = sendError ?? "boss.send returned null — possible singleton collision";
+  } else if (sendError) {
     remarketingJobsFailed.inc({ bot_id: botId, reason: "send_failed" });
-    logger.warn(`[remarketing:${botId}] boss.send failed for user ${userId}: ${reason}`);
+    logger.warn(`[remarketing:${botId}] boss.send failed for user ${userId}: ${sendError}`);
     await prisma.remarketingState.update({
       where: { id: state.id },
-      data: { lastError: reason.length > 500 ? reason.slice(0, 497) + "..." : reason, retries: 0 }
+      data: { lastError: sendError.length > 500 ? sendError.slice(0, 497) + "..." : sendError, retries: 0 }
     }).catch((err) => {
       logger.warn(`[remarketing:${botId}] failed to update state with error: ${err instanceof Error ? err.message : String(err)}`);
     });
+  } else {
+    logger.info(`[remarketing:${botId}] boss.send returned null for user ${userId} — job already pending (singleton), skipping`);
   }
 }
 
@@ -487,19 +489,40 @@ async function advanceState(state: RemarketingState, config: RemarketingConfig):
     singletonSeconds: SINGLETON_SECONDS
   });
 
-  await prisma.remarketingState.update({
-    where: { id: state.id },
-    data: {
-      nextIndex,
-      totalSent: newTotalSent,
-      nextSendAt,
-      retries: 0,
-      lastError: jobId ? null : "boss.send returned null in advanceState",
-      pgBossJobId: jobId,
-      ...(burstEnded ? { burstUntil: null } : {})
-    }
-  });
+  if (jobId) {
+    await prisma.remarketingState.update({
+      where: { id: state.id },
+      data: {
+        nextIndex,
+        totalSent: newTotalSent,
+        nextSendAt,
+        retries: 0,
+        lastError: null,
+        pgBossJobId: jobId,
+        ...(burstEnded ? { burstUntil: null } : {})
+      }
+    });
+  } else {
+    logger.info(`[remarketing-queue] advanceState: next job not scheduled for state ${state.id} — singleton likely active, will recover on next reschedule`);
+    await prisma.remarketingState.update({
+      where: { id: state.id },
+      data: {
+        nextIndex,
+        totalSent: newTotalSent,
+        nextSendAt,
+        retries: 0,
+        lastError: null,
+        pgBossJobId: null,
+        ...(burstEnded ? { burstUntil: null } : {})
+      }
+    }).catch((err) => {
+      logger.warn(`[remarketing-queue] failed to update advanced state ${state.id}: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }
 }
+
+const ALERT_COOLDOWN_MS = 15 * 60_000;
+const lastAlertAt = new Map<string, number>();
 
 async function refreshRemarketingMetrics(): Promise<void> {
   remarketingWorkerUp.set(workerStarted ? 1 : 0);
@@ -535,6 +558,34 @@ async function refreshRemarketingMetrics(): Promise<void> {
     remarketingDead.set({ bot_id: botId }, dead ?? 0);
     remarketingErrors.set({ bot_id: botId }, errors ?? 0);
     remarketingActiveTotal.set({ bot_id: botId }, active ?? 0);
+
+    if ((orphaned ?? 0) > 0 || (dead ?? 0) > 0) {
+      const now = Date.now();
+      const lastAlert = lastAlertAt.get(botId) ?? 0;
+      if (now - lastAlert > ALERT_COOLDOWN_MS) {
+        lastAlertAt.set(botId, now);
+        const bot = await prisma.bot.findUnique({ where: { id: botId }, select: { name: true } }).catch(() => null);
+        const botName = bot?.name ?? botId;
+        const total = (orphaned ?? 0) + (dead ?? 0);
+        sendSystemAlert(
+          `Remarketing: ${total} stuck state(s) on ${botName}`,
+          `${orphaned ?? 0} orphaned (no pg-boss job), ${dead ?? 0} dead (nextSendAt=null). Check admin panel > Remarketing > Diagnostics.`
+        );
+      }
+    }
+  }
+}
+
+export async function cleanStaleRemarketingJobs(): Promise<void> {
+  try {
+    const result = await prisma.$executeRawUnsafe(
+      `DELETE FROM pgboss.job WHERE name = 'remarketing' AND state IN ('completed', 'failed')`
+    );
+    if (result > 0) {
+      logger.info(`[remarketing-queue] cleaned ${result} stale completed/failed jobs`);
+    }
+  } catch (err) {
+    logger.warn(`[remarketing-queue] failed to clean stale jobs: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
