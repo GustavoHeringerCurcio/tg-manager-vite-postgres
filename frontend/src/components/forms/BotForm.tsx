@@ -12,6 +12,7 @@ import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { isLivepixConfigured } from "@/components/forms/LivepixSettings";
 import type { Bot as BotType, BotPayload, RemarketingConfig, MessageStep, PaymentFlow, TimeComplimentConfig } from "@/types";
 import { Settings, Save, Workflow, Timer, Percent, Plus, X, Clock, Image } from "lucide-react";
+import { toast } from "sonner";
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -100,6 +101,22 @@ export default function BotForm({ bot, saving, onSave, onCancel, requireToken, m
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (remarketing.enabled) {
+      if (!remarketing.messages || remarketing.messages.length === 0) {
+        toast.error("At least one remarketing message is required when remarketing is enabled.");
+        return;
+      }
+      if (remarketing.intervalMs < 60000) {
+        toast.error("Interval must be at least 60,000ms (1 minute) when remarketing is enabled.");
+        return;
+      }
+      if (remarketing.maxSends !== undefined && remarketing.maxSends < 0) {
+        toast.error("Max sends must be 0 (unlimited) or a positive number.");
+        return;
+      }
+    }
+
     const payload: BotPayload = {
       name,
       photoUrl: photoUrl || null,

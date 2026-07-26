@@ -172,6 +172,8 @@ export type RemarketingStateItem = {
   totalSent: number;
   nextSendAt: string | null;
   burstUntil: string | null;
+  lastError: string | null;
+  pgBossJobId: string | null;
   createdAt: string;
   updatedAt: string;
   user: UserSummary;
@@ -185,6 +187,16 @@ export type RemarketingStatusConfig = {
   discountOffer: DiscountOfferConfig;
   burstIntervalMs: number;
   burstEnabled: boolean;
+};
+
+export type RemarketingDiagnostic = {
+  states: { total: number; active: number; completed: number; hasError: number; pastDue: number };
+  queueStats: { pendingJobs: number; activeJobs: number; workerSubscribed: boolean; queueStats: RemarketingQueueStats | null };
+  recentStates: Array<{
+    userId: string; telegramId: string;
+    nextSendAt: string | null; lastError: string | null;
+    pgBossJobId: string | null; isPastDue: boolean; retries: number;
+  }>;
 };
 
 export type RemarketingQueueStats = {
@@ -421,6 +433,8 @@ export const api = {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
+  remarketingDiagnostic: (botId: string) => request<RemarketingDiagnostic>(`/api/bots/${botId}/remarketing/diagnostic`),
+  triggerRemarketing: (botId: string, userId: string) => request<{ ok: boolean }>(`/api/bots/${botId}/remarketing/trigger`, { method: "POST", body: JSON.stringify({ userId }) }),
   getPixelConfig: (botId: string) => request<FacebookPixelConfig>(`/api/bots/${botId}/pixel`),
   updatePixelConfig: (botId: string, payload: { pixelId: string; accessToken: string; enabled?: boolean }) => request<{ pixelId: string; hasToken: boolean; enabled: boolean }>(`/api/bots/${botId}/pixel`, { method: "PUT", body: JSON.stringify(payload) }),
   deletePixelConfig: (botId: string) => request<void>(`/api/bots/${botId}/pixel`, { method: "DELETE" }),

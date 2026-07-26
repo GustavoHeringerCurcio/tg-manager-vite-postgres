@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useBotDetail } from "@/hooks/useBotDetail";
-import { api, type RemarketingStatusResponse, type RemarketingStateItem } from "@/lib/api";
+import { api, type RemarketingStatusResponse, type RemarketingStateItem, type RemarketingDiagnostic } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -33,6 +33,9 @@ import {
   MessageSquare,
   RefreshCw,
   Zap,
+  CheckCircle,
+  XCircle,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -106,6 +109,8 @@ export default function BotRemarketingStatusPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [togglingUsers, setTogglingUsers] = useState<Set<string>>(new Set());
+  const [triggeringUsers, setTriggeringUsers] = useState<Set<string>>(new Set());
+  const [diagnostic, setDiagnostic] = useState<RemarketingDiagnostic | null>(null);
   const browserOffsetRef = useRef(0);
   const [now, setNow] = useState(Date.now());
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -194,6 +199,39 @@ export default function BotRemarketingStatusPage() {
       toast.success("CSV exported");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to export");
+    }
+  };
+
+  const fetchDiagnostic = useCallback(async () => {
+    if (!botId) return;
+    try {
+      const result = await api.remarketingDiagnostic(botId);
+      setDiagnostic(result);
+    } catch {
+      setDiagnostic(null);
+    }
+  }, [botId]);
+
+  useEffect(() => {
+    if (botId) fetchDiagnostic();
+  }, [botId, fetchDiagnostic]);
+
+  const handleTrigger = async (userId: string) => {
+    if (!botId) return;
+    setTriggeringUsers((prev) => new Set(prev).add(userId));
+    try {
+      await api.triggerRemarketing(botId, userId);
+      toast.success("Message triggered");
+      fetchData(page, statusFilter);
+      fetchDiagnostic();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to trigger message");
+    } finally {
+      setTriggeringUsers((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
     }
   };
 
@@ -348,6 +386,67 @@ export default function BotRemarketingStatusPage() {
         </div>
       )}
 
+      {/* Diagnostic card */}
+      {diagnostic && (
+        <Card className="border-border/60">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Diagnostics</p>
+              <Button variant="ghost" size="sm" onClick={fetchDiagnostic}>
+                <RefreshCw className="size-3 mr-1" />
+                Refresh
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Past-Due</p>
+                <p className={`text-lg font-bold tabular-nums ${diagnostic.states.pastDue > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                  {diagnostic.states.pastDue}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Errors</p>
+                <p className={`text-lg font-bold tabular-nums ${diagnostic.states.hasError > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                  {diagnostic.states.hasError}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Worker</p>
+                <p className={`text-lg font-bold tabular-nums ${diagnostic.queueStats.workerSubscribed ? "text-emerald-400" : "text-red-400"}`}>
+                  {diagnostic.queueStats.workerSubscribed ? "Running" : "DOWN"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Active Jobs</p>
+                <p className="text-lg font-bold tabular-nums text-sky-400">
+                  {diagnostic.queueStats.activeJobs}
+                </p>
+              </div>
+            </div>
+            {diagnostic.recentStates.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                  Recent states with issues ({diagnostic.recentStates.length})
+                </summary>
+                <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                  {diagnostic.recentStates.map((s, i) => (
+                    <div key={i} className="flex items-start gap-2 text-muted-foreground bg-muted/30 rounded px-2 py-1">
+                      <span className="text-xs font-mono shrink-0">ID:{s.userId.slice(-6)}</span>
+                      {s.lastError && (
+                        <XCircle className="size-3 text-red-400 shrink-0 mt-0.5" />
+                      )}
+                      <span className="break-all leading-tight">
+                        {s.lastError || (s.isPastDue ? "Past-due" : "Stalled")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filter tabs */}
       <Tabs value={statusFilter} onValueChange={handleStatusFilterChange}>
         <div className="flex items-center justify-between">
@@ -428,6 +527,9 @@ export default function BotRemarketingStatusPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                         Message
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-16">
+                        Error
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                         Sent
                       </th>
@@ -436,6 +538,9 @@ export default function BotRemarketingStatusPage() {
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                         Last Sent
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground w-16">
+                        Trigger
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
                         Toggle
@@ -453,7 +558,9 @@ export default function BotRemarketingStatusPage() {
                         burstIntervalMs={burstIntervalMs}
                         now={now}
                         isToggling={togglingUsers.has(item.userId)}
+                        isTriggering={triggeringUsers.has(item.userId)}
                         onToggle={handleToggle}
+                        onTrigger={handleTrigger}
                       />
                     ))}
                   </tbody>
@@ -501,7 +608,9 @@ function RemarketingRow({
   burstIntervalMs,
   now,
   isToggling,
+  isTriggering,
   onToggle,
+  onTrigger,
 }: {
   item: RemarketingStateItem;
   botId: string;
@@ -510,7 +619,9 @@ function RemarketingRow({
   burstIntervalMs: number;
   now: number;
   isToggling: boolean;
+  isTriggering: boolean;
   onToggle: (userId: string, currentActive: boolean) => void;
+  onTrigger: (userId: string) => void;
 }) {
   const isActive = item.nextSendAt !== null;
   const itemInterval = getActiveInterval(item.burstUntil, intervalMs, burstIntervalMs);
@@ -599,6 +710,22 @@ function RemarketingRow({
         </div>
       </td>
 
+      {/* Error */}
+      <td className="px-4 py-3">
+        {item.lastError ? (
+          <Tooltip>
+            <TooltipTrigger>
+              <XCircle className="size-4 text-red-400 shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p className="text-xs break-all">{item.lastError}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <CheckCircle className="size-4 text-emerald-500/40 shrink-0" />
+        )}
+      </td>
+
       {/* Sent */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
@@ -659,6 +786,28 @@ function RemarketingRow({
           </Tooltip>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </td>
+
+      {/* Trigger */}
+      <td className="px-4 py-3 text-center">
+        {isActive && (
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                disabled={isTriggering}
+                onClick={() => onTrigger(item.userId)}
+              >
+                <Play className={`size-3.5 ${isTriggering ? "animate-pulse" : ""}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs">Send next message now</p>
+            </TooltipContent>
+          </Tooltip>
         )}
       </td>
 
